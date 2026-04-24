@@ -1,73 +1,115 @@
 #!/bin/bash
-# install.sh — Symlink agent-toolkit commands to ~/.claude/commands/ for global access
+# install.sh — Install agent-toolkit skills and agents into ~/.claude/ for global access
+#
+# Skills go to:  ~/.claude/skills/
+# Agents go to:  ~/.claude/agents/
+# Old commands:  ~/.claude/commands/ (cleaned up if migrated)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-COMMANDS_SRC="$SCRIPT_DIR/commands"
-COMMANDS_DEST="$HOME/.claude/commands"
+SKILLS_SRC="$SCRIPT_DIR/skills"
+AGENTS_SRC="$SCRIPT_DIR/agents"
+OLD_COMMANDS_SRC="$SCRIPT_DIR/commands"
 
-# Create destination if it doesn't exist
-mkdir -p "$COMMANDS_DEST"
+SKILLS_DEST="$HOME/.claude/skills"
+AGENTS_DEST="$HOME/.claude/agents"
+OLD_COMMANDS_DEST="$HOME/.claude/commands"
 
-echo "Installing agent-toolkit commands..."
-echo "  Source: $COMMANDS_SRC"
-echo "  Destination: $COMMANDS_DEST"
-echo ""
-
-# Track what we do
 installed=0
 skipped=0
+cleaned=0
 
-for cmd_file in "$COMMANDS_SRC"/*.md; do
-    [ -f "$cmd_file" ] || continue
+# --- Helper ---
+link_item() {
+    local src="$1"
+    local dest="$2"
+    local name="$3"
+    local type="$4"  # "file" or "dir"
 
-    filename="$(basename "$cmd_file")"
-    dest_path="$COMMANDS_DEST/$filename"
-
-    # Check if destination already exists
-    if [ -L "$dest_path" ]; then
-        # It's a symlink — check if it points to us
-        current_target="$(readlink "$dest_path")"
-        if [ "$current_target" = "$cmd_file" ]; then
-            echo "  [skip] $filename (already linked)"
-            skipped=$((skipped + 1))
-            continue
-        else
-            echo "  [warn] $filename exists, points to $current_target"
-            echo "         Overwrite with agent-toolkit version? (y/n)"
-            read -r answer
-            if [ "$answer" != "y" ]; then
-                echo "  [skip] $filename (kept existing)"
+    if [ "$type" = "dir" ]; then
+        if [ -L "$dest" ]; then
+            current="$(readlink "$dest")"
+            if [ "$current" = "$src" ]; then
+                echo "  [skip] $name (already linked)"
                 skipped=$((skipped + 1))
-                continue
+                return
             fi
-            rm "$dest_path"
+            rm "$dest"
+        elif [ -d "$dest" ]; then
+            echo "  [warn] $name exists as directory. Replace with symlink? (y/n)"
+            read -r answer
+            [ "$answer" != "y" ] && { skipped=$((skipped + 1)); return; }
+            rm -rf "$dest"
         fi
-    elif [ -f "$dest_path" ]; then
-        echo "  [warn] $filename exists as a regular file (not a symlink)"
-        echo "         Back up to ${filename}.bak and replace? (y/n)"
-        read -r answer
-        if [ "$answer" != "y" ]; then
-            echo "  [skip] $filename (kept existing)"
-            skipped=$((skipped + 1))
-            continue
+        ln -s "$src" "$dest"
+    else
+        if [ -L "$dest" ]; then
+            current="$(readlink "$dest")"
+            if [ "$current" = "$src" ]; then
+                echo "  [skip] $name (already linked)"
+                skipped=$((skipped + 1))
+                return
+            fi
+            rm "$dest"
+        elif [ -f "$dest" ]; then
+            echo "  [warn] $name exists as file. Replace? (y/n)"
+            read -r answer
+            [ "$answer" != "y" ] && { skipped=$((skipped + 1)); return; }
+            mv "$dest" "${dest}.bak"
         fi
-        mv "$dest_path" "${dest_path}.bak"
-        echo "  [backup] $filename → ${filename}.bak"
+        ln -s "$src" "$dest"
     fi
-
-    ln -s "$cmd_file" "$dest_path"
-    echo "  [installed] $filename"
+    echo "  [installed] $name"
     installed=$((installed + 1))
+}
+
+# --- Install Skills ---
+echo "Installing skills..."
+mkdir -p "$SKILLS_DEST"
+
+for skill_dir in "$SKILLS_SRC"/*/; do
+    [ -d "$skill_dir" ] || continue
+    skill_name="$(basename "$skill_dir")"
+    link_item "$skill_dir" "$SKILLS_DEST/$skill_name" "$skill_name" "dir"
 done
 
+# --- Install Agents ---
 echo ""
-echo "Done. Installed: $installed, Skipped: $skipped"
+echo "Installing agents..."
+mkdir -p "$AGENTS_DEST"
+
+for agent_file in "$AGENTS_SRC"/*.md; do
+    [ -f "$agent_file" ] || continue
+    filename="$(basename "$agent_file")"
+    link_item "$agent_file" "$AGENTS_DEST/$filename" "$filename" "file"
+done
+
+# --- Clean up old commands that migrated to skills ---
 echo ""
-echo "Commands are now available as slash commands in Claude Code:"
-for cmd_file in "$COMMANDS_SRC"/*.md; do
-    [ -f "$cmd_file" ] || continue
-    filename="$(basename "$cmd_file" .md)"
-    echo "  /$filename"
+echo "Checking for old commands to clean up..."
+
+if [ -L "$OLD_COMMANDS_DEST/requirements.md" ]; then
+    old_target="$(readlink "$OLD_COMMANDS_DEST/requirements.md")"
+    if echo "$old_target" | grep -q "agent-toolkit"; then
+        rm "$OLD_COMMANDS_DEST/requirements.md"
+        echo "  [cleaned] commands/requirements.md (migrated to skill)"
+        cleaned=$((cleaned + 1))
+    fi
+fi
+
+# --- Summary ---
+echo ""
+echo "Done. Installed: $installed, Skipped: $skipped, Cleaned: $cleaned"
+echo ""
+echo "Skills available as slash commands:"
+for skill_dir in "$SKILLS_SRC"/*/; do
+    [ -d "$skill_dir" ] || continue
+    echo "  /$(basename "$skill_dir")"
+done
+echo ""
+echo "Sub-agents available for skills to spawn:"
+for agent_file in "$AGENTS_SRC"/*.md; do
+    [ -f "$agent_file" ] || continue
+    echo "  $(basename "$agent_file" .md)"
 done
