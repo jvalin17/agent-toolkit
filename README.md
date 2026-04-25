@@ -10,6 +10,7 @@ Reusable Claude Code skills for planning, building, and evaluating software proj
 | `/architecture` | Design system architecture with waterfall decision flow. Presents options with trade-offs -- you decide. Backtracking and re-entry supported. Always includes a local/cheap option. |
 | `/implementation` | Build features with TDD. Walking skeleton first, then feature slabs. Security stitched in, not bolted on. Follows upstream decisions -- never re-decides. |
 | `/test` | Generate comprehensive tests for existing code. Every method, every button, every flow. Realistic data, not placeholders. Unit, component, integration, and regression tests. Coverage analysis and bug detection. |
+| `/status` | Project dashboard. Reads all docs and reports, shows what's done, what's in progress, what's left. Suggests next action. Run anytime mid-conversation or when returning to a project. |
 | `/evaluate` | Grade agent output against the original prompt. Evidence-based scorecard with file:line references. Run after any skill or agent work. |
 | `/updater` | Audits toolkit for relevance, security, and standards compliance. Checks references, sub-skills, guardrails, and best practices. |
 
@@ -280,6 +281,7 @@ Auto-update: fast-forward only, fails silently offline, requires `jq` for instal
 /architecture my-feature        # design architecture (quick + deep dive)
 /implementation my-feature      # skeleton + feature slabs with TDD
 /test my-feature                # comprehensive tests (every method, every button)
+/status my-feature              # where am I? what's next?
 /evaluate                       # grade the output (optional)
 /updater                        # audit toolkit health
 ```
