@@ -9,6 +9,8 @@ Reusable Claude Code skills for planning and building software projects. Works i
 | `/requirements` | Gather requirements through structured questionnaire. Auto-scales from quick feature to full system design (QPS, storage, infrastructure, cost). |
 | `/architecture` | Design system architecture with waterfall decision flow. Presents options with trade-offs — you decide. Covers data layer, API, security, scaling, design patterns. |
 | `/implementation` | Build features with TDD by default. 5 modes: backend, frontend, security, ML/data, pipeline. Language-agnostic. |
+| `/evaluate` | Grade agent output against the original prompt. Evidence-based — checks if what was asked actually got done. Optional after any skill. |
+| `/updater` | Guardian of this repo. Audits skills for relevance, security, and standards compliance. Checks against Anthropic, Google, OpenAI best practices. |
 
 Each skill generates a progress report in your project's `reports/` directory.
 
@@ -45,6 +47,8 @@ Open any project in Claude Code and run:
 /requirements job-agent
 /architecture job-agent
 /implementation backend
+/evaluate                       # optional — grade the output
+/updater                        # audit toolkit health
 ```
 
 Skills read each other's output — run them in order for best results, or independently if you prefer.
