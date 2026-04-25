@@ -333,3 +333,57 @@ Write to `architecture/<name>.md`:
 ```
 
 Note: Only include sections that were actually covered (quick mode = fewer sections).
+
+## Reporting
+
+**Read `shared/report-format.md` for full format rules.**
+
+### When to Write
+
+1. **At the START**: create `reports/architecture/arch_<topic>_<uuid8>.md` with status `in-progress`.
+2. **After each decision**: update progress and log the decision made.
+3. **At the END**: update status to `completed`.
+4. **If stopped early**: update status to `incomplete` with reason, decisions made so far, and decisions remaining.
+
+### Before Starting
+
+Check if `reports/architecture/` has existing reports for this topic:
+- If found, link them in "Previous Reports"
+- Ask user: "I found a previous architecture report. Continue from there or start fresh?"
+
+### Architecture Report Includes
+
+In addition to the standard header and progress:
+
+```markdown
+## Skill-Specific Details
+
+### Mode
+[quick / standard / system-design]
+
+### Decisions Made
+| # | Decision | Choice | Depends On | Rationale |
+|---|----------|--------|-----------|-----------|
+| 1 | ... | ... | — | ... |
+| 2 | ... | ... | #1 | ... |
+
+### Decisions Pending
+| # | Decision | Options Considered | Blocked By |
+|---|----------|-------------------|------------|
+| ... | ... | ... | ... |
+
+### Trade-offs Accepted
+- [trade-off 1]
+- [trade-off 2]
+
+### Principles Check
+| Principle | Status |
+|-----------|--------|
+| SOLID | ✅/⚠️ |
+| DRY | ✅/⚠️ |
+| KISS | ✅/⚠️ |
+| YAGNI | ✅/⚠️ |
+
+### Output
+- Architecture doc: `architecture/<topic>.md`
+```

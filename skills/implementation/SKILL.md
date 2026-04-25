@@ -297,3 +297,61 @@ Update tracking files if they exist:
 - `test_status.md` — update with test results
 - `session_log.md` — update with what was done
 - `project_learnings.md` — update if any lessons were learned
+
+## Reporting
+
+**Read `shared/report-format.md` for full format rules.**
+
+### When to Write
+
+1. **At the START**: create `reports/implementation/impl_<topic>_<uuid8>.md` with status `in-progress`.
+2. **After each TDD cycle / block**: update progress, log files created, tests written.
+3. **At the END**: update status to `completed` with full summary.
+4. **If stopped early**: update status to `incomplete` with what was built, what tests pass, and what remains.
+
+### Before Starting
+
+Check if `reports/implementation/` has existing reports for this topic:
+- If found, link them in "Previous Reports"
+- Ask user: "I found a previous implementation report. Continue from there or start fresh?"
+
+### Implementation Report Includes
+
+In addition to the standard header and progress:
+
+```markdown
+## Skill-Specific Details
+
+### Mode
+[backend / frontend / security / ML-data / pipeline]
+
+### Tech Stack
+[language, framework, test framework — detected or user-specified]
+
+### Test Approach
+[TDD / implement-then-test / no-tests / write-tests-only]
+
+### Files Changed
+| File | Action | Lines |
+|------|--------|-------|
+| ... | created / modified | +X / -Y |
+
+### Tests
+| Type | Count | Passing | Failing |
+|------|-------|---------|---------|
+| Unit | X | X | X |
+| Integration | X | X | X |
+| Security | X | X | X |
+| **Total** | **X** | **X** | **X** |
+
+### Coverage
+- New code: X%
+- Untested files: [list]
+
+### Warnings
+- [any issues, tech debt, security concerns]
+
+### Output
+- Files: [list of created/modified files]
+- Test files: [list of test files]
+```

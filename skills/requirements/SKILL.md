@@ -401,3 +401,47 @@ Write to `requirements/<feature-name>.md` using this structure:
 ```
 
 Present completeness summary. Ask if user wants to fill gaps or proceed.
+
+## Reporting
+
+**Read `shared/report-format.md` for full format rules.**
+
+### When to Write
+
+1. **At the START** of the skill run: create `reports/requirements/req_<topic>_<uuid8>.md` with status `in-progress` and list all planned steps.
+2. **After each phase**: update the progress section (check off completed steps).
+3. **At the END**: update status to `completed` with final timestamp.
+4. **If stopped early**: update status to `incomplete` with reason and remaining work.
+
+### Before Starting
+
+Check if `reports/requirements/` has existing reports for this topic:
+- If found, link them in "Previous Reports"
+- Ask user: "I found a previous requirements report. Continue from there or start fresh?"
+
+### Requirements Report Includes
+
+In addition to the standard header and progress (from shared format):
+
+```markdown
+## Skill-Specific Details
+
+### Mode
+[quick / standard / system-design] — detected because: [reason]
+
+### User Level
+[1 / 2 / 3] — detected from: [how]
+
+### Key Decisions
+| Question | User's Answer | Assumption (if idk)? |
+|----------|-------------|---------------------|
+| ... | ... | ... |
+
+### Items Parked
+| Item | Category | Next Step |
+|------|----------|-----------|
+| ... | ... | ... |
+
+### Output
+- Requirements doc: `requirements/<topic>.md`
+```
