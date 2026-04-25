@@ -129,11 +129,61 @@ If detected, confirm: "I see this is a [language/framework] project. Correct?"
 
 If not detected, ask: "What language and framework are you using?"
 
-## Step 2: Choose Mode and Test Approach
+## Step 2: Implementation Sequence
+
+**If the user asked to implement a specific feature or component** (e.g., "implement the search endpoint"), skip this step — go straight to mode selection.
+
+**If the user asked to implement the full project or a large scope** (e.g., "implement recipe-finder", "build the backend", "implement everything"), derive the sequence from upstream docs.
+
+### Derive the sequence
+
+Read the architecture doc's **component diagram** and **data flow**, and the requirements doc's **priority levels** (must/should/could). Build the sequence using these rules:
+
+1. **Dependencies first.** What must exist before other things can work? Data models before API endpoints. API endpoints before frontend. Auth before anything that needs auth. Follow the data flow bottom-up.
+2. **Must-haves before should-haves.** Requirements marked "must" are MVP. "Should" is next. "Could" is last.
+3. **One mode at a time.** Group related work by mode (backend, frontend, LLM, etc.) to minimize context switching.
+4. **Vertical slices when possible.** For each feature, implement the full path (data model → API → frontend) rather than all models, then all APIs, then all frontend. This gives a working feature faster.
+
+### Present the plan
+
+> "Based on the architecture and requirements, here's the implementation sequence:"
+>
+> | # | What | Mode | Why this order | Priority |
+> |---|------|------|---------------|----------|
+> | 1 | Data models & database setup | Backend | Foundation — everything depends on this | must |
+> | 2 | Auth & user management | Security | Required by most features | must |
+> | 3 | Core API endpoints | Backend | Business logic for MVP features | must |
+> | 4 | LLM integration | LLM | Powers the AI features | must |
+> | 5 | UI components & pages | Frontend | Consumes the API | must |
+> | 6 | Search & filtering | Backend + Frontend | Enhancement to core | should |
+> | 7 | CI/CD pipeline | Pipeline | Automate testing & deployment | should |
+> | ...| ... | ... | ... | ... |
+>
+> "Want to:"
+> - **Follow this sequence** — I'll implement in order, one block at a time
+> - **Start from a specific step** — jump to any step (I'll note unbuilt dependencies)
+> - **Adjust the order** — tell me what to move
+> - **Just do the MVP** — implement only "must" priority items
+> - **I have my own order** — tell me what to implement first
+
+**If no architecture/requirements exist:** Ask the user what to build first. Don't guess the sequence.
+
+**Track progress.** After each block, update the sequence:
+> "Progress:"
+> - ✅ 1. Data models — done
+> - ✅ 2. Auth — done
+> - 🔨 3. Core API — in progress
+> - 🟡 4-7 — upcoming
+
+Save this to the implementation report so it persists across conversations.
+
+## Step 3: Choose Mode and Test Approach
 
 ### Mode Selection
 
-Ask (or infer from context):
+Determined by the current step in the sequence. If following a sequence, auto-select the mode — don't ask.
+
+If no sequence (user asked for a specific feature):
 
 > "What are we implementing?"
 > - **Backend** — API endpoints, business logic, data models, database operations
@@ -164,7 +214,7 @@ Ask (or infer from context):
 
 If testing level is "rigorous", default to TDD without asking.
 
-## Step 3: Implementation Cycle
+## Step 4: Implementation Cycle
 
 ### TDD Cycle (default)
 
@@ -203,7 +253,7 @@ For EACH small block of functionality:
 6. REPORT — Coverage summary, any bugs found
 ```
 
-## Step 4: Mode-Specific Implementation
+## Step 5: Mode-Specific Implementation
 
 ### Backend Mode
 
@@ -391,7 +441,7 @@ If upstream docs exist, follow them exactly. If they don't exist, ask the user w
 - [ ] Environment variables are set correctly
 - [ ] Secrets are not exposed in logs
 
-## Step 5: Cross-Cutting Checks
+## Step 6: Cross-Cutting Checks
 
 After implementing each block, check:
 
@@ -414,7 +464,7 @@ If the user told you the tech stack directly:
 - E.g., "SQLAlchemy doesn't support async out of the box with SQLite — consider aiosqlite or switch to synchronous"
 - Present as: warning + pros/cons + alternative. Don't block.
 
-## Step 6: Summary and Next Steps
+## Step 7: Summary and Next Steps
 
 After implementation is complete:
 
@@ -441,8 +491,13 @@ After implementation is complete:
 ### Warnings
 - [any concerns, tech debt, security issues noticed]
 
+### Implementation Sequence (if following a sequence)
+| # | What | Mode | Priority | Status |
+|---|------|------|----------|--------|
+| 1 | ... | ... | must/should | ✅/🔨/🟡 |
+
 ### Next Steps
-- [what should be implemented next, based on requirements/architecture]
+- [next item in the sequence, or what should be implemented next]
 ```
 
 Update tracking files if they exist:
@@ -476,6 +531,11 @@ In addition to the standard header and progress:
 
 ### Mode
 [backend / frontend / security / ML-data / LLM-integration / pipeline]
+
+### Implementation Sequence (if applicable)
+| # | What | Mode | Priority | Status |
+|---|------|------|----------|--------|
+| 1 | ... | ... | must | ✅ completed / 🔨 in progress / 🟡 upcoming / ⏭️ skipped |
 
 ### Tech Stack
 [language, framework, test framework — detected or user-specified]
