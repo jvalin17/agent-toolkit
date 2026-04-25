@@ -178,7 +178,3 @@ Skills read each other's output — run in order for best results, or independen
 
 - **jvalin17** — jvalin17@gmail.com
 - **Claude** (Anthropic) — AI pair programmer
-
-## License
-
-MIT
