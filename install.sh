@@ -98,6 +98,81 @@ if [ -L "$OLD_COMMANDS_DEST/requirements.md" ]; then
     fi
 fi
 
+# --- Install auto-update hook ---
+echo ""
+echo "Setting up auto-update hook..."
+
+SETTINGS_FILE="$HOME/.claude/settings.json"
+
+install_hook() {
+    local toolkit_path="$SCRIPT_DIR"
+    local hook_command="git -C $toolkit_path pull --ff-only 2>/dev/null || true"
+
+    if [ ! -f "$SETTINGS_FILE" ]; then
+        # Create settings file with just the hook
+        cat > "$SETTINGS_FILE" << HOOKEOF
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$hook_command",
+            "timeout": 10,
+            "statusMessage": "Checking for toolkit updates..."
+          }
+        ]
+      }
+    ]
+  }
+}
+HOOKEOF
+        echo "  [installed] auto-update hook (created $SETTINGS_FILE)"
+        return
+    fi
+
+    # Check if hook already exists
+    if jq -e '.hooks.PreToolUse[]? | select(.matcher == "Skill") | .hooks[]? | select(.command | contains("agent-toolkit"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        # Update the path in case toolkit moved
+        local tmp_file=$(mktemp)
+        jq --arg cmd "$hook_command" '
+            .hooks.PreToolUse = [.hooks.PreToolUse[]? | if .matcher == "Skill" then .hooks = [.hooks[]? | if (.command | contains("agent-toolkit")) then .command = $cmd else . end] else . end]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [updated] auto-update hook (path refreshed)"
+        return
+    fi
+
+    # Add hook to existing settings, merging with existing hooks
+    local tmp_file=$(mktemp)
+    jq --arg cmd "$hook_command" '
+        .hooks //= {} |
+        .hooks.PreToolUse //= [] |
+        .hooks.PreToolUse += [
+            {
+                "matcher": "Skill",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": $cmd,
+                        "timeout": 10,
+                        "statusMessage": "Checking for toolkit updates..."
+                    }
+                ]
+            }
+        ]
+    ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+    echo "  [installed] auto-update hook"
+}
+
+# Only install if jq is available (needed for safe JSON merging)
+if command -v jq &> /dev/null; then
+    install_hook
+else
+    echo "  [skip] auto-update hook (jq not installed — install jq for auto-updates)"
+fi
+
 # --- Summary ---
 echo ""
 echo "Done. Installed: $installed, Skipped: $skipped, Cleaned: $cleaned"
