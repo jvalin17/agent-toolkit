@@ -213,7 +213,17 @@ cd agent-toolkit
 ./install.sh
 ```
 
-Symlinks skills to `~/.claude/skills/` and agents to `~/.claude/agents/`. Available globally in any Claude Code session.
+This does three things:
+1. Symlinks skills to `~/.claude/skills/` and agents to `~/.claude/agents/`
+2. Adds an **auto-update hook** to `~/.claude/settings.json` — every time you invoke a skill, it runs `git pull --ff-only` on the toolkit repo first, so you always get the latest version without interrupting your conversation
+3. Available globally in any Claude Code session
+
+**Auto-update details:**
+- Runs before every skill invocation (PreToolUse hook on Skill)
+- Fast-forward only — never creates merge conflicts
+- Fails silently if offline or if there are local changes
+- Requires `jq` for installation (skips hook setup gracefully if missing)
+- Re-running `./install.sh` updates the hook path if you moved the repo
 
 ## Quick Start
 
