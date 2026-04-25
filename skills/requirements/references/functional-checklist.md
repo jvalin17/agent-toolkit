@@ -1,5 +1,15 @@
 # Functional Requirements Checklist
 
+> **Our synthesis.** Common functional requirement categories compiled from multiple system design resources.
+> Last verified: 2026-04-24
+
+## Sources
+- [Functional Requirements Checklist — System Design Checklist](https://evelyne24.github.io/system-design-checklist/requirements/functional)
+- [A Framework for System Design Interviews — ByteByteGo](https://bytebytego.com/courses/system-design-interview/a-framework-for-system-design-interviews)
+- [How to Gather Requirements — Design Gurus](https://www.designgurus.io/blog/how-to-gather-requirements-in-system-design-interviews)
+
+---
+
 ## User Management
 - [ ] Registration / sign-up flow
 - [ ] Login / authentication

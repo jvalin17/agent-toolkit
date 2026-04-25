@@ -1,5 +1,18 @@
 # Scaling Progression Reference
 
+> **Our synthesis.** Scaling stages described in our own words, inspired by the progression model
+> taught in system design interview preparation. Cost estimates are approximate — check cloud pricing for current rates.
+> Last verified: 2026-04-24
+
+## Sources
+- [Scale from Zero to Millions of Users — ByteByteGo](https://bytebytego.com/courses/system-design-interview/scale-from-zero-to-millions-of-users)
+- [System Design Interview (book) — Alex Xu](https://www.amazon.com/System-Design-Interview-insiders-Second/dp/B08CMF2CQF)
+- [Scaling Engineering Growth — Medium](https://harsmeetaujla.medium.com/engineering-growth-how-systems-scale-from-zero-to-millions-26ac90f2fed6)
+- [AWS Pricing](https://aws.amazon.com/pricing/)
+- [DigitalOcean Pricing](https://www.digitalocean.com/pricing)
+
+---
+
 ## ByteByteGo's Zero to Millions Stages
 
 Use this as a guide. Only present stages relevant to the user's current and NEXT scale level.

@@ -1,5 +1,16 @@
 # Non-Functional Requirements Checklist
 
+> **Our synthesis.** Checklist compiled from system design best practices.
+> Last verified: 2026-04-24
+
+## Sources
+- [Types of Requirements in System Design — GeeksforGeeks](https://www.geeksforgeeks.org/system-design/types-of-requirements-in-system-design/)
+- [System Design Requirements — Medium (Kanishka Naik)](https://medium.com/@kanishkanaik97/system-design-requirements-b673c1ae593b)
+- [Non-Functional Requirements Checklist — System Design Checklist](https://evelyne24.github.io/system-design-checklist/requirements/operational)
+- [Requirements Gathering Framework — Design Gurus](https://www.designgurus.io/blog/how-to-gather-requirements-in-system-design-interviews)
+
+---
+
 ## Performance
 - [ ] Response time targets (p50, p95, p99)
 - [ ] Throughput (requests per second)

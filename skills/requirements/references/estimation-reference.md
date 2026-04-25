@@ -1,5 +1,17 @@
 # Back-of-Envelope Estimation Reference
 
+> **This is our synthesis, not copied content.** Knowledge compiled from multiple sources, rewritten in our own words.
+> Numbers like cloud costs and latency are approximations — check sources for latest.
+> Last verified: 2026-04-24
+
+## Sources
+- [Back-of-the-Envelope Estimation — ByteByteGo](https://bytebytego.com/courses/system-design-interview/back-of-the-envelope-estimation)
+- [Latency Numbers Every Programmer Should Know — Jeff Dean / Colin Scott](https://colin-scott.github.io/personal_website/research/interactive_latency.html)
+- [AWS Pricing Calculator](https://calculator.aws/)
+- [Back-of-the-Envelope Estimations — GeeksforGeeks](https://www.geeksforgeeks.org/system-design/back-of-the-envelope-estimation-in-system-design/)
+
+---
+
 ## Power of 2
 
 | Power | Value | Name |

@@ -1,5 +1,19 @@
 # Software Engineering Principles Reference
 
+> **Our synthesis.** Principles explained in our own words with original examples.
+> These are well-established software engineering concepts — see sources for authoritative definitions.
+> Last verified: 2026-04-24
+
+## Sources
+- [SOLID Principles — Robert C. Martin (Uncle Bob)](https://en.wikipedia.org/wiki/SOLID)
+- [SOLID Principles — DigitalOcean](https://www.digitalocean.com/community/conceptual-articles/s-o-l-i-d-the-first-five-principles-of-object-oriented-design)
+- [DRY — The Pragmatic Programmer (Hunt & Thomas)](https://en.wikipedia.org/wiki/Don%27t_repeat_yourself)
+- [KISS — Keep It Simple (Kelly Johnson)](https://en.wikipedia.org/wiki/KISS_principle)
+- [YAGNI — Extreme Programming (Ron Jeffries)](https://en.wikipedia.org/wiki/You_aren%27t_gonna_need_it)
+- [KISS, DRY, SOLID, YAGNI Guide — Medium](https://medium.com/@hlfdev/kiss-dry-solid-yagni-a-simple-guide-to-some-principles-of-software-engineering-and-clean-code-05e60233c79f)
+
+---
+
 ## SOLID Principles
 
 ### S — Single Responsibility Principle (SRP)

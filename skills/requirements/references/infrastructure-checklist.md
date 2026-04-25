@@ -1,5 +1,16 @@
 # Infrastructure Requirements Checklist
 
+> **Our synthesis.** Compiled from system design and cloud architecture best practices.
+> Last verified: 2026-04-24
+
+## Sources
+- [Scale from Zero to Millions — ByteByteGo](https://bytebytego.com/courses/system-design-interview/scale-from-zero-to-millions-of-users)
+- [AWS Well-Architected Framework](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html)
+- [System Design Handbook](https://www.systemdesignhandbook.com/guides/system-design/)
+- [Infrastructure Checklist — System Design Checklist](https://evelyne24.github.io/system-design-checklist/)
+
+---
+
 ## Compute
 - [ ] Application server count and spec
 - [ ] Background worker count and spec

@@ -1,5 +1,17 @@
 # CAP Theorem Reference
 
+> **Our synthesis.** CAP theorem explained in our own words with practical decision guide.
+> CAP theorem was formally proven by Seth Gilbert and Nancy Lynch (2002), originally conjectured by Eric Brewer (2000).
+> Last verified: 2026-04-24
+
+## Sources
+- [Brewer's CAP Theorem — Eric Brewer (2000)](https://en.wikipedia.org/wiki/CAP_theorem)
+- [CAP Theorem Revisited — Robert Greiner](https://robertgreiner.com/cap-theorem-revisited/)
+- [System Design Primer — CAP Theorem](https://github.com/donnemartin/system-design-primer#cap-theorem)
+- [You Can't Sacrifice Partition Tolerance — Coda Hale](https://codahale.com/you-cant-sacrifice-partition-tolerance/)
+
+---
+
 ## The Three Properties
 
 You can only guarantee TWO of three in a distributed system:

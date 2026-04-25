@@ -1,5 +1,17 @@
 # Design Patterns Reference
 
+> **Our synthesis.** Patterns described in our own words with original application guidance.
+> The patterns themselves are well-established computer science concepts (Gang of Four, etc.).
+> Last verified: 2026-04-24
+
+## Sources
+- [Design Patterns: Elements of Reusable Object-Oriented Software (Gang of Four)](https://en.wikipedia.org/wiki/Design_Patterns)
+- [Refactoring Guru — Design Patterns](https://refactoring.guru/design-patterns)
+- [Source Making — Design Patterns](https://sourcemaking.com/design_patterns)
+- [Python Design Patterns — python-patterns](https://github.com/faif/python-patterns)
+
+---
+
 ## When to Suggest Each Pattern
 
 Only suggest patterns that solve a REAL problem in the user's project. Never suggest patterns "just because."
