@@ -39,6 +39,9 @@ You are the **Updater Agent** — the guardian of the agent-toolkit repository. 
 | **Best practices** | Are we aligned with current AI agent best practices? | Check Anthropic, Google ADK, OpenAI agent docs |
 | **Coding standards** | Are language-specific coding standards current? | Check PEP 8, Google style guides, Rust API guidelines |
 | **Formatter versions** | Are recommended formatters/linters current? | Check ruff, prettier, rustfmt, google-java-format releases |
+| **Sub-skill files** | Do sub-skills match the base SKILL.md? | Check that each base skill's explore menu references existing sub-skill files |
+| **Guardrails coverage** | Are all guardrails (G1-G9, skill-specific) referenced by the skills that need them? | Cross-check shared/guardrails.md against each SKILL.md |
+| **Reference data freshness** | Are LLM provider tables, algorithm lists current? | Check references/ files for outdated models, deprecated APIs |
 
 ### Sources to Check Against
 
@@ -71,7 +74,7 @@ Run `scripts/check-links.py` if it exists. Otherwise, do these checks manually:
 For each reference file in the toolkit:
 1. Extract all URLs
 2. Fetch each URL (HEAD request)
-3. Report: ✅ valid / ❌ broken / 🟡 redirected
+3. Report: [ok] valid / [!!] broken / [~] redirected
 
 ### Freshness Check
 For each reference file:
@@ -125,36 +128,36 @@ Write to `reports/updater/audit_<scope>_<uuid8>.md` in the agent-toolkit repo (N
 | **Report ID** | <uuid8> |
 | **Scope** | [all / specific skill name] |
 | **Date** | [timestamp] |
-| **Overall Health** | ✅ Healthy / 🟡 Needs Attention / ❌ Action Required |
+| **Overall Health** | [ok] Healthy / [~] Needs Attention / [!!] Action Required |
 
 ## Summary
 
 | Category | Status | Issues |
 |----------|--------|--------|
-| Reference Links | ✅/🟡/❌ | X broken, Y redirected |
-| Freshness | ✅/🟡/❌ | X files > 6 months old |
-| Framework Versions | ✅/🟡/❌ | X outdated recommendations |
-| Security | ✅/🟡/❌ | X concerns found |
-| Skill Format | ✅/🟡/❌ | X format issues |
-| Best Practices | ✅/🟡/❌ | X gaps |
+| Reference Links | [ok]/[~]/[!!] | X broken, Y redirected |
+| Freshness | [ok]/[~]/[!!] | X files > 6 months old |
+| Framework Versions | [ok]/[~]/[!!] | X outdated recommendations |
+| Security | [ok]/[~]/[!!] | X concerns found |
+| Skill Format | [ok]/[~]/[!!] | X format issues |
+| Best Practices | [ok]/[~]/[!!] | X gaps |
 
 ## Detailed Findings
 
-### ❌ Action Required
+### [!!] Action Required
 [Issues that should be fixed soon — broken links, security concerns, deprecated advice]
 
 | # | Skill/File | Issue | Recommended Fix | Source |
 |---|-----------|-------|----------------|--------|
 | 1 | ... | ... | ... | [link] |
 
-### 🟡 Needs Attention
+### [~] Needs Attention
 [Issues that aren't urgent but should be addressed — stale dates, minor version drifts]
 
 | # | Skill/File | Issue | Recommended Fix | Source |
 |---|-----------|-------|----------------|--------|
 | 1 | ... | ... | ... | [link] |
 
-### ✅ Up to Date
+### [ok] Up to Date
 [What's current and correct]
 
 ## Recommendations
@@ -170,7 +173,7 @@ After presenting the audit:
 
 > "I found [N] issues. Want me to fix any of them?"
 > - **Fix all** — Update references, dates, versions
-> - **Fix critical only** — Only ❌ items
+> - **Fix critical only** — Only [!!] items
 > - **Just report** — Don't change anything, I'll review first
 > - **Fix specific items** — Let me pick which ones
 

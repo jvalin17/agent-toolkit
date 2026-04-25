@@ -102,7 +102,7 @@ For EACH claim, search the delivered output and collect evidence.
 
 ```
 Claim: [what was expected]
-Status: ✅ PASS / ❌ FAIL / 🟡 PARTIAL / ⚪ UNABLE TO VERIFY
+Status: [PASS] / [FAIL] / [PARTIAL] / [UNVERIFIED]
 Evidence:
   - [file:line] — [what was found or not found]
   - Searched for: "[keywords]" → [N] results / no results
@@ -171,23 +171,23 @@ Incorporate user observations as additional evidence. Re-grade claims if needed.
 
 | # | Claim | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | [claim] | ✅ PASS | [file:line] — [brief evidence] |
-| 2 | [claim] | ❌ FAIL | Searched for "[x]" in [files] — not found |
-| 3 | [claim] | 🟡 PARTIAL | [file:line] — logic exists but incomplete: [detail] |
-| 4 | [claim] | ⚪ UNABLE | Cannot verify without running the app |
+| 1 | [claim] | [PASS] | [file:line] — [brief evidence] |
+| 2 | [claim] | [FAIL] | Searched for "[x]" in [files] — not found |
+| 3 | [claim] | [PARTIAL] | [file:line] — logic exists but incomplete: [detail] |
+| 4 | [claim] | [UNVERIFIED] | Cannot verify without running the app |
 
 ## Detailed Findings
 
-### ✅ Passed
+### Passed
 [List passed claims with evidence]
 
-### ❌ Failed
+### Failed
 [List failed claims with evidence and what's missing]
 
-### 🟡 Partial
+### Partial
 [List partial claims with what's done and what's not]
 
-### ⚪ Unable to Verify
+### Unable to Verify
 [List claims that need manual testing or app execution]
 
 ## User Observations
@@ -218,13 +218,13 @@ If yes, add a "Code Quality" section to the scorecard:
 
 | Check | Status | Evidence |
 |-------|--------|----------|
-| No unused imports | ✅/❌ | [file:line] |
-| Readable variable names | ✅/❌ | [examples of bad names found] |
-| Comments explain WHY not WHAT | ✅/❌ | [examples] |
-| Consistent indentation | ✅/❌ | [file:line] |
-| Small functions (< 30 lines) | ✅/❌ | [functions that are too long] |
-| No magic numbers | ✅/❌ | [bare numbers found] |
-| Error messages helpful | ✅/❌ | [examples] |
+| No unused imports | [PASS]/[FAIL] | [file:line] |
+| Readable variable names | [PASS]/[FAIL] | [examples of bad names found] |
+| Comments explain WHY not WHAT | [PASS]/[FAIL] | [examples] |
+| Consistent indentation | [PASS]/[FAIL] | [file:line] |
+| Small functions (< 30 lines) | [PASS]/[FAIL] | [functions that are too long] |
+| No magic numbers | [PASS]/[FAIL] | [bare numbers found] |
+| Error messages helpful | [PASS]/[FAIL] | [examples] |
 ```
 
 ## Integration with Other Skills

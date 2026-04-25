@@ -99,10 +99,11 @@ Each skill adds its own sections after the header and progress:
 - Principles check summary
 
 ### /implementation report adds:
-- Mode (backend / frontend / security / ML / pipeline)
+- Mode (backend / frontend / security / ML-data / LLM-integration / pipeline)
+- Implementation sequence (if following one): slab table with status per slab
 - Test approach (TDD / implement-then-test / no tests / write-tests-only)
 - Files created / modified
-- Tests written (count by type)
+- Tests written (count by type: unit, integration, security, accessibility, LLM/prompt)
 - Tests passing / failing
 - Coverage summary
 - Warnings / issues found
