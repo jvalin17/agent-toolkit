@@ -6,34 +6,37 @@ Reusable Claude Code skills for planning, building, and evaluating software proj
 
 | Skill | What It Does |
 |-------|-------------|
-| `/requirements` | Gather requirements through structured questionnaire. Auto-scales: quick feature → standard app → full system design with QPS, storage, infrastructure, cost estimation. |
-| `/architecture` | Design system architecture with waterfall decision flow. Presents options with trade-offs — you decide. Covers data, API, security, scaling, design patterns, CAP theorem, SOLID/DRY/KISS/YAGNI validation. |
-| `/implementation` | Build features with TDD by default. 5 modes: backend, frontend, security, ML/data, pipeline. Language-agnostic with coding standards for Python, TypeScript, Java, Rust. |
-| `/evaluate` | Grade agent output against the original prompt. Evidence-based — searches code, reads files, checks if what was asked actually got done. Run after any skill or any agent work. Optional. |
-| `/updater` | Guardian of this toolkit. Audits skills for relevance, security, and standards. Validates against Anthropic, Google, OpenAI, OWASP best practices. Includes link checker script. |
+| `/requirements` | Gather requirements through structured questionnaire. Auto-scales: quick feature → standard app → full system design with scale estimation, infrastructure, and cost. Launches sub-agents when user needs research help. |
+| `/architecture` | Design system architecture with waterfall decision flow. Each decision shapes the next. Presents options with trade-offs — you decide. Backtracking supported. Covers data, API, security, scaling, design patterns, CAP theorem, SOLID/DRY/KISS/YAGNI. Always includes a local/cheap option. |
+| `/implementation` | Build features with TDD by default. 5 modes: backend, frontend, security, ML/data, pipeline. Language-agnostic — detects tech stack and adapts. Enforces coding standards (imports, naming, comments, formatting). User chooses test approach: TDD, implement-then-test, or write-tests-only. |
+| `/evaluate` | Grade agent output against the original prompt. Parses instructions into checkable claims, inspects code with evidence (file:line), produces a scorecard. Optional code quality check against coding standards. Run after any skill or agent work. |
+| `/updater` | Guardian of this toolkit. Audits skills for relevance, security, and standards compliance. Checks reference links, freshness dates, framework versions. Validates against Anthropic, Google, OpenAI, OWASP guidelines. Includes `check-links.py` script. |
 
 ## Sub-Agents
 
-Skills spawn these for parallel research when needed:
+Skills spawn these for parallel research:
 
-| Agent | Purpose |
-|-------|---------|
-| `functional-researcher` | How features work in other products |
-| `scale-estimator` | Back-of-envelope math (QPS, storage, bandwidth) |
-| `infrastructure-planner` | Servers, databases, caching, cost estimates |
-| `tech-stack-advisor` | Tech options with trade-offs (never decides) |
-| `pattern-advisor` | Design patterns for specific problems |
-| `scale-advisor` | What changes at each scale level |
-| `test-generator` | Generate tests for existing code |
-| `code-reviewer` | Quality, security, and principles review |
+| Agent | Spawned By | Purpose |
+|-------|-----------|---------|
+| `functional-researcher` | requirements | How features work in other products |
+| `scale-estimator` | requirements | Back-of-envelope math (QPS, storage, bandwidth) |
+| `infrastructure-planner` | requirements | Servers, databases, caching, cost estimates |
+| `tech-stack-advisor` | architecture | Tech options with trade-offs (never decides) |
+| `pattern-advisor` | architecture | Design patterns for specific problems |
+| `scale-advisor` | architecture | What changes at each scale level |
+| `test-generator` | implementation | Generate tests for existing code |
+| `code-reviewer` | implementation | Quality, security, and principles review |
 
 ## Reports
 
-Every skill generates a progress report in your project's `reports/` directory. Reports are:
-- Created at the start (not just the end)
-- Updated progressively as the skill works
-- UUID-suffixed to avoid collisions
-- Marked `completed` or `incomplete` with reason
+Skills that produce artifacts (`/requirements`, `/architecture`, `/implementation`) generate progress reports in your project's `reports/` directory:
+- Created at the start, updated progressively
+- UUID-suffixed to avoid collisions across runs
+- Marked `completed` or `incomplete` with reason and remaining work
+- Previous reports on the same topic are linked automatically
+
+`/evaluate` produces a scorecard (its output IS the report).
+`/updater` reports to the toolkit repo (it audits the toolkit, not your project).
 
 ## Install
 
@@ -59,13 +62,16 @@ Skills read each other's output — run in order for best results, or independen
 
 ## Coding Standards
 
-The `/implementation` skill enforces language-specific coding standards:
-- **Python** — PEP 8, Google Python Style Guide
-- **TypeScript/React** — Google TS Guide, Airbnb JS Guide
-- **Java** — Google Java Style Guide, Effective Java
-- **Rust** — Rust API Guidelines, Clippy lints
+`/implementation` enforces language-specific standards. `/evaluate` can optionally check against them.
 
-Standards cover: imports, naming, comments, formatting, error handling, file organization.
+| Language | Based On |
+|----------|----------|
+| Python | PEP 8, Google Python Style Guide |
+| TypeScript/React | Google TS Guide, Airbnb JS Guide |
+| Java | Google Java Style Guide, Effective Java |
+| Rust | Rust API Guidelines, Clippy lints |
+
+Universal rules enforced across all languages: no unused imports, readable variable names, comments explain WHY not WHAT, consistent indentation, small functions, no magic numbers.
 
 ## License
 
