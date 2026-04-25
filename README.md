@@ -73,6 +73,11 @@ Skills read each other's output — run in order for best results, or independen
 
 Universal rules enforced across all languages: no unused imports, readable variable names, comments explain WHY not WHAT, consistent indentation, small functions, no magic numbers.
 
+## Contributors
+
+- **jvalin17** — jvalin17@gmail.com
+- **Claude** (Anthropic) — AI pair programmer
+
 ## License
 
 MIT
