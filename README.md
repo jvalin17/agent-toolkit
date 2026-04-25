@@ -101,9 +101,11 @@ Every skill has safety limits. When a limit is hit: the skill warns you, records
 **Universal (all skills):**
 - No secrets/passwords/API keys in generated files — uses env var placeholders
 - No destructive operations (`DROP TABLE`, `rm -rf`) without explicit confirmation
-- No personal information in generated files — uses synthetic data
-- Warns if reference data is older than 6 months
 - States limitations clearly: "I verified X exists but cannot confirm it works at runtime"
+- Warns if reference data is older than 6 months
+- File safety check on external files: size limit (1MB), allowed extensions only, path traversal blocked, scans for prompt injection attempts
+- No personal information in generated files — uses synthetic data
+- Hybrid review on external docs: skills flag obvious gaps in their domain but leave formal grading to `/evaluate`
 
 **Skill-specific:**
 
