@@ -6,11 +6,48 @@ Reusable Claude Code skills for planning, building, and evaluating software proj
 
 | Skill | What It Does |
 |-------|-------------|
-| `/requirements` | Gather requirements through structured questionnaire. Auto-scales: quick feature → standard app → full system design with scale estimation, infrastructure, and cost. Drafts early, then lets you explore areas on demand — UI/UX, ML/AI, LLM strategy, testing, non-functional, scale. Re-enter anytime to add or revise. |
-| `/architecture` | Design system architecture with waterfall decision flow. Each decision shapes the next. Presents options with trade-offs — you decide. Covers frontend, ML/AI, LLM integration, data, API, security, testing, scaling, design patterns, observability. Backtracking and re-entry supported. Always includes a local/cheap option. |
-| `/implementation` | Build features with TDD by default. 6 modes: backend, frontend, security, ML/data, LLM integration, pipeline. Language-agnostic — detects tech stack and adapts. Follows upstream decisions from requirements and architecture — never re-decides what's already settled. |
-| `/evaluate` | Grade agent output against the original prompt. Parses instructions into checkable claims, inspects code with evidence (file:line), produces a scorecard. Optional code quality check against coding standards. Run after any skill or agent work. |
-| `/updater` | Guardian of this toolkit. Audits skills for relevance, security, and standards compliance. Checks reference links, freshness dates, framework versions. Validates against Anthropic, Google, OpenAI, OWASP guidelines. Includes `check-links.py` script. |
+| `/requirements` | Gather requirements through structured questionnaire. Auto-scales: quick feature -> standard app -> full system design. Drafts early, then lets you explore areas on demand. Re-enter anytime to add or revise. |
+| `/architecture` | Design system architecture with waterfall decision flow. Presents options with trade-offs -- you decide. Backtracking and re-entry supported. Always includes a local/cheap option. |
+| `/implementation` | Build features with TDD. Walking skeleton first, then feature slabs. Security stitched in, not bolted on. Follows upstream decisions -- never re-decides. |
+| `/evaluate` | Grade agent output against the original prompt. Evidence-based scorecard with file:line references. Run after any skill or agent work. |
+| `/updater` | Audits toolkit for relevance, security, and standards compliance. Checks references, sub-skills, guardrails, and best practices. |
+
+## Modular Architecture
+
+Each skill is a **lean orchestrator** (under 200 lines) that reads **sub-skill files on demand**. Sub-skills only load when the user explores that area -- no context wasted on unused sections.
+
+```
+skills/requirements/
+  SKILL.md (195)        <- orchestrator: intake, mode, draft, explore menu
+  frontend.md           <- UI/UX: screens, flows, design system, wireframes
+  ml.md                 <- ML/AI: algorithms, data, accuracy
+  llm.md                <- LLM: provider selection, free vs paid
+  testing.md            <- testing level, types, CI/CD
+  references/
+    llm-providers.md    <- provider tables (loaded when needed)
+    ml-algorithms.md    <- algorithm families (loaded when needed)
+    template.md         <- output document template
+
+skills/architecture/
+  SKILL.md (136)        <- orchestrator: context, quick arch, explore menu
+  frontend.md           <- 8 decisions: framework, components, state, styling...
+  backend.md            <- data, API, code structure, extensibility
+  ml.md                 <- model serving, pipelines, evaluation
+  llm.md                <- provider arch, prompts, context, safety
+  security.md           <- auth, authorization, OWASP
+  system.md             <- scaling, observability, team workflow
+  testing.md            <- pyramid, frameworks, CI pipeline
+
+skills/implementation/
+  SKILL.md (172)        <- orchestrator: context, sequence, slab cycle
+  skeleton.md           <- walking skeleton (thin end-to-end path)
+  backend.md            <- backend TDD patterns
+  frontend.md           <- frontend TDD patterns
+  security.md           <- stitched security (attack tests first)
+  ml.md                 <- ML implementation
+  llm.md                <- LLM integration
+  pipeline.md           <- CI/CD
+```
 
 ## How It Works
 
@@ -21,115 +58,108 @@ Skills don't interrogate you. After a quick intake, you get a **draft document i
 ```
 /requirements recipe-finder
 
-→ Quick intake: What? Who? Core feature? Needs UI? ML? etc.
-→ Draft saved to requirements/recipe-finder.md
+-> Quick intake: What? Who? Core feature? Needs UI? ML? etc.
+-> Draft saved to requirements/recipe-finder.md
 
 "Here's your draft. Explore any area, or say 'done':"
-  🟡 UI/UX — screens, flows, design system, accessibility
-  🟡 ML/AI — algorithms, models, data, accuracy
-  🟡 LLM Strategy — provider selection, free vs paid, use cases
-  🟡 Testing — level, test types, CI/CD, regression
-  🟡 Non-Functional — performance, availability, security
-  ➖ Scale Estimation — not applicable (personal app)
+  [~] UI/UX -- screens, flows, design system, accessibility
+  [~] ML/AI -- algorithms, models, data, accuracy
+  [~] LLM Strategy -- provider selection, free vs paid, use cases
+  [~] Testing -- level, test types, CI/CD, regression
+  [~] Non-Functional -- performance, availability, security
+  [-] Scale Estimation -- not applicable (personal app)
 
 > "Let's do UI/UX"
-→ explores UI, updates draft
-  ✅ UI/UX — done
-  🟡 Testing — not yet explored
+-> reads frontend.md, explores UI, updates draft
+  [x] UI/UX -- done
+  [~] Testing -- not yet explored
   ...
 > "done"
-→ finalizes document
+-> finalizes document
+```
+
+### Walking Skeleton + Feature Slabs
+
+Implementation builds a **thin end-to-end slice first** (skeleton), then adds features one slab at a time. Each slab is a vertical slice with security stitched in:
+
+```
+Phase 1: Walking Skeleton (no TDD -- just get it running)
+  1 table + 1 endpoint + 1 page = proves architecture works
+
+Phase 2: Feature Slabs (TDD for business logic)
+  Slab 1: Auth system (Backend + Security)
+  Slab 2: Recipe CRUD (Backend + Frontend)
+  Slab 3: AI matching (Backend + LLM + Security)
+  ...
+  One commit per slab. All tests passing.
 ```
 
 ### Mid-Conversation Updates
 
-Changed your mind? No need to restart. Say "actually I need ML too" while in `/architecture` — the upstream doc gets updated in place, and the current skill continues with the new context.
+Changed your mind? No need to restart. Say "actually I need ML too" while in `/architecture` -- the upstream doc gets updated in place, and the current skill continues with the new context.
 
 ### Re-Entry
 
 Run `/requirements recipe-finder` again later? It picks up the existing doc:
 ```
 "I found existing requirements. Here's the completeness:"
-  ✅ Functional, ✅ UI/UX, 🟡 Testing, ❌ ML/AI
-  → Continue | Revisit | Start fresh
+  [x] Functional, [x] UI/UX, [~] Testing, [ ] ML/AI
+  -> Continue | Revisit | Start fresh
 ```
 
-Same for `/architecture` — shows the decision log and lets you continue or change decisions.
+Same for `/architecture` and `/implementation` -- shows progress and lets you continue.
 
 ## End-to-End Example
 
-Say you want to build a **recipe finder app** with AI-powered ingredient matching. Here's the full flow:
+Building a **recipe finder app** with AI-powered ingredient matching:
 
 ```
 recipe-finder/
-├── requirements/
-│   ├── recipe-finder.md                    ← generated by /requirements
-│   └── wireframes/
-│       ├── home.html                       ← optional HTML wireframes
-│       └── search-results.html
-├── architecture/
-│   └── recipe-finder.md                    ← generated by /architecture
-├── reports/
-│   ├── requirements/
-│   │   └── req_recipe-finder_a1b2c3d4.md   ← progress report
-│   ├── architecture/
-│   │   └── arch_recipe-finder_e5f6g7h8.md  ← progress report
-│   └── implementation/
-│       └── impl_recipe-finder_i9j0k1l2.md  ← progress report
-├── backend/
-│   ├── recipe_scraper.py                   ← generated by /implementation
-│   ├── recipe_scraper_test.py
-│   └── ...
-└── frontend/
-    ├── RecipeSearch.tsx
-    └── ...
++-- requirements/
+|   +-- recipe-finder.md          <- generated by /requirements
+|   +-- wireframes/
+|       +-- home.html             <- optional HTML wireframes
++-- architecture/
+|   +-- recipe-finder.md          <- generated by /architecture
++-- reports/
+|   +-- requirements/
+|   +-- architecture/
+|   +-- implementation/
++-- backend/
+|   +-- recipe_scraper.py         <- generated by /implementation
+|   +-- recipe_scraper_test.py
++-- frontend/
+    +-- RecipeSearch.tsx
 ```
 
 **Step 1:** `/requirements recipe-finder`
 ```
-Quick intake → draft generated
-→ explores: UI/UX (screens, design system), LLM strategy (Claude API for ingredient matching)
-→ skips: testing (will use defaults), scale estimation (personal app)
-→ generates requirements/recipe-finder.md with completeness table
+Quick intake -> draft generated
+-> explores: UI/UX (screens, design system), LLM strategy (Claude API)
+-> skips: testing (defaults), scale (personal app)
+-> generates requirements/recipe-finder.md
 ```
 
 **Step 2:** `/architecture recipe-finder`
 ```
-Reads requirements (including UI/UX and LLM sections)
-→ quick architecture: Python backend, React frontend, SQLite, REST API
-→ "Want to go deeper?" → Frontend architecture + LLM integration
-→ frontend: React + Tailwind + Zustand, component architecture
-→ LLM: Anthropic SDK, prompt templates in files, response validation
-→ generates architecture/recipe-finder.md
+Reads requirements -> quick architecture: Python, React, SQLite, REST
+-> goes deeper: Frontend architecture + LLM integration
+-> generates architecture/recipe-finder.md
 ```
 
-**Step 3:** `/implementation frontend`
+**Step 3:** `/implementation recipe-finder`
 ```
-Reads requirements + architecture
-→ follows: component architecture, Tailwind styling, Zustand state management
-→ references wireframes from requirements/wireframes/
-→ TDD: component tests → implement → refactor
-```
-
-**Step 4:** `/implementation llm-integration`
-```
-Reads LLM strategy from requirements + LLM architecture
-→ follows: Anthropic SDK, prompt templates, response validation
-→ TDD: prompt behavior tests → SDK integration → safety tests
-→ marks data exit points in code (G9)
+Reads both docs -> derives sequence:
+  Skeleton -> Auth slab -> CRUD slab -> AI matching slab
+-> TDD per slab, security stitched in, one commit per slab
 ```
 
-**Step 5 (optional):** `/evaluate`
+**Step 4 (optional):** `/evaluate`
 ```
-→ parses claims → inspects code
-→ ✅ search by ingredients: found in recipe_scraper.py:24
-→ ❌ save favorites: no favorites endpoint found
-→ scorecard: 1/2 passed
-```
-
-Every generated file is tagged with:
-```
-<!-- agent-toolkit:requirements | v1 | 2026-04-25 | a1b2c3d4 -->
+Parses claims -> inspects code
+  [PASS] search by ingredients: found in recipe_scraper.py:24
+  [FAIL] save favorites: no favorites endpoint found
+  Scorecard: 1/2 passed
 ```
 
 ## Sub-Agents
@@ -149,52 +179,45 @@ Skills spawn these for parallel research:
 
 ## Guardrails
 
-Every skill has safety limits. When a limit is hit: the skill warns you, records it in the report, and continues with what it has. No infinite loops.
+Every skill has safety limits. When hit: warns you, records it, continues with what it has.
 
 **Universal (all skills):**
-- No secrets/passwords/API keys in generated files — uses env var placeholders
-- No destructive operations (`DROP TABLE`, `rm -rf`) without explicit confirmation
-- States limitations clearly: "I verified X exists but cannot confirm it works at runtime"
-- Warns if reference data is older than 6 months
-- File safety check on external files: size limit (1MB), allowed extensions (documents + images), path traversal blocked, scans for prompt injection attempts
-- No personal information in generated files — uses synthetic data
-- When reading external docs, skills note missing info and ask you about it — they don't review or grade. Only `/evaluate` grades.
-- **Mid-conversation updates:** change upstream decisions without restarting — docs update in place, current skill continues
-- **LLM data security:** code that sends data to external LLMs never includes secrets, warns before sending source code or user data, marks data exit points in generated code
+- No secrets in generated files -- uses env var placeholders
+- No destructive operations without confirmation
+- File safety check: size limit (1MB), allowed extensions (docs + images), path traversal blocked, prompt injection scanning
+- No PII in generated files -- uses synthetic data
+- Mid-conversation updates: change upstream decisions without restarting
+- LLM data security: never sends secrets to external LLMs, warns before sending source code, marks data exit points
 
 **Skill-specific:**
 
 | Skill | Guardrail | Limit |
 |-------|-----------|-------|
-| `/requirements` | Max questions per run | 20 — prioritizes core functional > ML > UI > testing |
-| `/requirements` | Scale estimates | Always includes "rough estimate" disclaimer |
+| `/requirements` | Max questions | 20 -- prioritizes core > ML > UI > testing |
 | `/requirements` | ML data privacy | Flags PII in training data, compliance for regulated industries |
-| `/architecture` | Backtrack limit | 2 per decision — must finalize before moving on |
-| `/architecture` | Max decisions per run | 20 — continue in another run if needed |
-| `/architecture` | Security decisions | Must reference OWASP guidelines |
-| `/architecture` | LLM decisions | Must reference OWASP Top 10 for LLM Applications |
-| `/implementation` | SQL injection prevention | Never uses string concatenation for queries |
+| `/architecture` | Backtrack limit | 2 per decision |
+| `/architecture` | Max decisions | 20 per run |
+| `/architecture` | Security decisions | Must reference OWASP |
+| `/architecture` | LLM decisions | Must reference OWASP LLM Top 10 |
+| `/implementation` | SQL injection | Never uses string concatenation |
 | `/implementation` | Secret protection | Always uses environment variables |
-| `/implementation` | File overwrite protection | Checks if file exists, shows diff, asks before overwriting |
-| `/implementation` | Package trust | Warns on unfamiliar/low-download packages |
-| `/evaluate` | Unverifiable claims | Always highlighted — no silent unknowns |
-| `/evaluate` | Guardrail-aware grading | Doesn't penalize output limited by guardrails |
-| `/updater` | No auto-updates | Reports only — user approves all changes |
+| `/implementation` | File overwrite | Shows diff, asks before overwriting |
+| `/evaluate` | Unverifiable claims | Always highlighted |
+| `/evaluate` | Guardrail-aware | Doesn't penalize guardrail-limited output |
+| `/updater` | No auto-updates | Reports only -- user approves changes |
 
 ## Reports
 
-Skills that produce artifacts generate progress reports in your project's `reports/` directory:
-- Created at the start, updated progressively as the skill works
-- UUID-suffixed to avoid collisions across runs
-- Marked `completed` or `incomplete` with reason and remaining work
-- Previous reports on the same topic are linked automatically
-
-`/evaluate` produces a scorecard (its output IS the report).
-`/updater` reports to the toolkit repo (it audits the toolkit, not your project).
+Skills generate progress reports in `reports/`:
+- Created at start, updated progressively
+- UUID-suffixed to avoid collisions
+- Marked `completed` or `incomplete` with reason
+- Previous reports linked automatically
+- Implementation reports include slab sequence with progress tracking
 
 ## Coding Standards
 
-`/implementation` enforces language-specific standards. `/evaluate` can optionally check against them.
+`/implementation` enforces language-specific standards. `/evaluate` can check against them.
 
 | Language | Based On |
 |----------|----------|
@@ -202,8 +225,6 @@ Skills that produce artifacts generate progress reports in your project's `repor
 | TypeScript/React | Google TS Guide, Airbnb JS Guide |
 | Java | Google Java Style Guide, Effective Java |
 | Rust | Rust API Guidelines, Clippy lints |
-
-Universal rules across all languages: no unused imports, readable variable names, comments explain WHY not WHAT, consistent indentation, small functions, no magic numbers, helpful error messages.
 
 ## Install
 
@@ -215,25 +236,19 @@ cd agent-toolkit
 
 This does three things:
 1. Symlinks skills to `~/.claude/skills/` and agents to `~/.claude/agents/`
-2. Adds an **auto-update hook** to `~/.claude/settings.json` — every time you invoke a skill, it runs `git pull --ff-only` on the toolkit repo first, so you always get the latest version without interrupting your conversation
+2. Adds an **auto-update hook** to `~/.claude/settings.json` -- pulls latest before every skill invocation
 3. Available globally in any Claude Code session
 
-**Auto-update details:**
-- Runs before every skill invocation (PreToolUse hook on Skill)
-- Fast-forward only — never creates merge conflicts
-- Fails silently if offline or if there are local changes
-- Requires `jq` for installation (skips hook setup gracefully if missing)
-- Re-running `./install.sh` updates the hook path if you moved the repo
+Auto-update: fast-forward only, fails silently offline, requires `jq` for install. Re-run `./install.sh` if you move the repo.
 
 ## Quick Start
 
 ```
 /requirements my-feature        # gather requirements (draft + explore)
 /architecture my-feature        # design architecture (quick + deep dive)
-/implementation backend         # build with TDD
-/implementation llm-integration # integrate LLM provider
+/implementation my-feature      # skeleton + feature slabs with TDD
 /evaluate                       # grade the output (optional)
 /updater                        # audit toolkit health
 ```
 
-Skills read each other's output — run in order for best results, or independently. They also accept any external doc — just point to the file.
+Skills read each other's output -- run in order for best results, or independently.
