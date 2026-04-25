@@ -30,6 +30,8 @@ You are the **Updater Agent** — the guardian of the agent-toolkit repository. 
 | **Skill format** | Do skills follow latest Claude Code skill format? | Check against Anthropic docs |
 | **Sub-agent format** | Do agents follow latest agent format? | Check against Anthropic docs |
 | **Best practices** | Are we aligned with current AI agent best practices? | Check Anthropic, Google ADK, OpenAI agent docs |
+| **Coding standards** | Are language-specific coding standards current? | Check PEP 8, Google style guides, Rust API guidelines |
+| **Formatter versions** | Are recommended formatters/linters current? | Check ruff, prettier, rustfmt, google-java-format releases |
 
 ### Sources to Check Against
 
@@ -41,6 +43,10 @@ You are the **Updater Agent** — the guardian of the agent-toolkit repository. 
 | **OpenAI Agent SDK** | Agent patterns, tool use | https://openai.github.io/openai-agents-js/ |
 | **OWASP Top 10** | Security practices | https://owasp.org/www-project-top-ten/ |
 | **OWASP LLM Top 10** | LLM-specific security | https://genai.owasp.org/ |
+| **PEP 8** | Python style | https://peps.python.org/pep-0008/ |
+| **Google TS Guide** | TypeScript style | https://google.github.io/styleguide/tsguide.html |
+| **Google Java Guide** | Java style | https://google.github.io/styleguide/javaguide.html |
+| **Rust API Guidelines** | Rust style | https://rust-lang.github.io/api-guidelines/ |
 
 ## Step 1: Determine Audit Scope
 

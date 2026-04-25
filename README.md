@@ -1,18 +1,16 @@
 # Agent Toolkit
 
-Reusable Claude Code skills for planning and building software projects. Works in any repo, any language.
+Reusable Claude Code skills for planning, building, and evaluating software projects. Works in any repo, any language.
 
 ## Skills
 
 | Skill | What It Does |
 |-------|-------------|
-| `/requirements` | Gather requirements through structured questionnaire. Auto-scales from quick feature to full system design (QPS, storage, infrastructure, cost). |
-| `/architecture` | Design system architecture with waterfall decision flow. Presents options with trade-offs — you decide. Covers data layer, API, security, scaling, design patterns. |
-| `/implementation` | Build features with TDD by default. 5 modes: backend, frontend, security, ML/data, pipeline. Language-agnostic. |
-| `/evaluate` | Grade agent output against the original prompt. Evidence-based — checks if what was asked actually got done. Optional after any skill. |
-| `/updater` | Guardian of this repo. Audits skills for relevance, security, and standards compliance. Checks against Anthropic, Google, OpenAI best practices. |
-
-Each skill generates a progress report in your project's `reports/` directory.
+| `/requirements` | Gather requirements through structured questionnaire. Auto-scales: quick feature → standard app → full system design with QPS, storage, infrastructure, cost estimation. |
+| `/architecture` | Design system architecture with waterfall decision flow. Presents options with trade-offs — you decide. Covers data, API, security, scaling, design patterns, CAP theorem, SOLID/DRY/KISS/YAGNI validation. |
+| `/implementation` | Build features with TDD by default. 5 modes: backend, frontend, security, ML/data, pipeline. Language-agnostic with coding standards for Python, TypeScript, Java, Rust. |
+| `/evaluate` | Grade agent output against the original prompt. Evidence-based — searches code, reads files, checks if what was asked actually got done. Run after any skill or any agent work. Optional. |
+| `/updater` | Guardian of this toolkit. Audits skills for relevance, security, and standards. Validates against Anthropic, Google, OpenAI, OWASP best practices. Includes link checker script. |
 
 ## Sub-Agents
 
@@ -23,11 +21,19 @@ Skills spawn these for parallel research when needed:
 | `functional-researcher` | How features work in other products |
 | `scale-estimator` | Back-of-envelope math (QPS, storage, bandwidth) |
 | `infrastructure-planner` | Servers, databases, caching, cost estimates |
-| `tech-stack-advisor` | Tech options with trade-offs |
+| `tech-stack-advisor` | Tech options with trade-offs (never decides) |
 | `pattern-advisor` | Design patterns for specific problems |
 | `scale-advisor` | What changes at each scale level |
 | `test-generator` | Generate tests for existing code |
 | `code-reviewer` | Quality, security, and principles review |
+
+## Reports
+
+Every skill generates a progress report in your project's `reports/` directory. Reports are:
+- Created at the start (not just the end)
+- Updated progressively as the skill works
+- UUID-suffixed to avoid collisions
+- Marked `completed` or `incomplete` with reason
 
 ## Install
 
@@ -37,21 +43,29 @@ cd agent-toolkit
 ./install.sh
 ```
 
-This symlinks skills to `~/.claude/skills/` and agents to `~/.claude/agents/`. Available globally in any Claude Code session.
+Symlinks skills to `~/.claude/skills/` and agents to `~/.claude/agents/`. Available globally in any Claude Code session.
 
 ## Usage
 
-Open any project in Claude Code and run:
-
 ```
-/requirements job-agent
-/architecture job-agent
-/implementation backend
-/evaluate                       # optional — grade the output
+/requirements my-feature        # gather requirements
+/architecture my-feature        # design architecture
+/implementation backend         # build with TDD
+/evaluate                       # grade the output (optional)
 /updater                        # audit toolkit health
 ```
 
-Skills read each other's output — run them in order for best results, or independently if you prefer.
+Skills read each other's output — run in order for best results, or independently.
+
+## Coding Standards
+
+The `/implementation` skill enforces language-specific coding standards:
+- **Python** — PEP 8, Google Python Style Guide
+- **TypeScript/React** — Google TS Guide, Airbnb JS Guide
+- **Java** — Google Java Style Guide, Effective Java
+- **Rust** — Rust API Guidelines, Clippy lints
+
+Standards cover: imports, naming, comments, formatting, error handling, file organization.
 
 ## License
 
