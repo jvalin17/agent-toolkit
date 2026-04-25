@@ -1,0 +1,49 @@
+# Security Implementation
+
+Implement authentication, authorization, input validation, XSS/CSRF protection, secret management, and data protection. Security is stitched into feature slabs, not a standalone phase.
+
+## Security Is Not a Separate Phase
+
+Security mode activates as step 2 of the per-slab cycle (before business logic) whenever a slab touches auth, user data, or external APIs. This ensures security is baked in from the start, not bolted on at the end.
+
+## When Security Mode Activates Within a Slab
+
+| Slab Type | Security Focus |
+|-----------|---------------|
+| Auth slab | Full auth security: password hashing, token handling, session management |
+| Any API slab | Input validation, rate limiting, CORS |
+| LLM slab | Prompt injection defense, PII filtering, output validation (cross-reference G9) |
+| Payment slab | PCI compliance, transaction validation |
+| File upload slab | File type validation, size limits, malware scanning |
+| Data export slab | Authorization checks, PII redaction |
+
+## Inputs
+
+Read from upstream docs:
+- **Requirements doc:** auth requirements, data sensitivity, compliance needs
+- **Architecture doc:** auth architecture, security layers, API design, secrets management approach
+- **Guardrails:** G-IMPL-1 (parameterized queries), G-IMPL-2 (no hardcoded secrets), G9 (LLM data security)
+
+## TDD Pattern: Threat Model, Attack Tests, Defenses
+
+```
+1. THREAT MODEL — What can go wrong in THIS slab? (injection, auth bypass, data leak)
+2. ATTACK TESTS — Write tests that simulate each attack
+3. IMPLEMENT DEFENSE — Write code that makes attack tests pass (attacks are blocked)
+4. VERIFY — Run tests, confirm defenses work
+5. CONTINUE — Move to the TDD loop for business logic in the slab
+```
+
+The key insight: write the attack test first, then implement the defense. The test simulates the attack. The code blocks it.
+
+## What to Test
+
+- [ ] Authentication: valid/invalid/expired/missing credentials
+- [ ] Authorization: user can only access their own data
+- [ ] Input validation: SQL injection, XSS, path traversal attempts are blocked
+- [ ] Rate limiting: repeated requests are throttled
+- [ ] Secrets: no hardcoded secrets, env vars used correctly
+- [ ] HTTPS: sensitive data not sent over plain HTTP
+- [ ] CORS: only allowed origins can make requests
+
+For guardrails and core principles, see the main `SKILL.md`.
