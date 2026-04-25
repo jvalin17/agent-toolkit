@@ -173,8 +173,3 @@ Symlinks skills to `~/.claude/skills/` and agents to `~/.claude/agents/`. Availa
 ```
 
 Skills read each other's output — run in order for best results, or independently. They also accept any external doc — just point to the file.
-
-## Contributors
-
-- **jvalin17** — jvalin17@gmail.com
-- **Claude** (Anthropic) — AI pair programmer
