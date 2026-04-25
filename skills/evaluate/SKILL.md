@@ -217,43 +217,6 @@ If yes, add a "Code Quality" section to the scorecard:
 | Error messages helpful | ✅/❌ | [examples] |
 ```
 
-## Reporting
-
-**Read `shared/report-format.md` for full format rules.**
-
-### When to Write
-
-1. **At the START**: create `reports/evaluate/eval_<topic>_<uuid8>.md` with status `in-progress`.
-2. **After inspection**: update with findings.
-3. **At the END**: update status to `completed` with scorecard.
-4. **If stopped early**: update status to `incomplete` with partial findings.
-
-### Evaluate Report Includes
-
-In addition to the standard header and progress:
-
-```markdown
-## Skill-Specific Details
-
-### Source of Truth
-[What was evaluated against — prompt text, requirements doc, or description]
-
-### Claims Parsed
-[N] checkable claims extracted
-
-### Scorecard Summary
-- Passed: X / Y
-- Failed: X / Y
-- Partial: X / Y
-- Unable to verify: X / Y
-
-### Code Quality (if checked)
-[Summary of code quality findings]
-
-### Output
-- Scorecard: `reports/evaluate/eval_<topic>_<uuid8>.md`
-```
-
 ## Integration with Other Skills
 
 The evaluate skill is **optional** and **standalone**. It can be invoked:
