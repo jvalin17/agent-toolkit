@@ -59,18 +59,21 @@ These rules are non-negotiable:
 
 ## Step 1: Context Gathering
 
-### Check for project docs
-```
-Look for: requirements/$ARGUMENTS.md, architecture/$ARGUMENTS.md
-Look for: rules.md, project configuration files
-```
+### Find project docs
 
-**If both exist:** Read them. Extract: tech stack, architecture decisions, data models, API design, patterns chosen. Announce: "I found requirements and architecture docs. Working with: [summary]"
+Check in this order:
+1. `requirements/$ARGUMENTS.md` and `architecture/$ARGUMENTS.md` (agent-toolkit standard paths)
+2. Any file paths the user provides directly
+3. `rules.md`, project configuration files
+4. If nothing found, ask
 
-**If only one exists:** Read what's there. Note what's missing.
+**If files are found (any format):** Read them. Extract whatever you can — tech stack, architecture decisions, data models, API design, patterns. Don't expect specific section headers. Parse what's there and note what's missing.
 
-**If neither exists:** Ask:
-> "I don't see requirements or architecture docs for this."
+**If files have the agent-toolkit author tag** (`<!-- agent-toolkit:... -->`): They follow our format. Extract structured sections directly.
+
+**If nothing found:** Ask:
+> "I don't see requirements or architecture docs."
+> - **Point me to files** — "My docs are at [paths]. Any format works."
 > - **Run /requirements and /architecture first** — "Let's plan properly before building."
 > - **Tell me what to build** — "Give me a description, tech stack, and I'll implement it."
 > - **I just need help with existing code** — "Point me to the file/function and tell me what to change."
