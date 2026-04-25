@@ -105,7 +105,7 @@ Every skill has safety limits. When a limit is hit: the skill warns you, records
 - Warns if reference data is older than 6 months
 - File safety check on external files: size limit (1MB), allowed extensions only, path traversal blocked, scans for prompt injection attempts
 - No personal information in generated files — uses synthetic data
-- Hybrid review on external docs: skills flag obvious gaps in their domain but leave formal grading to `/evaluate`
+- When reading external docs, skills note missing info and ask you about it — they don't review or grade. Only `/evaluate` grades.
 
 **Skill-specific:**
 
