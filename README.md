@@ -78,9 +78,30 @@ Skills don't interrogate you. After a quick intake, you get a **draft document i
 -> finalizes document
 ```
 
-### Walking Skeleton + Feature Slabs
+### Adding Features to Existing Apps
 
-Implementation builds a **thin end-to-end slice first** (skeleton), then adds features one slab at a time. Each slab is a vertical slice with security stitched in:
+When you pick "feature for an existing app", the skills shift to **Feature Mode** -- a faster path that respects what's already built:
+
+```
+/requirements add-search
+
+-> Scans your codebase ONCE, builds a Codebase Index:
+   Tech stack: Next.js 14, PostgreSQL/Prisma, Tailwind
+   Structure: src/app/, src/components/, src/lib/
+   Conventions: REST routes, camelCase, vitest
+   Existing: auth, user model, basic UI layout
+
+-> Asks only about what's NEW (skips what exists)
+-> Index reused by /architecture and /implementation (no re-scanning)
+```
+
+`/architecture` reads the index and designs how the feature **fits** -- integration points, new components, migrations. No full redesign.
+
+`/implementation` skips the walking skeleton (your app IS the skeleton) and goes straight to feature slabs following your existing conventions.
+
+### Walking Skeleton + Feature Slabs (Greenfield)
+
+For new projects, implementation builds a **thin end-to-end slice first** (skeleton), then adds features one slab at a time:
 
 ```
 Phase 1: Walking Skeleton (no TDD -- just get it running)
