@@ -9,6 +9,7 @@ Reusable Claude Code skills for planning, building, and evaluating software proj
 | `/requirements` | Gather requirements through structured questionnaire. Auto-scales: quick feature -> standard app -> full system design. Drafts early, then lets you explore areas on demand. Re-enter anytime to add or revise. |
 | `/architecture` | Design system architecture with waterfall decision flow. Presents options with trade-offs -- you decide. Backtracking and re-entry supported. Always includes a local/cheap option. |
 | `/implementation` | Build features with TDD. Walking skeleton first, then feature slabs. Security stitched in, not bolted on. Follows upstream decisions -- never re-decides. |
+| `/test` | Generate comprehensive tests for existing code. Every method, every button, every flow. Realistic data, not placeholders. Unit, component, integration, and regression tests. Coverage analysis and bug detection. |
 | `/evaluate` | Grade agent output against the original prompt. Evidence-based scorecard with file:line references. Run after any skill or agent work. |
 | `/updater` | Audits toolkit for relevance, security, and standards compliance. Checks references, sub-skills, guardrails, and best practices. |
 
@@ -175,7 +176,17 @@ Reads both docs -> derives sequence:
 -> TDD per slab, security stitched in, one commit per slab
 ```
 
-**Step 4 (optional):** `/evaluate`
+**Step 4:** `/test recipe-finder`
+```
+Analyzes codebase -> coverage analysis:
+  recipe_scraper.py: 8 methods, 3 tested, 5 untested
+  RecipeSearch.tsx: 4 interactions, 0 tested
+-> writes 47 tests with realistic data (real recipe names, real ingredients)
+-> unit + component + integration + regression
+-> finds 1 bug: search fails on unicode ingredient names
+```
+
+**Step 5 (optional):** `/evaluate`
 ```
 Parses claims -> inspects code
   [PASS] search by ingredients: found in recipe_scraper.py:24
@@ -268,6 +279,7 @@ Auto-update: fast-forward only, fails silently offline, requires `jq` for instal
 /requirements my-feature        # gather requirements (draft + explore)
 /architecture my-feature        # design architecture (quick + deep dive)
 /implementation my-feature      # skeleton + feature slabs with TDD
+/test my-feature                # comprehensive tests (every method, every button)
 /evaluate                       # grade the output (optional)
 /updater                        # audit toolkit health
 ```
