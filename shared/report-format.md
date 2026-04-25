@@ -55,6 +55,7 @@ UUID: Generate 8 hex characters. E.g., `req_job-agent_a1b2c3d4.md`
 | **Report ID** | <uuid8> |
 | **Skill** | requirements / architecture / implementation |
 | **Topic** | <what was worked on> |
+| **Original Request** | <user's exact prompt/instruction, verbatim> |
 | **Status** | in-progress / completed / incomplete |
 | **Started** | <timestamp> |
 | **Completed** | <timestamp or "—"> |

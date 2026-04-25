@@ -32,12 +32,15 @@ The evaluator needs TWO things:
 
 ### How to Get "What Was Asked"
 
-Ask the user:
+Check automatically first, then ask:
 
-> "What should I evaluate against?"
+1. **Check reports.** Look in `reports/` for reports matching `$ARGUMENTS`. If found, read the **Original Request** field — this is the user's verbatim prompt saved by the skill that ran. Announce: "I found the original request from the [skill] report: '[prompt]'. Evaluating against this."
+2. **Check requirements doc.** Look in `requirements/$ARGUMENTS.md` for the Problem Statement and Capabilities sections.
+3. **If nothing found, ask the user:**
+
+> "I couldn't find a report or requirements doc for this. What should I evaluate against?"
 > - **Paste the original prompt** — "Here's what I asked the agent to do: [paste]"
-> - **Point to a requirements doc** — "Check against requirements/job-agent.md"
-> - **Point to a report** — "Check against the latest report in reports/"
+> - **Point to a file** — "Check against [path]"
 > - **I'll describe it** — "I asked for X, Y, Z. Check if it's done."
 
 ### How to Get "What Was Delivered"
