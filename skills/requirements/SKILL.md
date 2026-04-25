@@ -73,7 +73,10 @@ Present using AskUserQuestion tool. Batches of 2-3.
 
 ## Step 2: Determine Mode
 
-**QUICK MODE** — feature/tool, personal/small team, developer, no complex needs.
+**FEATURE MODE** — Q1 is "A feature for an existing app."
+→ Fast-track: scan codebase first, then focused requirements for just the delta. Skip scale estimation.
+
+**QUICK MODE** — tool/library/infra change, personal/small team, developer, no complex needs.
 → Functional requirements only.
 
 **STANDARD MODE** — complete app for medium audience, or 2-3 complex needs, or non-technical user.
@@ -84,9 +87,89 @@ Present using AskUserQuestion tool. Batches of 2-3.
 
 Announce the mode briefly and list which areas you'll cover.
 
+## Step 2b: Codebase Scan (Feature Mode only)
+
+When adding a feature to an existing app, **understand the existing codebase first** before gathering requirements. This shapes what questions to ask and what constraints exist.
+
+### Scan the project
+
+1. **Detect tech stack** — read project files (`package.json`, `pyproject.toml`, `go.mod`, etc.)
+2. **Read existing structure** — `ls` key directories, understand the layout (src/, components/, routes/, models/, etc.)
+3. **Identify patterns in use** — scan a few existing files to understand:
+   - API style (REST routes, GraphQL schema, etc.)
+   - Database/ORM (what models exist, what ORM, what migration tool)
+   - Frontend patterns (component structure, state management, styling approach)
+   - Auth approach (if any)
+   - Test patterns (what test framework, where tests live, naming convention)
+4. **Check for existing docs** — README, CLAUDE.md, architecture docs, API docs
+
+### Build the Codebase Index
+
+Write a **Codebase Index** section directly into the requirements doc. This is scanned ONCE and reused by `/architecture` and `/implementation` — they read it instead of re-scanning.
+
+```markdown
+## Codebase Index
+
+### Tech Stack
+- **Language:** [e.g., TypeScript]
+- **Framework:** [e.g., Next.js 14]
+- **Database:** [e.g., PostgreSQL via Prisma ORM]
+- **Auth:** [e.g., NextAuth with JWT]
+- **Test framework:** [e.g., vitest + testing-library]
+- **Styling:** [e.g., Tailwind CSS]
+- **Package manager:** [e.g., pnpm]
+
+### Project Structure
+```
+src/
+  app/           <- Next.js app router pages
+  components/    <- React components (flat structure)
+  lib/           <- Business logic, DB queries
+  api/           <- API route handlers
+  types/         <- TypeScript types
+prisma/
+  schema.prisma  <- Database schema
+tests/           <- Test files mirror src/ structure
+```
+
+### Conventions
+- **API pattern:** [e.g., REST, route handlers in src/app/api/]
+- **Naming:** [e.g., camelCase files, PascalCase components]
+- **State management:** [e.g., React Context for auth, local state otherwise]
+- **Error handling:** [e.g., try/catch with custom AppError class]
+- **Existing models:** [e.g., User, Post, Comment — brief list]
+
+### What Already Exists
+- [x] User auth (login, register, JWT)
+- [x] Database with migrations
+- [x] Basic UI layout (nav, sidebar, footer)
+- [ ] Search (not yet)
+- [ ] ML/AI features (not yet)
+```
+
+> "Here's what I found in your codebase. Does this look right? Anything to correct?"
+
+**Why an index:** `/architecture` and `/implementation` read this section instead of re-scanning. This saves tokens, avoids inconsistency, and gives a single source of truth for what exists.
+
+### Adjust the intake
+
+With the codebase context, **skip questions the codebase already answers:**
+- Don't ask Q2 (who is this for) — the app already has users
+- Don't ask Q3 (how technical) — they have a codebase, they're a developer
+- Don't re-ask Q5 options the app already has (if it already has auth, storage, UI — note them as existing, don't ask)
+- Focus Q5 on **what's NEW** for this feature: "Your app already has [UI, auth, storage]. Does this new feature also need: [only show options the app doesn't already have, plus new capabilities like ML/AI]"
+
 ## Step 3: Functional Requirements
 
 For ALL modes. Use AskUserQuestion.
+
+### For Feature Mode
+
+Focus on the **delta** — what changes, what's new, what existing behavior is affected:
+- "What new capability does this add?" (free text)
+- "Does it change any existing behavior?" (yes → what specifically / no)
+- "What existing parts of the app does it interact with?" (list: auth, database, specific pages/endpoints)
+- "Does it need new data stored, or does it use existing data?" (new tables/fields → what / existing → which)
 
 ### For "build X" requests (Facebook, Uber, etc.)
 

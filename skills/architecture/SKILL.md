@@ -44,6 +44,8 @@ Check: `requirements/$ARGUMENTS.md` → user-provided file → ask.
 
 **If found:** Read and extract: problem statement, features, constraints, scale targets. Note what's missing.
 
+**If requirements doc has "Existing Codebase Constraints" section:** This is a **feature add-on** — skip Quick Architecture (Step 2) and go to Step 2b instead.
+
 **If not found:** Offer: point to file / run /requirements / give summary / just explore.
 
 ### Scope-limiting (complex products)
@@ -53,7 +55,9 @@ If complex (social network, marketplace, etc.), ask bounding questions first:
 - **Q2: Target scale?** (hundreds / thousands / millions)
 - **Q3: Solo developer or team?**
 
-## Step 2: Quick Architecture (always first)
+## Step 2: Quick Architecture (greenfield projects)
+
+**Skip this step if requirements doc has "Existing Codebase Constraints" — go to Step 2b.**
 
 Produce a one-page architecture covering:
 
@@ -66,6 +70,38 @@ Produce a one-page architecture covering:
 7. **Local/Cheap Version** — free/local alternatives for everything
 
 Write to `architecture/<name>.md` immediately. Then present the **Explore Menu**:
+
+## Step 2b: Feature Architecture (add-on features)
+
+When adding a feature to an existing app, **don't redesign the architecture** — design how the feature fits into what's already there.
+
+### Read the Codebase Index
+
+Read the **Codebase Index** section from `requirements/$ARGUMENTS.md`. This was built during `/requirements` and contains tech stack, project structure, conventions, and what already exists. **Do not re-scan the codebase** — use the index as the source of truth for existing patterns.
+
+If the index doesn't exist (user ran `/architecture` without `/requirements`), scan the project yourself and note the findings in the architecture doc.
+
+### Design the feature fit
+
+> "Here's how the new feature fits into your existing architecture:"
+>
+> **Integration Points:**
+> | Existing Component | How Feature Connects | Changes Needed |
+> |-------------------|---------------------|----------------|
+> | [database/models] | [new table / new fields on existing table] | [migration needed] |
+> | [API routes] | [new endpoints / extend existing] | [new route file / add to existing] |
+> | [frontend] | [new page / new component on existing page] | [new component / modify existing] |
+> | [auth] | [uses existing auth / needs new permissions] | [add role/permission / none] |
+>
+> **New Components:**
+> - [list of new files/modules the feature needs]
+>
+> **Migration/Backwards Compatibility:**
+> - [DB migrations needed]
+> - [API versioning needed? or additive-only changes?]
+> - [UI changes that affect existing users]
+
+Write to `architecture/<name>.md`. Then present the Explore Menu — but only show areas relevant to the feature (e.g., don't show "System" for a small feature add).
 
 > "Here's the quick architecture. Go deeper on any area, come back later, or stop here:"
 

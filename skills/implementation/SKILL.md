@@ -67,9 +67,13 @@ Auto-detect from project files (`pyproject.toml` → Python, `package.json` with
 
 **Specific feature?** (e.g., "implement search endpoint") → Skip to Step 3.
 
+**Add-on feature?** (requirements doc has "Codebase Index" section) → Skip skeleton. Read the Codebase Index from `requirements/<topic>.md` for tech stack, structure, conventions, and what exists. Go straight to feature slabs, following existing conventions exactly. **Do not re-scan the codebase** — the index is the source of truth.
+
 **Full project / large scope?** → Derive the sequence from upstream docs.
 
-### Phase 1: Walking Skeleton
+### Phase 1: Walking Skeleton (greenfield only)
+
+**Skip for add-on features** — the existing app IS the skeleton.
 
 Read `skeleton.md` for full instructions. Build the thinnest end-to-end path proving the architecture works. No TDD — just get it running. Commit as first slab.
 
