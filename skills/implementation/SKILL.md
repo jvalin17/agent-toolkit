@@ -24,17 +24,18 @@ When a guardrail triggers: warn the user, record in report, continue with what y
 
 ## Core Principles
 
-1. **TDD by default.** Write failing test → make it pass → refactor. User can opt out.
-2. **Language-agnostic.** Detect the project's tech stack or ask. Adapt patterns to whatever language/framework is in use.
-3. **Every block tested.** No code ships without tests unless the user explicitly says "no tests."
-4. **Read requirements + architecture first.** If they exist, follow them. If not, ask or proceed with user input.
-5. **One block at a time.** Implement in small, testable blocks. Don't write 500 lines then test.
-6. **Show the test, show the code.** Always show what you wrote and why. No hidden changes.
-7. **Reuse existing patterns.** Check the codebase for established conventions before introducing new ones.
-8. **Warn, don't block.** If the user makes a choice you disagree with (no tests, insecure pattern), warn with evidence, but respect their decision.
-9. **Launch sub-agents** when helpful:
-   - `test-generator` — when writing tests for a large existing codebase
-   - `code-reviewer` — after completing a block, review for quality/security before moving on
+1. **Skeleton first, then slabs.** For full projects: build a walking skeleton (thin end-to-end path), then add features one slab at a time. Each slab is a testable vertical slice.
+2. **TDD for logic, not for wiring.** Business logic gets TDD (always). Scaffold, config, and wiring don't — just get them working. If TDD hits a wall, explore first, then rewrite with tests.
+3. **Security stitched in, not bolted on.** Every slab that touches auth, user data, or external APIs includes security hardening as part of the slab — attack tests first, then defenses.
+4. **Language-agnostic.** Detect the project's tech stack or ask. Adapt patterns to whatever language/framework is in use.
+5. **Read requirements + architecture first.** If they exist, follow them. If not, ask or proceed with user input.
+6. **One slab at a time.** Implement in coherent slabs. Don't write 500 lines then test.
+7. **Show the test, show the code.** Always show what you wrote and why. No hidden changes.
+8. **Reuse existing patterns.** Check the codebase for established conventions before introducing new ones.
+9. **Warn, don't block.** If the user makes a choice you disagree with (no tests, insecure pattern), warn with evidence, but respect their decision.
+10. **Launch sub-agents** when helpful:
+    - `test-generator` — when writing tests for a large existing codebase
+    - `code-reviewer` — after completing a slab, review for quality/security before committing
 
 ## Code Quality Rules (enforced in ALL code you write)
 
@@ -135,45 +136,107 @@ If not detected, ask: "What language and framework are you using?"
 
 **If the user asked to implement the full project or a large scope** (e.g., "implement recipe-finder", "build the backend", "implement everything"), derive the sequence from upstream docs.
 
-### Derive the sequence
+### Phase 1: Walking Skeleton
 
-Read the architecture doc's **component diagram** and **data flow**, and the requirements doc's **priority levels** (must/should/could). Build the sequence using these rules:
+Before building any features, build a **walking skeleton** — the thinnest possible end-to-end slice that proves the architecture works.
 
-1. **Dependencies first.** What must exist before other things can work? Data models before API endpoints. API endpoints before frontend. Auth before anything that needs auth. Follow the data flow bottom-up.
+Read the architecture doc's component diagram and data flow. Identify the minimal path through all layers:
+
+> "Before we build features, let's get the skeleton running — one thin path through the entire system:"
+>
+> **Skeleton for [project name]:**
+> | Layer | What | Just enough to... |
+> |-------|------|-------------------|
+> | Database | 1 table, 2-3 fields | Prove DB connection works |
+> | Backend | 1 endpoint (GET) | Prove server starts, talks to DB |
+> | Frontend | 1 page, 1 API call | Prove frontend talks to backend |
+> | Auth | Basic middleware (if needed) | Prove auth flow works |
+> | LLM | 1 prompt, 1 call (if needed) | Prove LLM integration works |
+>
+> "This should take ~30 minutes. Once it runs end-to-end, we build features on top."
+
+**Why skeleton first:**
+- Catches architecture problems in hour 1, not day 5
+- Proves all the layers can talk to each other
+- Creates the project structure that features build on
+- Gives the user something running immediately
+
+**The skeleton is scaffold work, not business logic.** It's wiring: config, project setup, connection strings, basic routing. No TDD needed — this isn't testable business logic. Just get it running.
+
+**Security in the skeleton:** If the architecture specifies auth, include a basic auth middleware in the skeleton. Don't implement full RBAC/permissions yet — just enough to prove the auth flow (login → token → protected endpoint). Full security hardening comes with the feature slabs.
+
+**After skeleton runs:** Commit it as the first slab. Then move to feature slabs.
+
+### Phase 2: Feature Slabs
+
+Derive the feature sequence from the architecture doc's **component diagram** and **data flow**, and the requirements doc's **priority levels** (must/should/could).
+
+**What's a slab?** A slab is a logical group of related work that delivers a coherent piece of functionality. It's bigger than a single commit but smaller than "the whole backend." Each slab should be explainable in one sentence.
+
+Examples of good slabs:
+- "User authentication system" (data model + auth logic + login endpoint + middleware)
+- "Recipe search feature" (search logic + API endpoint + frontend component)
+- "LLM-powered ingredient matching" (prompt + SDK integration + response handling + safety)
+
+Examples of too-small (these should be part of a slab, not standalone):
+- "Add user table" — part of the auth slab
+- "Style the search button" — part of the search feature slab
+
+Examples of too-big (split into multiple slabs):
+- "The entire backend" — split into auth slab, core features slab, search slab, etc.
+
+**Sequencing rules:**
+1. **Dependencies first.** Follow the data flow bottom-up. What must exist before other things can work?
 2. **Must-haves before should-haves.** Requirements marked "must" are MVP. "Should" is next. "Could" is last.
-3. **One mode at a time.** Group related work by mode (backend, frontend, LLM, etc.) to minimize context switching.
-4. **Vertical slices when possible.** For each feature, implement the full path (data model → API → frontend) rather than all models, then all APIs, then all frontend. This gives a working feature faster.
+3. **Vertical slices.** Each slab cuts through all relevant layers (data model → logic → API → frontend) rather than building horizontally. This gives a working feature per slab.
+4. **Stitch in security.** Don't leave security as a separate phase at the end. When a slab touches auth, user data, or external APIs — include security hardening IN that slab:
+   - Auth slab → include input validation, password hashing, token expiry (Security mode)
+   - API slab → include rate limiting, CORS, input sanitization (Security mode)
+   - LLM slab → include prompt injection defense, PII filtering, data exit points (Security + LLM mode, G9)
+   - Payment slab → include PCI compliance checks (Security mode)
+5. **Stitch in LLM safety.** Any slab that sends data to external LLMs must include G9 safeguards as part of the slab, not as an afterthought.
 
 ### Present the plan
 
-> "Based on the architecture and requirements, here's the implementation sequence:"
+> "Here's the implementation plan:"
 >
-> | # | What | Mode | Why this order | Priority |
-> |---|------|------|---------------|----------|
-> | 1 | Data models & database setup | Backend | Foundation — everything depends on this | must |
-> | 2 | Auth & user management | Security | Required by most features | must |
-> | 3 | Core API endpoints | Backend | Business logic for MVP features | must |
-> | 4 | LLM integration | LLM | Powers the AI features | must |
-> | 5 | UI components & pages | Frontend | Consumes the API | must |
-> | 6 | Search & filtering | Backend + Frontend | Enhancement to core | should |
-> | 7 | CI/CD pipeline | Pipeline | Automate testing & deployment | should |
-> | ...| ... | ... | ... | ... |
+> **Phase 1: Walking Skeleton** (scaffold — no TDD)
+> - Project setup, DB connection, 1 endpoint, 1 page, end-to-end
+>
+> **Phase 2: Feature Slabs** (pure logic — TDD)
+> | Slab | What | Layers | Includes | Priority |
+> |------|------|--------|----------|----------|
+> | 1 | Auth system | Backend + Security | User model, login/register, JWT, input validation, password hashing | must |
+> | 2 | Recipe CRUD | Backend + Frontend | Recipe model, API endpoints, list/detail pages | must |
+> | 3 | AI ingredient matching | Backend + LLM + Security | Prompt, SDK integration, response validation, prompt injection defense | must |
+> | 4 | Search & filtering | Backend + Frontend | Search logic, API, search UI, pagination | should |
+> | 5 | CI/CD pipeline | Pipeline | Lint, test, build, deploy stages | should |
 >
 > "Want to:"
-> - **Follow this sequence** — I'll implement in order, one block at a time
-> - **Start from a specific step** — jump to any step (I'll note unbuilt dependencies)
+> - **Follow this plan** — skeleton first, then slabs in order
+> - **Start from a specific slab** — jump to any slab (I'll note missing dependencies)
 > - **Adjust the order** — tell me what to move
-> - **Just do the MVP** — implement only "must" priority items
-> - **I have my own order** — tell me what to implement first
+> - **Just do the MVP** — skeleton + "must" slabs only
+> - **I have my own order** — tell me what to build first
 
 **If no architecture/requirements exist:** Ask the user what to build first. Don't guess the sequence.
 
-**Track progress.** After each block, update the sequence:
+### Commit Strategy
+
+**One commit per slab** (or per logical sub-slab if a slab is large). Each commit should:
+- Be explainable in one sentence
+- Pass all tests
+- Not break the skeleton or prior slabs
+- Include security hardening for that slab (not deferred)
+
+> After each slab: "Slab [N] complete. Tests passing. Ready to commit: '[one-sentence description]'. Proceed?"
+
+**Track progress.** After each slab, update:
 > "Progress:"
-> - ✅ 1. Data models — done
-> - ✅ 2. Auth — done
-> - 🔨 3. Core API — in progress
-> - 🟡 4-7 — upcoming
+> - ✅ Skeleton — running
+> - ✅ Slab 1: Auth system — done
+> - 🔨 Slab 2: Recipe CRUD — in progress
+> - 🟡 Slab 3-5 — upcoming
 
 Save this to the implementation report so it persists across conversations.
 
@@ -181,19 +244,27 @@ Save this to the implementation report so it persists across conversations.
 
 ### Mode Selection
 
-Determined by the current step in the sequence. If following a sequence, auto-select the mode — don't ask.
+Determined by the current slab in the sequence. If following a sequence, auto-select the mode — don't ask. A single slab may use **multiple modes** if it cuts across layers (e.g., auth slab = Backend + Security).
 
 If no sequence (user asked for a specific feature):
 
 > "What are we implementing?"
-> - **Backend** — API endpoints, business logic, data models, database operations
-> - **Frontend** — UI components, state management, API integration, styling
-> - **Security** — Authentication, authorization, input validation, data protection
+> - **Backend** — Business logic, data models, core algorithms, API endpoint logic
+> - **Frontend** — UI components, state management, interaction logic
+> - **Security** — Authentication logic, authorization rules, input validation, data protection
 > - **ML/Data** — ML models, data pipelines, training, inference, data validation
-> - **LLM Integration** — LLM provider setup, prompt management, response handling, safety
-> - **Pipeline** — CI/CD, build automation, deployment, test infrastructure
+> - **LLM Integration** — Prompt logic, response handling, safety layers
+> - **Pipeline** — CI/CD logic, test infrastructure
 >
 > If requirements/architecture docs exist, infer the mode from context rather than asking. E.g., if the user says "implement the chat feature" and LLM Strategy exists in requirements, go straight to LLM Integration mode.
+
+**Implementation = pure logic.** Each mode focuses on testable business logic, not wiring/config/boilerplate. The walking skeleton handles scaffold work. If a slab needs config or wiring (e.g., adding a new middleware, configuring a new SDK), do that as part of the slab setup, then switch to TDD for the logic.
+
+**Multi-mode slabs.** When a slab crosses modes (common for vertical slices), implement in this order within the slab:
+1. **Security first** — if the slab touches auth, user data, or external APIs, implement security constraints before the business logic. TDD: write the attack test first, then implement the defense.
+2. **Backend/ML/LLM logic** — core business logic with TDD
+3. **Frontend** — UI that consumes the backend, with component tests
+4. **Integration check** — verify the full slice works end-to-end
 
 ### Test Approach
 
@@ -204,43 +275,52 @@ If no sequence (user asked for a specific feature):
 - Use the specified **CI/CD expectations** — if tests must pass to merge, make sure they're reliable (no flaky tests)
 - Use the specified **regression policy** — know what must be tested before every release
 
-**Then ask the approach** (or infer from testing level):
+**TDD is the default for all business logic.** Don't ask — just do TDD. The only exceptions:
 
-> "How do you want to approach testing?"
-> - **TDD (recommended)** — Write failing tests first, then implement to make them pass, then refactor
-> - **Implement then test** — Write the code first, then add comprehensive tests
-> - **Just implement** — No tests. ⚠️ I'll warn you, but I'll respect your choice.
-> - **Just write tests** — For existing untested code. Point me to what needs tests.
+| Situation | Approach | Why |
+|-----------|----------|-----|
+| Business logic, data models, core features | **TDD** (always) | This is what TDD is built for |
+| Walking skeleton / scaffold | **No tests** | Wiring and config, not logic. Get it running. |
+| Unfamiliar library / API | **Explore first, then TDD** | Write throwaway code to learn the API, then rewrite with tests. Flag this: "I'm exploring [library] first, then I'll rewrite with TDD." |
+| TDD is genuinely blocking | **Implement then test** | Only if you tried TDD and hit a wall. Flag this: "TDD isn't working here because [reason]. Implementing first, then adding tests." |
 
-If testing level is "rigorous", default to TDD without asking.
+**The user can override** any of this. If they say "no tests" or "implement first", respect it — but warn once.
+
+> "I'll use TDD for all business logic in this slab. If I hit a wall with an unfamiliar library, I'll explore first and rewrite with tests. Sound good?"
 
 ## Step 4: Implementation Cycle
 
-### TDD Cycle (default)
+### Per-Slab Cycle
 
-For EACH small block of functionality:
-
-```
-1. UNDERSTAND — What exactly does this block do?
-2. TEST FIRST — Write a failing test that describes the expected behavior
-3. RUN TEST — Confirm it fails (red)
-4. IMPLEMENT — Write the minimum code to make the test pass
-5. RUN TEST — Confirm it passes (green)
-6. REFACTOR — Clean up without changing behavior
-7. RUN TEST — Confirm still green
-8. NEXT BLOCK — Move to the next piece
-```
-
-### Implement-Then-Test Cycle
+For each slab in the sequence:
 
 ```
-1. UNDERSTAND — What exactly does this block do?
-2. IMPLEMENT — Write the code
-3. WRITE TESTS — Comprehensive: happy path, edge cases, error cases
-4. RUN TESTS — All must pass
-5. REFACTOR if needed
-6. NEXT BLOCK
+1. SETUP — Any scaffold/wiring needed for this slab (no TDD — just get it connected)
+2. SECURITY — If this slab touches auth/user data/external APIs: write attack tests first, implement defenses (Security mode)
+3. TDD LOOP — For each piece of business logic in the slab:
+   a. TEST FIRST — Write a failing test that describes the expected behavior
+   b. RUN TEST — Confirm it fails (red)
+   c. IMPLEMENT — Write the minimum code to make the test pass
+   d. RUN TEST — Confirm it passes (green)
+   e. REFACTOR — Clean up without changing behavior
+   f. RUN TEST — Confirm still green
+4. INTEGRATE — Verify the full slice works end-to-end (skeleton still runs, prior slabs still pass)
+5. COMMIT — One slab = one commit slab. All tests passing.
 ```
+
+### When TDD Hits a Wall
+
+If TDD genuinely blocks progress (unfamiliar library, complex integration, unclear API):
+
+```
+1. FLAG — "TDD isn't working here because [reason]. Exploring first."
+2. EXPLORE — Write throwaway code to understand the library/API
+3. LEARN — Identify the patterns, inputs, outputs, edge cases
+4. REWRITE WITH TDD — Now that you understand it, write proper tests first, then implement
+5. DELETE — Remove all throwaway/exploratory code
+```
+
+This is NOT "implement then test." You still end up with test-first code. You just needed a learning phase.
 
 ### Just Write Tests (for existing code)
 
@@ -328,14 +408,25 @@ Use the test framework specified in architecture doc's Testing Architecture sect
 
 **What it implements:** Auth, authorization, input validation, XSS/CSRF protection, secret management, data protection.
 
+**Security is stitched into feature slabs, not a standalone phase.** When a slab touches auth, user data, or external APIs, Security mode activates as step 2 of the per-slab cycle (before business logic). This ensures security is baked in from the start, not bolted on at the end.
+
 **TDD pattern:** Threat model first, then write attack tests, then implement defenses.
 
 ```
-1. THREAT MODEL — What can go wrong? (injection, auth bypass, data leak)
+1. THREAT MODEL — What can go wrong in THIS slab? (injection, auth bypass, data leak)
 2. ATTACK TESTS — Write tests that simulate each attack
 3. IMPLEMENT DEFENSE — Write code that makes attack tests pass (attacks are blocked)
 4. VERIFY — Run tests, confirm defenses work
+5. CONTINUE — Move to step 3 (TDD loop) of the per-slab cycle for business logic
 ```
+
+**When Security mode activates within a slab:**
+- Auth slab → full auth security: password hashing, token handling, session management
+- Any API slab → input validation, rate limiting, CORS
+- LLM slab → prompt injection defense, PII filtering, output validation (cross-reference G9)
+- Payment slab → PCI compliance, transaction validation
+- File upload slab → file type validation, size limits, malware scanning
+- Data export slab → authorization checks, PII redaction
 
 **What to test:**
 - [ ] Authentication: valid/invalid/expired/missing credentials
@@ -381,7 +472,9 @@ If upstream docs exist, follow them. Don't re-decide what's already decided.
 
 ### LLM Integration Mode
 
-**What it implements:** LLM provider SDK setup, prompt management, response handling, safety layers.
+**What it implements:** Prompt logic, response handling, safety layers.
+
+**LLM integration is stitched into feature slabs that use AI.** The SDK setup and config happen in the skeleton or slab setup (no TDD). The prompt logic, response validation, and safety are business logic — use TDD.
 
 **Before writing code, check what upstream docs specify:**
 - **Provider + SDK** (from requirements/architecture): Use the specified provider (Anthropic, OpenAI, etc.) and integration approach (direct SDK, abstraction layer, agent framework). Don't suggest a different provider.
@@ -422,6 +515,8 @@ If upstream docs exist, follow them exactly. If they don't exist, ask the user w
 ### Pipeline Mode
 
 **What it implements:** CI/CD, build scripts, deployment automation, test infrastructure, environment setup.
+
+**Pipeline is typically its own slab** (not stitched into feature slabs). It runs after enough feature slabs exist to have meaningful tests to automate.
 
 **TDD pattern:** Smoke tests first, then stage verification.
 
