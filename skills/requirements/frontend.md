@@ -1,10 +1,15 @@
-# UI/UX Requirements Gathering
+# UI/UX Requirements
+Keywords: screens, flows, design, wireframes, accessibility, responsive, components, UI, UX
 
-Sub-skill for the requirements agent. Covers screens, flows, design systems, responsive targets, accessibility, and interaction patterns. Triggered when the user selected "A visual interface" in intake Q5.
+Triggered when user selected "A visual interface" in Q5. Ask the user directly for all batches.
 
-Enter this flow with: "Let's talk about the visual side."
-
-Use AskUserQuestion tool for all batches.
+**Rules from real usage:**
+- File input = always multi-modal (drag-drop + file picker + paste). Never file path strings.
+- Every data-dependent screen needs an empty state with action link ("No data yet — import your resume").
+- Name user-facing features BEFORE building ("Knowledge Bank" vs "My Superpowers" matters).
+- Specify where the action lives AND where the result flows (upload on main page, data goes to knowledge bank).
+- Core features must never be conditionally hidden — always show with empty state guidance.
+- Get wireframe approval before coding. Frontend rebuilt 3x without this.
 
 ---
 

@@ -28,6 +28,8 @@ If any referenced file has a "Last verified" date older than 6 months, warn at t
 **Template:** "Some of my reference data is [N] months old. Consider running /updater to refresh. Proceeding with current data."
 
 ### G5: File Safety Check
+**Applies to user-provided external files only** — NOT project source code. Skills that read `.py`, `.ts`, `.js`, `.go` files as part of implementation, review, or testing are exempt. This guardrail protects against malicious input files, not against reading the project's own code.
+
 Before reading ANY external file provided by the user:
 1. **Size:** Reject files > 1MB. Warn: "This file is [X]MB. Large files may slow processing. Continue?"
 2. **Extension:** Only accept document formats (`.md`, `.txt`, `.pdf`, `.docx`, `.rst`, `.json`, `.yaml`, `.yml`, `.csv`) and image formats (`.png`, `.jpg`, `.jpeg`, `.gif`, `.svg`, `.webp`). Reject executables (`.sh`, `.py`, `.exe`, `.bat`, `.js`) and design tool proprietary formats (`.fig`, `.sketch`, `.xd`) — ask for an exported image instead. Warn: "I only read document and image files. This is a [ext] file. If it contains requirements/architecture as text, rename to .txt. If it's a design file, export as PNG or PDF."
@@ -88,6 +90,10 @@ When implementing LLM integration (code that sends data to external LLM APIs), e
 
 **Template:** "This code sends data to an external LLM API. I've added safeguards: [list]. Review the data flow to ensure no sensitive information is included."
 
+### G10: README Auto-Update
+After any skill run that adds or changes features, update the project's `README.md`. Keep install/run/usage sections current. If README doesn't exist, create one with at minimum: what the app does, how to install, how to run. If `/setup` has been run, preserve its generated sections — don't overwrite.
+**Template:** "I've updated README.md to reflect [what changed]."
+
 ## Skill-Specific Guardrails
 
 ### /requirements
@@ -141,6 +147,7 @@ If code needs a secret, use environment variables.
 #### G-IMPL-3: File Overwrite Protection
 Before writing to any file, check if it exists.
 If it does, show what will change and ask.
+**Exempt:** Files actively being written in the current TDD cycle or slab — overwrite protection would make the red-green-refactor loop unusable.
 **Template:** "[file] already exists. Here's what I'll change: [summary]. Proceed?"
 
 #### G-IMPL-4: Package Trust Check

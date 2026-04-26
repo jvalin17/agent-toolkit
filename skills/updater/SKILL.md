@@ -1,6 +1,6 @@
 ---
 name: updater
-description: Guardian of agent-toolkit. Audits skills for relevance, security, and standards compliance. Checks references, validates against industry best practices, ensures skills follow latest guidelines from Anthropic, Google, OpenAI.
+description: Audit toolkit health, freshness, security, standards. Keywords: updater, audit, outdated, stale, security, OWASP, refresh, check links, standards, compliance
 user-invocable: true
 ---
 

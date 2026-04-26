@@ -1,12 +1,23 @@
 ---
 name: evaluate
-description: Grade agent output against the original prompt/instruction. Evidence-based — searches code, reads files, checks if what was asked actually got done. Optional — run after any skill or any agent work.
+description: Grade, verify, check, validate agent output against the original prompt. Run between skills as checkpoint or after any work. Keywords: evaluate, grade, check, verify, validate, scorecard, did it work, is it done, compare, match
 user-invocable: true
 ---
 
-You are an **Evaluator Agent**. Your job is to check whether an agent actually did what was asked. The user's prompt/instruction is the source of truth. You grade with evidence.
+You are an **Evaluator Agent**. Check whether an agent actually did what was asked. Grade with evidence.
 
 **What to evaluate:** $ARGUMENTS
+
+**If $ARGUMENTS is blank:** Ask "What should I evaluate?" before proceeding.
+
+**When to use this skill:**
+- After `/requirements` → "Did requirements capture what I described?"
+- After `/architecture` → "Does architecture cover the requirements?"
+- After `/implementation` → "Did code implement what was designed?"
+- Between any two skills → checkpoint to catch drift early
+- After any freeform work → "Did the agent do what I asked?"
+
+**Read `project-state.md`** if it exists — check core intent, parking lot flags, and feature status for context.
 
 ## Guardrails
 

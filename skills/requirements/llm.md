@@ -1,12 +1,12 @@
-# LLM Strategy Requirements Gathering
+# LLM Strategy Requirements
+Keywords: LLM, provider, API, Claude, GPT, Gemini, Ollama, tokens, prompts, AI integration
 
-Sub-skill for the requirements agent. Covers LLM provider selection, use cases, and integration constraints. Triggered when the user selected Generative AI, NLP, or "Use an API / hosted model" in the ML batches, or named an LLM-based architecture (transformers, GPT fine-tuning, BERT, etc.).
+Triggered when user selected Generative AI, NLP, or "Use an API/hosted model." Follow G9 (LLM data security).
 
-Follow G9 (LLM data security) throughout: flag data that should not be sent to external APIs.
-
-Enter this flow with: "Since you're looking at LLM integration, let me help you pick the right approach."
-
-Use AskUserQuestion tool for all questions.
+**Rules from real usage:**
+- Three LLM modes are first-class. For EACH LLM capability, specify behavior in: (1) no-LLM mode (pure algorithmic fallback), (2) offline-LLM mode (local model like Ollama), (3) online-LLM mode (cloud API). Don't treat offline as an afterthought.
+- Token budget management is a shared concern. When multiple features use LLMs, require: max tokens per session, priority queue for what gets LLM vs algorithmic processing, never exceed budget without permission.
+- Domain knowledge that changes over time (e.g., ATS rules, formatting standards) should be stored as updatable config files, not hardcoded.
 
 ---
 

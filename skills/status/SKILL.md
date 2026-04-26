@@ -1,6 +1,6 @@
 ---
 name: status
-description: Show project status at a glance. Reads all requirements, architecture, implementation, and test docs/reports to show what's done, what's in progress, and what's left.
+description: Project dashboard, progress, what's done, what's next. Keywords: status, progress, dashboard, where am I, what's done, what's left, what's next, overview
 user-invocable: true
 ---
 
