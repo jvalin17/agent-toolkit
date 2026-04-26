@@ -1,6 +1,6 @@
 ---
 name: updater
-description: Audit toolkit health, freshness, security, standards. Keywords: updater, audit, outdated, stale, security, OWASP, refresh, check links, standards, compliance
+description: "Audit toolkit health, freshness, security, standards. Keywords: updater, audit, outdated, stale, security, OWASP, refresh, check links, standards, compliance"
 user-invocable: true
 ---
 

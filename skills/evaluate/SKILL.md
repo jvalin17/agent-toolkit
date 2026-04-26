@@ -1,6 +1,6 @@
 ---
 name: evaluate
-description: Grade, verify, check, validate agent output against the original prompt. Run between skills as checkpoint or after any work. Keywords: evaluate, grade, check, verify, validate, scorecard, did it work, is it done, compare, match
+description: "Grade, verify, check, validate agent output against the original prompt. Run between skills as checkpoint or after any work. Keywords: evaluate, grade, check, verify, validate, scorecard, did it work, is it done, compare, match"
 user-invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: architecture
-description: Design system architecture with trade-offs. Keywords: architecture, design, database, API, frontend, backend, security, scaling, decisions, tech stack, patterns
+description: "Design system architecture with trade-offs. Keywords: architecture, design, database, API, frontend, backend, security, scaling, decisions, tech stack, patterns"
 user-invocable: true
 ---
 

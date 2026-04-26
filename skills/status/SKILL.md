@@ -1,6 +1,6 @@
 ---
 name: status
-description: Project dashboard, progress, what's done, what's next. Keywords: status, progress, dashboard, where am I, what's done, what's left, what's next, overview
+description: "Project dashboard, progress, what's done, what's next. Keywords: status, progress, dashboard, where am I, what's done, what's left, what's next, overview"
 user-invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: requirements
-description: Gather, scope, and validate project requirements. Keywords: requirements, features, scope, user stories, what to build, planning, intake, MVP, priority
+description: "Gather, scope, and validate project requirements. Keywords: requirements, features, scope, user stories, what to build, planning, intake, MVP, priority"
 user-invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Review code, test coverage, runtime behavior, accessibility, dependencies, and UI quality. Keywords — review, test, coverage, quality, accessibility, dependencies, smoke test, validate, audit code
+description: "Review code, test coverage, runtime, accessibility, dependencies, UI quality. Keywords: review, test, coverage, quality, a11y, smoke test, validate, audit"
 user-invocable: true
 ---
 

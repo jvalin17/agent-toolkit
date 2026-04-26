@@ -1,6 +1,6 @@
 ---
 name: implementation
-description: Build features with TDD. Skeleton first, then feature slabs. Fix bugs, refactor, demo mode. Keywords: implement, build, code, TDD, skeleton, slab, fix, debug, refactor, demo
+description: "Build features with TDD. Skeleton first, then feature slabs. Fix bugs, refactor, demo mode. Keywords: implement, build, code, TDD, skeleton, slab, fix, debug, refactor, demo"
 user-invocable: true
 ---
 
