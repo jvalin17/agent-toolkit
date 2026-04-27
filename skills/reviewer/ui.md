@@ -1,5 +1,5 @@
 # UI Review
-Keywords: overflow, empty state, placeholder, false success, layout, UX, broken, hidden feature
+Keywords: overflow, empty state, placeholder, false success, layout, UX, broken, hidden feature, blank page, loading failure, Promise.all
 
 For guardrails and principles, see main SKILL.md.
 
@@ -98,6 +98,17 @@ When a user triggers an action, the result should appear where they're looking.
 - Search results appear in a different section from the search bar
 - Action feedback appears at the top of a long page while user is scrolled down
 - Modal closes and result is somewhere the user has to find
+
+## Step 7: Silent Loading Failures
+
+**This is the #1 cause of blank UI pages.** Check every component that loads data from APIs:
+
+- **No Promise.all for independent data.** Search for `Promise.all` — if it loads display data from multiple endpoints, flag it. One failing endpoint kills ALL of them. Each data source must load independently with its own try/catch.
+- **Error boundaries.** Every data-loading component should have error handling that shows a message, not a blank screen.
+- **Health checks vs availability.** If UI shows "connected" or "available" for an API/service, verify it actually makes a test query — not just checks if a key exists.
+- **Verify all API endpoints return data.** After any frontend change, check that each endpoint the page calls returns valid data. A 500 error that's caught silently = blank component.
+
+**Test pattern:** For each page, list every API call it makes. Verify each one independently. Then verify the page renders with 1 endpoint failing — it should degrade gracefully, not go blank.
 
 ## Output Format
 

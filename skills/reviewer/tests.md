@@ -145,6 +145,25 @@ Report results:
 >
 > **Coverage:** 23% -> 78%
 
+## Live Integration Tests
+
+Every external API integration needs at least 1 live test with a separate marker:
+
+```python
+@pytest.mark.live  # Only runs with: pytest -m live
+def test_jsearch_returns_results():
+    results = search_jobs("python developer", "remote")
+    assert len(results) > 0
+    assert results[0].title  # not empty
+```
+
+- Use `@pytest.mark.live` (Python) or `describe.skip` / test tags (JS) to isolate from unit tests
+- Live tests verify the real API works end-to-end — they catch silent failures that mocks miss
+- Don't include in default `pytest` / `npm test` — run separately
+- Minimum 1 live test per external service
+
+## Test File Header
+
 Add a comment block at the top of each new test file:
 ```
 /**

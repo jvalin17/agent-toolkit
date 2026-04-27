@@ -33,16 +33,29 @@ Use the test framework specified in the architecture doc's Testing Architecture 
 - **Snapshot:** Visual regression for key components (only if Testing Requirements specify visual regression)
 - **Accessibility:** Automated a11y checks (only if Testing Requirements specify accessibility testing)
 
+## Frontend Resilience Rules (from real usage — these prevent UI breaking)
+
+1. **Never use Promise.all for independent data loading.** Load each data source independently. One failing endpoint must not blank out the entire page. Use individual try/catch per fetch.
+2. **All dynamic text must handle overflow.** Any text from user data or API responses: `truncate` + `overflow-hidden` + `max-w`. Test with long strings like "Senior_Backend_Engineer_Resume_2026-04-27.pdf".
+3. **Core features must never be conditionally hidden.** Always render with empty state + action link. Never `{data && <Component>}` for primary features — show the component with "No data yet — [action to get data]".
+4. **Results appear where the action was triggered.** Don't redirect to another tab/page after an action. Show results inline.
+5. **No false success messages.** Never show "Done!" or "Success!" for actions that haven't completed. Show "In progress..." or "Confirm when complete."
+6. **Dev workflow note:** After modifying frontend code, tell user: "Restart dev server or hard-refresh browser to see changes."
+7. **Health checks, not just availability checks.** If displaying "API connected" or provider status, verify with a test query — not just "key exists."
+
 ## Checklist Per Block
 
 - [ ] Component renders without errors
 - [ ] Props are reflected in output
 - [ ] User interactions trigger correct callbacks
-- [ ] Loading/error/empty states handled
-- [ ] Accessibility level matches requirements (WCAG AA/AAA/basic)
-- [ ] Component follows the specified architecture pattern (atomic/feature-based/flat)
+- [ ] Loading/error/empty states handled (independently per data source)
+- [ ] Dynamic text has overflow protection
+- [ ] Core features visible even when empty
+- [ ] No Promise.all for display data from multiple endpoints
+- [ ] Accessibility level matches requirements
+- [ ] Component follows the specified architecture pattern
 - [ ] Styling uses the specified approach
-- [ ] Provider wrappers included in test setup (check what context the component needs)
+- [ ] Provider wrappers included in test setup
 
 ## TDD Cycle
 
