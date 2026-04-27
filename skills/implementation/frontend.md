@@ -67,5 +67,48 @@ For each piece of UI logic in the slab:
 4. **RUN TEST** — Confirm it passes (green)
 5. **REFACTOR** — Clean up without changing behavior
 6. **RUN TEST** — Confirm still green
+7. **RESILIENCE CHECK** — Run the 7-item frontend check below. **This step is mandatory.**
+
+## Post-Write Resilience Check (runs after EVERY component write or modify)
+
+**This is not optional.** After writing or modifying ANY component, scan it against all 7 items. Fix violations before moving to the next component.
+
+```
+For [component just written/modified]:
+
+[ ] 1. PROMISE.ALL — Does this component load data from multiple endpoints?
+      If yes: are they loaded independently with separate try/catch?
+      FAIL if: Promise.all groups unrelated fetches
+
+[ ] 2. OVERFLOW — Does this component display dynamic text (user data, API response, filenames)?
+      If yes: does every dynamic text element have truncate + overflow-hidden + max-w?
+      FAIL if: any dynamic text lacks overflow protection
+
+[ ] 3. EMPTY STATE — Is this a core feature component?
+      If yes: does it render when data is empty/null/undefined with an action link?
+      FAIL if: component is conditionally hidden ({data && <Component>}) for a primary feature
+
+[ ] 4. INLINE RESULTS — Does this component trigger an action (submit, search, generate)?
+      If yes: do results appear in the same view, not a redirect to another page/tab?
+      FAIL if: action redirects away from where user triggered it
+
+[ ] 5. SUCCESS MESSAGES — Does this component show a success/done/complete message?
+      If yes: does the message appear AFTER the action actually completes (after API response, not before)?
+      FAIL if: success shown before the action is confirmed complete
+
+[ ] 6. ERROR ISOLATION — Does this component call APIs?
+      If yes: does a failed API call show an error message in THIS component, not blank the page?
+      FAIL if: error in one component's data loading affects other components
+
+[ ] 7. HEALTH vs AVAILABILITY — Does this component show connection/status indicators?
+      If yes: does it verify with a real test query, not just check if a key/URL exists?
+      FAIL if: "Connected" badge shown without verifying the service actually responds
+```
+
+**If any item fails:** Fix it immediately before proceeding. Don't accumulate UI debt.
+
+**Report format after check:**
+> "Resilience check for [ComponentName]: 7/7 passed" or
+> "Resilience check for [ComponentName]: 5/7 — fixing #2 (overflow) and #3 (empty state)"
 
 For guardrails and core principles, see the main `SKILL.md`.
