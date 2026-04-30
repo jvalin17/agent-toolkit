@@ -25,6 +25,8 @@ Requires `jq` for the auto-update hook (skips gracefully if missing).
 | `/architecture` | Design architecture with trade-offs. User journey mandatory. Legal/ToS checks. Concurrency warnings. |
 | `/implementation` | Build with TDD. Skeleton with frontend foundation (types, API client, hooks, ErrorBoundary). Feature slabs. Fix, refactor, demo modes. Post-feature hardening pass. |
 | `/reviewer` | Review code + write tests + smoke test + accessibility + dependency audit + UI validation (Promise.all detection, empty states, false success, overflow). |
+| `/explore` | Get familiar with any codebase (or multiple repos). Deep-dive tech stack, architecture, features, conventions, issues. Read-only. |
+| `/debug` | Systematic debugging. Hypothesis-driven, layer-by-layer diagnosis. Reproduce with test, then fix (optional). 3-strikes escalation. |
 | `/setup` | Generate install scripts, Docker, Makefile, README. One-command setup, platform agnostic. |
 | `/status` | Project dashboard. What's done, what's next. Reads all docs and reports. |
 | `/evaluate` | Grade output against the original prompt. Run between any skills as checkpoint. |
@@ -82,6 +84,35 @@ Phase 2: Feature Slabs (TDD for logic, security stitched in)
 Phase 3: Frontend Hardening (ONCE, after features stabilize)
   Crash prevention, stuck-state prevention, silent-lie prevention,
   security audit, code quality cleanup. Not mixed into feature work.
+```
+
+### Explore Any Codebase
+
+```
+/explore /path/to/unfamiliar-repo
+
+-> Phase 1: Reconnaissance (glob/grep, never reads everything)
+-> Phase 2: Architecture mapping (patterns, data flow, key dependencies)
+-> Phase 3: Convention detection (naming, error handling, test patterns)
+-> Phase 4: Feature & issue mapping (what works, what's broken, TODOs)
+-> Outputs project-state.md with Codebase Index
+
+Multi-repo: /explore /repo-a /repo-b
+-> Maps API contracts, shared types, deployment relationships
+```
+
+### Debug Anything
+
+```
+/debug multiplayer is broken
+
+-> Symptom: multiplayer lobby shows 0 players
+-> Hypotheses: [H1] WebSocket disconnect not broadcast (high)
+               [H2] Game cleanup removing active games (medium)
+-> Investigation: [H1] CONFIRMED — websocket.py:240 catches
+   WebSocketDisconnect but never emits player_left event
+-> Reproducing test written and failing
+-> "Want me to fix it?" -> yes -> fixed, test passes, regression added
 ```
 
 ### Fix, Refactor, Demo Modes
@@ -150,6 +181,7 @@ shared/                  guardrails.md + report-format.md + project-state-templa
 | `pattern-advisor` | Design patterns for specific problems |
 | `scale-advisor` | What changes at each scale level |
 | `codestructure-analyzer` | Analyze existing codebase structure and conventions |
+| `readme-validator` | Verify every claim in README is actually true |
 
 ## Guardrails
 
@@ -164,9 +196,11 @@ See `shared/guardrails.md` for full details.
 ## Quick Start
 
 ```
+/explore /path/to/repo        # understand any codebase
 /requirements my-app         # gather requirements
 /architecture my-app         # design architecture
 /implementation my-app       # skeleton + slabs with TDD
+/debug something is broken   # systematic diagnosis + fix
 /reviewer my-app             # code + tests + a11y + smoke test
 /setup my-app                # install scripts + Docker + README
 /status my-app               # where am I? what's next?

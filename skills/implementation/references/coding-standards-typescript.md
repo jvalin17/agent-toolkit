@@ -149,6 +149,63 @@ try {
 try { await searchJobs(query); } catch {}
 ```
 
+## Defensive API Patterns
+
+```typescript
+// GOOD: guard API response shape before using it
+const data = await api.listJobs();
+setJobs(Array.isArray(data) ? data : []);
+
+// BAD: trust the cast
+const data = await api.listJobs() as Job[];
+setJobs(data);  // crashes if data is {jobs: [...]} or {detail: "error"}
+
+// GOOD: safe JSON parsing for DB/API strings
+function safeJsonParse(value: unknown, fallback: unknown = {}): unknown {
+  if (typeof value !== "string") return value || fallback;
+  try { return JSON.parse(value) || fallback; }
+  catch { return fallback; }
+}
+
+// BAD: unguarded JSON.parse
+const parsed = JSON.parse(job.parsed_data);  // throws on "", "null", malformed
+
+// GOOD: check response.ok on raw fetch
+const r = await fetch("/api/settings", { method: "PUT", body: JSON.stringify(data) });
+if (!r.ok) { setError(`Save failed (${r.status})`); return; }
+setMessage("Saved");
+
+// BAD: assume fetch succeeded
+await fetch("/api/settings", { method: "PUT", body: JSON.stringify(data) });
+setMessage("Saved");  // shows success even on 500
+
+// GOOD: loading state with try/finally
+setLoading(true);
+try {
+  await api.matchBatch(ids);
+} catch {
+  setError("Matching failed");
+} finally {
+  setLoading(false);  // always resets, even on error
+}
+
+// BAD: loading state without finally
+setLoading(true);
+await api.matchBatch(ids);  // if this throws, loading stays true forever
+setLoading(false);
+```
+
+**Rules:**
+- `Array.isArray()` before `.map()` on any API response.
+- `try/catch` with safe fallback around every `JSON.parse` of external data.
+- `response.ok` check on every raw `fetch()` before success path.
+- `try/finally` around every `setLoading(true)` block.
+- Never clear user input (`setApiKey("")`) before confirming the save succeeded.
+- User-provided URLs: validate scheme (`/^https?:\/\//`) before rendering as `<a href>`.
+- File drag-drop: enforce same extension filter as `<input accept>`.
+- Per-item async data: use `Record<id, data>` not a single shared state variable.
+- Only set `Content-Type` header when the request has a body.
+
 ## File Organization
 ```
 src/
