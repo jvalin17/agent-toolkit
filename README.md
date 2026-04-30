@@ -23,8 +23,8 @@ Requires `jq` for the auto-update hook (skips gracefully if missing).
 |-------|-------------|
 | `/requirements` | Gather and validate requirements. Drafts early, explore on demand. Auto-researches when you say "idk". |
 | `/architecture` | Design architecture with trade-offs. User journey mandatory. Legal/ToS checks. Concurrency warnings. |
-| `/implementation` | Build with TDD. Skeleton + slabs. Fix, refactor, and demo modes. Dependency weight audit. |
-| `/reviewer` | Review code + write tests + smoke test + accessibility + dependency audit + UI validation. |
+| `/implementation` | Build with TDD. Skeleton with frontend foundation (types, API client, hooks, ErrorBoundary). Feature slabs. Fix, refactor, demo modes. Post-feature hardening pass. |
+| `/reviewer` | Review code + write tests + smoke test + accessibility + dependency audit + UI validation (Promise.all detection, empty states, false success, overflow). |
 | `/setup` | Generate install scripts, Docker, Makefile, README. One-command setup, platform agnostic. |
 | `/status` | Project dashboard. What's done, what's next. Reads all docs and reports. |
 | `/evaluate` | Grade output against the original prompt. Run between any skills as checkpoint. |
@@ -68,13 +68,20 @@ All skills read and write `project-state.md` in your project root. This is the s
 
 ```
 Phase 1: Walking Skeleton (no TDD -- scaffold)
-  1 table + 1 endpoint + 1 page = architecture proved
+  Backend: 1 table + 1 endpoint + DB connection
+  Frontend: 1 page + API call + ErrorBoundary + types/index.ts
+            + api/client.ts + useAsync hook + toast library
+  = architecture proved + frontend foundation ready
 
 Phase 2: Feature Slabs (TDD for logic, security stitched in)
   Slab 1: Auth (Backend + Security)
   Slab 2: Core CRUD (Backend + Frontend)
   Slab 3: AI features (Backend + LLM + Security)
   One commit per slab. All tests passing.
+
+Phase 3: Frontend Hardening (ONCE, after features stabilize)
+  Crash prevention, stuck-state prevention, silent-lie prevention,
+  security audit, code quality cleanup. Not mixed into feature work.
 ```
 
 ### Fix, Refactor, Demo Modes
@@ -123,7 +130,7 @@ Each skill is a lean orchestrator (under 350 lines) that reads sub-skill files o
 ```
 skills/requirements/     127 lines base + 4 sub-skills + 7 references
 skills/architecture/     117 lines base + 8 sub-skills + 4 references
-skills/implementation/   152 lines base + 7 sub-skills + 7 references
+skills/implementation/   186 lines base + 7 sub-skills + 7 references
 skills/reviewer/         103 lines base + 6 sub-skills
 skills/setup/            350 lines (standalone)
 skills/status/           143 lines (standalone)
