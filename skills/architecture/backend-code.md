@@ -3,6 +3,10 @@ Keywords: modules, patterns, SOLID, DRY, KISS, dependencies, plugins, data flow,
 
 Code organization, design patterns, and extension points. 10 decisions + validation steps.
 
+**Rules from real usage:**
+- Cross-cutting concerns (budget, auth, logging, rate limiting) go in the wrapper/middleware, not in each caller. If 6 services all need budget checks, put it in the LLM provider wrapper — one place, catches all calls.
+- Soft limits (budget, rate limiting, warning thresholds) follow the force_override pattern: check -> reject with details -> frontend shows confirmation -> retry with `force_override: true` flag. Never silently block or silently allow.
+
 ## Code Structure & Patterns
 
 5 decisions covering how the codebase is organized.

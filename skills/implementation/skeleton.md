@@ -42,6 +42,19 @@ The skeleton is scaffold work, not business logic. It is wiring: config, project
 
 If the architecture specifies authentication, include a basic auth middleware in the skeleton. Do not implement full RBAC or permissions yet — just enough to prove the auth flow works (login, token, protected endpoint). Full security hardening comes with the feature slabs.
 
+## Frontend Foundation (if project has UI)
+
+Before writing the first component, the skeleton must include these files. They are day-1 infrastructure, not polish:
+
+| File | Why | What |
+|------|-----|------|
+| `types/index.ts` | All interfaces in one place. Prevents duplicate types and `as unknown as` casts. | Domain model interfaces (User, Job, etc.) |
+| `api/client.ts` | Typed API wrapper. No raw `fetch()` in components. Checks `response.ok`, throws on error. | One function per endpoint, typed returns |
+| `hooks/useAsync.ts` | Prevents duplicated loading/error/try-finally pattern across components. ~40 lines. | `const { data, loading, error } = useAsync(() => api.getJobs())` |
+| Toast library | Every catch must show a user-visible message. Silent catches = invisible failures. | Install `sonner` or equivalent. Add `<Toaster />` to App. |
+| `ErrorBoundary.tsx` | Without this, ANY unhandled throw blanks the entire screen. | Wraps all routes. Shows "Something went wrong" + retry, not white screen. |
+| `components/shared/` | Prevents copy-pasting the same pattern 4+ times. | Directory ready for Modal, StatCard, etc. |
+
 ## Commit as First Slab
 
 After the skeleton runs end-to-end, commit it as the first slab. Then move to feature slabs.

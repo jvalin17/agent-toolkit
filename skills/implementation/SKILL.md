@@ -143,7 +143,41 @@ When TDD hits a wall: FLAG → EXPLORE (throwaway code) → REWRITE WITH TDD →
 
 After each slab: code quality, security concerns, test quality (behavior not implementation).
 
-## Step 9: Summary
+**Naming enforcement:** Every variable, function, and class you write must use full descriptive names. No single-letter variables except i/j/k in loops and e in exceptions. No abbreviations (`svc`, `repo`, `conn`, `prefs`, `buf`). This is checked per block, not as a cleanup step.
+
+## Step 9: Frontend Hardening Pass (run ONCE after all frontend slabs stabilize)
+
+**Do not run this during feature work.** Finish features first, then harden. Mixing hardening with feature work makes code messier.
+
+After all frontend features are complete and tested, run this systematic pass:
+
+**Crash prevention:**
+- [ ] ErrorBoundary wraps all routes
+- [ ] Every JSON.parse has try/catch with safe fallback
+- [ ] Every API response cast to array has Array.isArray() guard
+
+**Stuck-state prevention:**
+- [ ] Every setLoading(true) has finally { setLoading(false) }
+- [ ] Every async handler has try/catch or try/finally
+
+**Silent-lie prevention:**
+- [ ] Every fetch() checks response.ok before success path
+- [ ] No success message before verifying response
+- [ ] No state cleared before confirming action succeeded
+
+**Security:**
+- [ ] User URLs validated for scheme (https?://)
+- [ ] File drop handlers validate same extensions as input accept
+- [ ] No dangerouslySetInnerHTML on user data
+
+**Code quality:**
+- [ ] No component over 200 lines
+- [ ] No `as unknown as` casts (except dev tooling)
+- [ ] No raw fetch() calls (all through API client)
+- [ ] No silent catches (all show toast.error)
+- [ ] No duplicate patterns (extract to shared/)
+
+## Step 10: Summary
 
 Files changed, test results, sequence progress, next slab.
 

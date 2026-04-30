@@ -33,29 +33,32 @@ Use the test framework specified in the architecture doc's Testing Architecture 
 - **Snapshot:** Visual regression for key components (only if Testing Requirements specify visual regression)
 - **Accessibility:** Automated a11y checks (only if Testing Requirements specify accessibility testing)
 
-## Frontend Resilience Rules (from real usage — these prevent UI breaking)
+## Per-Component Rules (enforced on every component written)
 
-1. **Never use Promise.all for independent data loading.** Load each data source independently. One failing endpoint must not blank out the entire page. Use individual try/catch per fetch.
-2. **All dynamic text must handle overflow.** Any text from user data or API responses: `truncate` + `overflow-hidden` + `max-w`. Test with long strings like "Senior_Backend_Engineer_Resume_2026-04-27.pdf".
-3. **Core features must never be conditionally hidden.** Always render with empty state + action link. Never `{data && <Component>}` for primary features — show the component with "No data yet — [action to get data]".
-4. **Results appear where the action was triggered.** Don't redirect to another tab/page after an action. Show results inline.
-5. **No false success messages.** Never show "Done!" or "Success!" for actions that haven't completed. Show "In progress..." or "Confirm when complete."
-6. **Dev workflow note:** After modifying frontend code, tell user: "Restart dev server or hard-refresh browser to see changes."
-7. **Health checks, not just availability checks.** If displaying "API connected" or provider status, verify with a test query — not just "key exists."
+1. **Max 200 lines per component.** If over, split: orchestrator (state + handlers) + presentational sub-components.
+2. **No raw fetch() in components.** Use the API client from `api/client.ts`. Every response typed.
+3. **No `as unknown as` casts.** If you need a cast, the API client return type is wrong — fix the client.
+4. **No silent catches.** Every `catch` must show `toast.error()` or a user-visible message.
+5. **Import types from `types/index.ts`.** No inline interface definitions in components.
+6. **Every setLoading(true) must have finally { setLoading(false) }.** Otherwise the UI gets stuck forever on error.
+7. **Every API response expected as array must guard with Array.isArray().** APIs change shape. Don't trust casts.
+8. **Shared state across list items: use per-item map.** `Record<id, data>` not a single variable for expandable cards/panels.
+9. **Promise.all: BAD for independent page loads, GOOD for batching loop fetches.** Load unrelated data independently. Use Promise.all ONLY for N fetches of the same type in a loop.
+10. **Frontend defaults for backend data.** Any UI depending on a config/discovery endpoint must have hardcoded fallback defaults so it's never completely blank when backend is unreachable.
+11. **Second copy-paste = extract.** If you paste a pattern a second time, extract to `components/shared/`.
 
-## Checklist Per Block
+## Resilience Rules (from real usage)
 
-- [ ] Component renders without errors
-- [ ] Props are reflected in output
-- [ ] User interactions trigger correct callbacks
-- [ ] Loading/error/empty states handled (independently per data source)
-- [ ] Dynamic text has overflow protection
-- [ ] Core features visible even when empty
-- [ ] No Promise.all for display data from multiple endpoints
-- [ ] Accessibility level matches requirements
-- [ ] Component follows the specified architecture pattern
-- [ ] Styling uses the specified approach
-- [ ] Provider wrappers included in test setup
+1. **No false success.** Check `response.ok` BEFORE any success toast, state clear, or UI update. Never show "Saved" before confirming the save actually worked.
+2. **Core features never conditionally hidden.** Always render with empty state + action link.
+3. **Results appear inline.** Don't redirect after an action.
+4. **Dynamic text: truncate + overflow-hidden + max-w.** Every element displaying user data or filenames.
+5. **Health checks, not availability.** "Connected" badge must verify with a test query.
+6. **Error isolation.** One failed API must not blank other components.
+7. **File input: validate on BOTH click AND drag-drop.** `<input accept>` only filters the picker dialog — drag-drop bypasses it. Validate in the drop handler too.
+8. **User URLs: validate scheme.** `href={userUrl}` allows `javascript:` XSS. Check `/^https?:\/\//` before rendering.
+9. **JSON.parse on external data: always try/catch.** Use a `safeJsonParse()` helper with fallback.
+10. **Dev workflow note:** Tell user to restart dev server or hard-refresh to see changes.
 
 ## TDD Cycle
 
