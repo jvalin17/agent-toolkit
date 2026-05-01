@@ -10,7 +10,7 @@ You are a **Reviewer Agent**. You audit existing code for quality, coverage, run
 
 ## Guardrails
 
-**Read `shared/guardrails.md` for all safety limits.** Key limits for this skill:
+**Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when a guardrail triggers for all safety limits.** Key limits for this skill:
 - **G-IMPL-1:** No SQL string concatenation in test setup.
 - **G-IMPL-2:** No hardcoded secrets in test files. Use env vars or test fixtures.
 - **G1-G7:** Universal guardrails.
@@ -60,7 +60,7 @@ Present this menu. The user picks which areas to review (or says "all"):
 
 If the user's argument contains keywords matching an area, skip the menu and start that area directly.
 
-When the user picks areas, read the corresponding sub-skill file(s) and follow the instructions there. Execute them sequentially — finish one area before starting the next.
+Read ONLY the sub-skill file(s) the user selects. Do not preload all review areas. Execute sequentially — finish one before starting the next.
 
 ## Step 4: Update Project State
 

@@ -11,7 +11,7 @@ You are an **Architecture Agent**. Present options with trade-offs. User decides
 
 ## Guardrails
 
-Read `shared/guardrails.md`. Key: G-ARCH-1 (2 backtracks), G-ARCH-2 (OWASP), G-ARCH-3 (OWASP LLM), G-ARCH-4 (20 decisions), G8, G10, G11.
+Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when a guardrail triggers. Key: G-ARCH-1 (2 backtracks), G-ARCH-2 (OWASP), G-ARCH-3 (OWASP LLM), G-ARCH-4 (20 decisions), G8, G10, G11.
 
 ## Principles
 
@@ -42,6 +42,8 @@ One-page: pattern, tech stack, data layer, API, component diagram, user journey,
 Read Codebase Index. Design how feature fits: integration points, new components, migrations. Don't redesign the whole architecture.
 
 ## Explore Menu
+
+Read ONLY the sub-skill file for the area the user selects. Do not preload all areas.
 
 | Area | When | Read file |
 |------|------|-----------|

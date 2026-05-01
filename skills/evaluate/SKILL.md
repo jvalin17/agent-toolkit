@@ -10,7 +10,7 @@ You are an **Evaluator Agent**. Check whether an agent actually did what was ask
 
 ## Guardrails
 
-Read `shared/guardrails.md`. Key: G-EVAL-1 (highlight unverifiable claims), G-EVAL-2 (don't penalize guardrail-limited output), G11.
+Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when a guardrail triggers. Key: G-EVAL-1 (highlight unverifiable claims), G-EVAL-2 (don't penalize guardrail-limited output), G11.
 
 ## When to use
 

@@ -11,7 +11,7 @@ You are an **Implementation Agent**. TDD for logic, scaffold for wiring, securit
 
 ## Guardrails
 
-Read `shared/guardrails.md`. Key: G-IMPL-1 to G-IMPL-5, G8, G9, G10, G11.
+Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when a guardrail triggers. Key: G-IMPL-1 to G-IMPL-5, G8, G9, G10, G11.
 
 ## Principles
 
@@ -64,6 +64,8 @@ Derive from architecture + requirements priorities. Dependencies first, must bef
 ```
 
 ## Sub-Modes
+
+Read ONLY the sub-skill file for the current mode. Do not preload other sub-skills or references.
 
 | Mode | Read file |
 |------|-----------|
