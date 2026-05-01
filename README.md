@@ -1,8 +1,20 @@
 # Agent Toolkit
 
-Reusable Claude Code skills for planning, building, and shipping software projects. Works in any repo, any language. Battle-tested across 12 sessions building a real product.
+[![Skills: 11](https://img.shields.io/badge/Skills-11-blue?style=for-the-badge)](skills/)
+[![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 
-## Install
+Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language, any stack.
+
+Built for universal LLMs. Adapts best with Claude Code so far.
+
+## Who This Is For
+
+- **Solo developers** using AI agents to build full-stack apps
+- **Teams** wanting a repeatable AI-assisted development workflow
+- **Anyone tired of** sloppy AI-generated code, ignored instructions, tests that prove nothing, and "it works on my machine"
+
+## Quick Start
 
 ```bash
 git clone https://github.com/jvalin17/agent-toolkit.git
@@ -10,123 +22,133 @@ cd agent-toolkit
 ./install.sh
 ```
 
-Symlinks skills + agents globally, adds auto-update hook (pulls latest before every skill invocation). `jq` required for the auto-update hook — install still works without it, hook is just skipped.
+Then in any project:
+
+```
+/explore .                        # understand this codebase
+/requirements my-app              # gather requirements
+/architecture my-app              # design architecture
+/implementation my-app            # build with TDD
+/debug something is broken        # systematic diagnosis
+/precommit                        # quality gate before commit
+/reviewer my-app                  # code + tests + a11y audit
+/setup my-app                     # install scripts + Docker + README
+/status my-app                    # where am I? what's next?
+/evaluate my-app                  # did it match what was asked?
+```
 
 ## Skills
 
 | Skill | What It Does |
 |-------|-------------|
-| `/explore` | Understand any codebase (or multiple repos). 4-phase: recon, architecture mapping, conventions, feature/issue mapping. Read-only. |
+| `/explore` | Understand any codebase (or multiple repos). 4-phase: recon, architecture mapping, conventions, feature/issue mapping. |
 | `/requirements` | Gather requirements. Draft early, explore on demand. Asks "how do you do this today?" to prevent building the wrong product. |
-| `/architecture` | Design architecture with trade-offs. User journey mandatory. Legal/ToS checks. Concurrency warnings. Drift detection. |
-| `/implementation` | Build with TDD. Skeleton + frontend foundation + feature slabs. Fix, refactor, demo modes. Hardening pass. |
+| `/architecture` | Design architecture with trade-offs. User journey mandatory. Legal checks. Concurrency warnings. |
+| `/implementation` | Build with TDD. Walking skeleton, then feature slabs. Fix, refactor, demo modes. Frontend hardening pass. |
 | `/debug` | Systematic debugging. Hypothesis-driven, layer-by-layer. Reproduce with test, then fix. 3-strikes escalation. |
-| `/precommit` | Quality gate. Checks: all instructions addressed, tests meaningful (not sloppy), SOLID/DRY/KISS/YAGNI, project rules compliance, verify in running app. |
+| `/precommit` | Quality gate before every commit. All instructions addressed? Tests meaningful? SOLID/DRY? Rules compliance? Verified in running app? |
 | `/reviewer` | Code quality + write tests + smoke test + accessibility + dependency audit + UI validation. |
 | `/setup` | Generate install scripts, Docker, Makefile, README. One-command setup, platform agnostic. |
-| `/status` | Project dashboard. What's done, what's next. |
-| `/evaluate` | Grade output against the original prompt. Run between any skills as checkpoint. |
+| `/status` | Project dashboard. What's done, what's next, suggest action. |
+| `/evaluate` | Grade output against the original prompt. Run between skills as checkpoint. |
 | `/updater` | Audit toolkit health, freshness, security, standards. |
 
 ## How It Works
 
-### Shared Project State
-
-All skills read/write `project-state.md` — core intent, parking lot (flags if main goal is deferred), key decisions, feature status, handoff summaries.
-
-### Rules Compliance (G11)
-
-Before writing code, skills invoke the `rules-indexer` agent to scan all project .md files (CLAUDE.md, DECISIONS.md, project-state.md, architecture docs, learnings). Changes that contradict existing decisions are flagged — not silently overridden.
-
-### Draft Early, Deepen on Demand
+### Plan -> Build -> Ship
 
 ```
 /requirements recipe-finder
--> Intake: What? How do you do this today? What exists?
--> Draft saved immediately
--> Explore: UI/UX, ML/AI, LLM, Testing, Non-Functional, Scale
--> Pick what you want, skip the rest, come back anytime
+-> "What are you building?" -> "App to find recipes by ingredients"
+-> "How do you do this today?" -> "Google each combo manually"
+-> Draft saved. Explore areas on demand. Done.
+
+/architecture recipe-finder
+-> Quick arch: Python + React + SQLite + REST
+-> Go deeper: frontend, LLM integration, security
+
+/implementation recipe-finder
+-> Phase 1: Walking skeleton (thin end-to-end path)
+-> Phase 2: Feature slabs with TDD, security stitched in
+-> Phase 3: Frontend hardening (crash/stuck-state/silent-lie prevention)
+-> /precommit before every commit
+
+/reviewer recipe-finder
+-> Code quality, test coverage, smoke test, a11y, dependency audit
+
+/setup recipe-finder
+-> setup.sh + Docker + Makefile + .env.example + README
+-> "git clone && ./setup.sh" — works on any platform
 ```
 
 ### Adding Features to Existing Apps
 
 ```
 /requirements add-search
--> codestructure-analyzer scans codebase ONCE
--> Codebase Index reused by all downstream skills
--> /architecture designs how feature fits (not full redesign)
--> /implementation skips skeleton, goes to feature slab
+-> Scans your codebase ONCE, builds a Codebase Index
+-> Index reused by all downstream skills (no re-scanning)
+-> /architecture designs how feature fits (not a full redesign)
+-> /implementation skips skeleton, goes straight to feature slab
 ```
 
-### Walking Skeleton + Feature Slabs (Greenfield)
+### Debug Anything
 
 ```
-Phase 1: Skeleton (no TDD — scaffold)
-  Backend: 1 table + 1 endpoint + DB connection
-  Frontend: ErrorBoundary + types/index.ts + api/client.ts
-            + useAsync hook + toast library
-
-Phase 2: Feature Slabs (TDD, security stitched in)
-  Each slab: setup -> security -> TDD -> integrate -> /precommit -> commit
-
-Phase 3: Frontend Hardening (ONCE after features stabilize)
-  Crash/stuck-state/silent-lie prevention, security, code quality
-```
-
-### Explore, Debug, Fix
-
-```
-/explore /path/to/repo           -> 4-phase codebase analysis, multi-repo
-/debug multiplayer is broken     -> hypotheses, layer-by-layer, reproduce, fix
-/implementation fix login-bug    -> failing test, fix, verify in running app
-/implementation refactor auth    -> refactor, all tests still pass
-/implementation demo auto-apply  -> simulated data, validate UX
+/debug multiplayer is broken
+-> Hypotheses: [H1] WebSocket disconnect not broadcast (high confidence)
+-> Investigation: [H1] CONFIRMED — disconnect handler never emits event
+-> Reproducing test written, fix applied, regression test added
+-> "Change ready. Please verify: [specific action]."
 ```
 
 ### Pre-Commit Quality Gate
 
 ```
 /precommit
--> Instructions: all user messages addressed?
--> Tests: meaningful assertions? realistic data? no sloppy tests?
--> Principles: SOLID, DRY, KISS, YAGNI violations?
--> Rules: contradicts any decision/constraint/learning in project .md files?
--> App: verified in running app? (port check, curl endpoint)
--> Ambiguity: anything unclear? -> ask user, log concern
+-> All user instructions addressed? (re-reads every message)
+-> Tests meaningful? (no assertTrue(True), no "foo" test data)
+-> SOLID/DRY/KISS/YAGNI principles?
+-> Contradicts any project decision/constraint/learning?
+-> Verified in running app? (not just tests passing)
 -> READY TO COMMIT or BLOCKED
 ```
 
-### Review, Setup, Status
+### When to Run Which
+
+| Skill | When | Time |
+|-------|------|------|
+| `/precommit` | Before every commit | ~1 min |
+| `/reviewer` | After a feature is complete | ~10 min |
+| `/evaluate` | Between skills or at the end | ~5 min |
+
+## Architecture
+
+Token-optimized. Lean orchestrators load sub-skills on demand — only the area you're working on gets loaded, not the whole toolkit.
 
 ```
-/reviewer my-app   -> code + tests + runtime + a11y + deps + UI checks
-/setup my-app      -> setup.sh + Docker + Makefile + .env.example + README
-/status my-app     -> what's done, what's next, suggest action
-/evaluate my-app   -> grade against original prompt
-```
+skills/
+  requirements/     69-line orchestrator + 4 sub-skills + 7 references
+  architecture/     64-line orchestrator + 8 sub-skills + 4 references
+  implementation/   83-line orchestrator + 7 sub-skills + 7 references
+  reviewer/        103-line orchestrator + 6 sub-skills
+  explore/         137 lines
+  debug/           182 lines
+  precommit/       232 lines
+  setup/           350 lines
+  status/          143 lines
+  evaluate/         66 lines
+  updater/         180 lines
 
-## Modular Architecture
-
-Lean orchestrators + sub-skills loaded on demand. All files under 400 lines. Token-optimized: guardrails load a 30-line quick reference by default (full 210-line version only when triggered), and sub-skills load only when the user selects that area — not preloaded.
-
-```
-skills/requirements/     69 lines base + 4 sub-skills + 7 references
-skills/architecture/     64 lines base + 8 sub-skills + 4 references
-skills/implementation/   83 lines base + 7 sub-skills + 7 references
-skills/reviewer/        103 lines base + 6 sub-skills
-skills/explore/         137 lines
-skills/debug/           182 lines
-skills/precommit/       232 lines
-skills/setup/           350 lines
-skills/status/          143 lines
-skills/evaluate/         66 lines
-skills/updater/         180 lines
-shared/                 guardrails-quick (30 lines, loaded by default)
-                        guardrails (full, loaded only when triggered)
-                        report-format + project-state-template
+shared/
+  guardrails-quick.md    30-line summary (loaded by default)
+  guardrails.md          full rules (loaded only when triggered)
+  report-format.md       progress report template
+  project-state.md       shared state across all skills
 ```
 
 ## Agents
+
+Sub-agents for parallel research and validation:
 
 | Agent | Purpose |
 |-------|---------|
@@ -136,88 +158,39 @@ shared/                 guardrails-quick (30 lines, loaded by default)
 | `tech-stack-advisor` | Tech options with trade-offs |
 | `pattern-advisor` | Design patterns for specific problems |
 | `scale-advisor` | What changes at each scale level |
-| `codestructure-analyzer` | Analyze existing codebase structure and conventions |
-| `readme-validator` | Verify every claim in README is actually true |
-| `rules-indexer` | Scan project .md files for decisions, constraints, learnings |
+| `codestructure-analyzer` | Analyze existing codebase structure |
+| `readme-validator` | Verify every claim in README is true |
+| `rules-indexer` | Scan project docs for decisions and constraints |
 
 ## Guardrails
 
 Safety limits on every skill. When hit: warns, records, continues.
 
-**Universal (G1-G11):** No secrets. No destructive ops. File safety. No PII. Mid-conversation updates. LLM data security. README auto-update. Check rules before acting — flag contradictions, don't silently override.
+**Universal:** No secrets in output. No destructive ops without confirmation. LLM data security. README auto-update. Check project rules before acting.
 
-**Pre-commit (G-PC-1 to G-PC-5):** No sloppy tests. All instructions addressed. No false "done." Verify in running app. Ask on ambiguity.
+**Pre-commit:** No sloppy tests. All instructions addressed. No false "done." Verify in running app. Ask on ambiguity.
 
 **Skill-specific:** Question limits, backtrack limits, decision limits, OWASP references, dependency audits.
 
-See `shared/guardrails.md` for details.
-
-## Quick Start
-
-```
-/explore /path/to/repo        # understand any codebase
-/requirements my-app          # gather requirements
-/architecture my-app          # design architecture
-/implementation my-app        # skeleton + slabs with TDD
-/debug something is broken    # systematic diagnosis + fix
-/precommit                    # quality gate before commit
-/reviewer my-app              # code + tests + a11y + smoke test
-/setup my-app                 # install scripts + Docker + README
-/status my-app                # where am I? what's next?
-/evaluate my-app              # did it match what was asked?
-```
-
-Skills read each other's output via `project-state.md` — run in order or independently.
-
-## Example: Building a Recipe Finder App
-
-```
-Session 1: Plan
-  /requirements recipe-finder
-  -> "What are you building?" -> "App to find recipes by ingredients I have"
-  -> "How do you do this today?" -> "Google each ingredient combo manually"
-  -> Draft saved. Explore: UI/UX -> screens, design. Done.
-
-  /architecture recipe-finder
-  -> Quick arch: Python + React + SQLite + REST
-  -> Deeper: frontend (React + Tailwind + Zustand) + LLM (Claude API for matching)
-
-Session 2: Build
-  /implementation recipe-finder
-  -> Skeleton: 1 table, 1 endpoint, 1 page, ErrorBoundary, api/client.ts, useAsync
-  -> Slab 1: Recipe CRUD (model + API + list page) -- TDD, 12 tests
-  -> Slab 2: Ingredient matching (Claude API + prompt + safety) -- TDD, 8 tests
-  -> Slab 3: Search UI (search bar + results + empty state) -- TDD, 6 tests
-  -> /precommit before each commit:
-     "All instructions addressed? Tests meaningful? Standards met? Verified in app?"
-
-Session 3: Polish
-  /reviewer recipe-finder
-  -> Code: SOLID check, naming audit
-  -> Tests: coverage gaps filled, 15 new tests with realistic data
-  -> UI: overflow on recipe names fixed, empty state added to favorites
-  -> Runtime: smoke test passes -- search works end-to-end
-
-  /setup recipe-finder
-  -> setup.sh + Dockerfile + Makefile + .env.example + README generated
-  -> "git clone && ./setup.sh" works on macOS and Linux
-
-Session 4: Debug (later)
-  /debug search returns 0 results
-  -> [H1] API key not in .env (CONFIRMED) -- .env had wrong key name
-  -> Failing test written, fixed, regression test added
-  -> "Change ready. Please verify: search for 'chicken', should see 3 results."
-```
-
-**When to run which:**
-- `/precommit` — fast gate, before every commit (1 min)
-- `/reviewer` — thorough audit, on demand after a feature is complete (10 min)
-- `/evaluate` — prompt compliance checkpoint, between skills or at the end (5 min)
-
 ## Portability
 
-Built for Claude Code. The patterns (TDD slabs, precommit gate, hypothesis debugging, feedback-driven rules) work with any AI coding tool — adapt the format to your agent's instruction system (`.cursorrules`, `AGENTS.md`, etc.). The SKILL.md format and agent invocation syntax are Claude Code specific; the rules and workflows inside are universal.
+Built for universal LLMs — the patterns, workflows, and rules work with any AI coding agent. Claude Code adapts best so far thanks to native skill/agent support and auto-update hooks. For other tools, adapt the SKILL.md format to your agent's instruction system:
+
+| Tool | How to adapt |
+|------|-------------|
+| Claude Code | Works natively — `./install.sh` and go |
+| Cursor | Copy skill content to `.cursorrules` or project rules |
+| Codex / Devin | Use as `AGENTS.md` or system prompts |
+| Any LLM agent | The instructions are plain English — paste into your agent's config |
 
 ## Built From Real Usage
 
-These skills are informed by 116 feedback items across 12 sessions building a real product. Every rule about async/sync failures, Promise.all page blanking, sloppy tests, false success messages, and parking lot blindness comes from actual bugs that shipped and were caught.
+Informed by 116 feedback items across 12 sessions building a real product. Every rule — async/sync failures, Promise.all page blanking, sloppy tests, false success messages, parking lot blindness — comes from actual bugs that shipped and were caught.
+
+## Contributing
+
+PRs welcome. If you've battle-tested these skills and have feedback, open an issue or add to the patterns.
+
+## License
+
+MIT
