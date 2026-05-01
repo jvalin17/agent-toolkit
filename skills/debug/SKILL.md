@@ -148,6 +148,11 @@ Before fixing, confirm with a reproducing test:
 2. Run the reproducing test — it should now PASS
 3. Run all existing tests — nothing else should break
 4. If fix breaks other tests → investigate, don't blindly fix cascading failures
+5. **Verify in running app** (tests passing is NOT enough):
+   - Check no stale server on the port: `lsof -i :<port>`
+   - For backend: `curl` the affected endpoint, check the response
+   - For frontend: describe the exact action for user to verify
+6. **Never say "fixed."** Say: "Change is ready. Please verify: [specific action]. Let me know if it works."
 
 **3-strikes rule:** If 3 fix attempts fail, stop and report:
 > "I've tried 3 fixes and none resolved it. This suggests an architectural issue, not a simple bug. Consider running /architecture to review the design of [affected system]."

@@ -27,6 +27,7 @@ Requires `jq` for the auto-update hook (skips gracefully if missing).
 | `/reviewer` | Review code + write tests + smoke test + accessibility + dependency audit + UI validation (Promise.all detection, empty states, false success, overflow). |
 | `/explore` | Get familiar with any codebase (or multiple repos). Deep-dive tech stack, architecture, features, conventions, issues. Read-only. |
 | `/debug` | Systematic debugging. Hypothesis-driven, layer-by-layer diagnosis. Reproduce with test, then fix (optional). 3-strikes escalation. |
+| `/precommit` | Quality gate before every commit. Verifies all instructions addressed, tests are meaningful (not sloppy), code meets standards, changes work in running app. |
 | `/setup` | Generate install scripts, Docker, Makefile, README. One-command setup, platform agnostic. |
 | `/status` | Project dashboard. What's done, what's next. Reads all docs and reports. |
 | `/evaluate` | Grade output against the original prompt. Run between any skills as checkpoint. |
@@ -115,6 +116,18 @@ Multi-repo: /explore /repo-a /repo-b
 -> "Want me to fix it?" -> yes -> fixed, test passes, regression added
 ```
 
+### Pre-Commit Quality Gate
+
+```
+/precommit
+
+-> Step 1: Did I address ALL user instructions? (re-reads every message)
+-> Step 2: Are all tests meaningful? (no sloppy assertions, realistic data)
+-> Step 3: Code standards met? (naming, no raw fetch, no silent catches)
+-> Step 4: Verified in running app? (port check, curl endpoint, user confirms)
+-> READY TO COMMIT or BLOCKED with reasons
+```
+
 ### Fix, Refactor, Demo Modes
 
 ```
@@ -201,6 +214,7 @@ See `shared/guardrails.md` for full details.
 /architecture my-app         # design architecture
 /implementation my-app       # skeleton + slabs with TDD
 /debug something is broken   # systematic diagnosis + fix
+/precommit                   # quality gate before commit
 /reviewer my-app             # code + tests + a11y + smoke test
 /setup my-app                # install scripts + Docker + README
 /status my-app               # where am I? what's next?

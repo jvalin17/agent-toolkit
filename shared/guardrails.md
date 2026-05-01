@@ -158,6 +158,24 @@ Only recommend well-known, actively maintained packages.
 **Limit:** Implement max 1 file/function per TDD cycle.
 **When triggered:** "This block is getting large. Let me split it into smaller pieces for better test coverage."
 
+### /precommit
+
+#### G-PC-1: No Sloppy Tests
+Block commit if any test lacks specific value assertions (`assertEqual`, `toBe`, `toEqual`). Tests using only `assertTrue(True)`, `toBeTruthy()`, or tests with no assertions are sloppy and must be rewritten.
+**Template:** "BLOCKED: [test_name] has no meaningful assertion. Rewriting with specific value checks."
+
+#### G-PC-2: All Instructions Addressed
+Block commit if any user instruction from the current task is unaddressed. Re-read every user message before committing.
+**Template:** "BLOCKED: User asked for [X] but it's not implemented. Addressing now."
+
+#### G-PC-3: No False "Done" Declarations
+Never say "fixed", "done", or "complete" without verification. For user-facing changes, describe the specific action to verify and wait for user confirmation.
+**Template:** "Change is ready. Please verify: [action]. Let me know if it works."
+
+#### G-PC-4: Verify in Running App
+Tests passing is necessary but not sufficient. For user-facing changes, check the port for stale servers and verify the change in the actual running app.
+**Template:** "Tests pass. Checking running app... [result]."
+
 ### /evaluate
 
 #### G-EVAL-1: Unverifiable Claims Highlighted

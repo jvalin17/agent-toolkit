@@ -1,7 +1,28 @@
 # Tests Review
-Keywords: test, coverage, unit, integration, regression, e2e, assertion, mock, fixture
+Keywords: test, coverage, unit, integration, regression, e2e, assertion, mock, fixture, sloppy, meaningful
 
 For guardrails and principles, see main SKILL.md.
+
+## Step 0: Sloppy Test Detection (run first, before writing new tests)
+
+Scan ALL existing tests for these patterns — flag and fix before adding more tests on a broken foundation:
+
+**REJECT (sloppy):**
+- `assertTrue(True)` / `expect(true).toBe(true)` — tautology, proves nothing
+- `expect(result).toBeTruthy()` — passes for any non-null value including wrong values
+- Test with no assertions — just calls a function without checking the result
+- Test that mocks the thing it's testing — tests the mock, not the code
+- Test that passes if you delete the feature code — proves nothing
+- Test data: `"test"`, `"foo"`, `"bar"`, `123`, `"a@b.com"` — unrealistic
+- `catch {}` or `catch { /* ignore */ }` in test — swallows real errors
+
+**REQUIRE (meaningful):**
+- `assertEqual(result.name, "Maria Garcia")` — specific value
+- `expect(results).toHaveLength(1)` — specific count
+- `expect(results[0].title).toBe("Chicken Tikka")` — specific field value
+- `with pytest.raises(DuplicateEmailError)` — specific error type
+- Realistic data throughout
+- Test WOULD fail if feature code was deleted
 
 ## Step 1: Coverage Analysis
 

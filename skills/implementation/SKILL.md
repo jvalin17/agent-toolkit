@@ -133,9 +133,18 @@ Each mode has its own instruction file:
 1. SETUP — scaffold/wiring (no TDD)
 2. SECURITY — if slab touches auth/data/APIs: attack tests first (read security.md)
 3. TDD LOOP — test first → red → implement → green → refactor → green
+   EVERY test must have specific value assertions (assertEqual, toBe, toEqual).
+   No toBeTruthy(), no assertTrue(True), no "just call it and see if it throws."
 4. INTEGRATE — verify full slice works end-to-end
-5. COMMIT — one slab = one commit
+5. PRE-COMMIT GATE — run /precommit before committing:
+   - All user instructions addressed?
+   - All tests meaningful (no sloppy tests)?
+   - Code standards met?
+   - User-facing changes verified in running app?
+6. COMMIT — one slab = one commit (only after gate passes)
 ```
+
+**Before committing, ALWAYS check:** Did I address everything the user asked for? Re-read their messages. If they gave 5 instructions and you did 3, you're not done.
 
 When TDD hits a wall: FLAG → EXPLORE (throwaway code) → REWRITE WITH TDD → DELETE exploratory code.
 
