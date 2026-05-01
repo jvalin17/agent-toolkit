@@ -107,7 +107,7 @@ Phase 3: Frontend Hardening (ONCE after features stabilize)
 
 ## Modular Architecture
 
-Lean orchestrators + sub-skills loaded on demand. All files under 400 lines.
+Lean orchestrators + sub-skills loaded on demand. All files under 400 lines. Token-optimized: guardrails load a 30-line quick reference by default (full 210-line version only when triggered), and sub-skills load only when the user selects that area — not preloaded.
 
 ```
 skills/requirements/     69 lines base + 4 sub-skills + 7 references
@@ -121,7 +121,9 @@ skills/setup/           350 lines
 skills/status/          143 lines
 skills/evaluate/         66 lines
 skills/updater/         180 lines
-shared/                 guardrails + report-format + project-state-template
+shared/                 guardrails-quick (30 lines, loaded by default)
+                        guardrails (full, loaded only when triggered)
+                        report-format + project-state-template
 ```
 
 ## Agents
