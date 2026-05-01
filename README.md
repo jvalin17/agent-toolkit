@@ -3,7 +3,7 @@
 [![Skills: 11](https://img.shields.io/badge/Skills-11-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
-[![Health Check](https://img.shields.io/badge/Health_Check-every_3_weeks-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
+[![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
 Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language, any stack.
 
@@ -186,18 +186,18 @@ Built for universal LLMs — the patterns, workflows, and rules work with any AI
 
 ## Built From Real Usage
 
-Informed by 116 feedback items across 12 sessions building a real product. Every rule — async/sync failures, Promise.all page blanking, sloppy tests, false success messages, parking lot blindness — comes from actual bugs that shipped and were caught.
+Every rule in this toolkit comes from building a real product with AI agents — async/sync silent failures, Promise.all page blanking, sloppy tests that prove nothing, false success messages, parking lot blindness. These aren't theoretical patterns; they're bugs that shipped and were caught.
 
 ## Automated Health Check
 
-A GitHub Actions workflow runs every 3 weeks to keep the toolkit fresh:
+A GitHub Actions workflow runs twice a month (1st and 15th) to keep the toolkit fresh:
 
-- **Link check** — verifies all reference URLs are still valid
+- **Link check** — runs `check-links.py` against all reference URLs
 - **Freshness check** — flags references older than 6 months
-- **File size check** — ensures no file exceeds 400 lines
+- **File size check** — flags any file exceeding 400 lines
 - **Inventory** — counts skills, agents, total lines
 
-Opens a GitHub issue automatically if anything needs attention. Can also be triggered manually from the Actions tab.
+Opens a GitHub issue if broken links, stale references, or oversized files are found. Can also be triggered manually from the Actions tab.
 
 ## Contributing
 

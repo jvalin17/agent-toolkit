@@ -2,8 +2,8 @@ name: Toolkit Health Check
 
 on:
   schedule:
-    # Every 3 weeks on Monday at 9am UTC (3am CST)
-    - cron: '0 9 1,22 * 1'
+    # Runs on the 1st and 15th of each month at 9am UTC (~every 2-3 weeks)
+    - cron: '0 9 1,15 * *'
   workflow_dispatch: # Manual trigger
 
 jobs:
@@ -29,7 +29,14 @@ jobs:
         run: |
           echo "## Link Check" > /tmp/audit-report.md
           echo "" >> /tmp/audit-report.md
-          python scripts/check-links.py >> /tmp/audit-report.md 2>&1 || true
+          if [ -f skills/updater/scripts/check-links.py ]; then
+            python skills/updater/scripts/check-links.py >> /tmp/audit-report.md 2>&1
+            link_exit=$?
+          else
+            echo "check-links.py not found at skills/updater/scripts/" >> /tmp/audit-report.md
+            link_exit=1
+          fi
+          echo "link_problems=$link_exit" >> $GITHUB_OUTPUT
 
       - name: Check reference freshness
         id: freshness
@@ -61,6 +68,7 @@ jobs:
           echo "stale=$stale_count" >> $GITHUB_OUTPUT
 
       - name: Check file sizes
+        id: sizes
         run: |
           echo "" >> /tmp/audit-report.md
           echo "## File Size Check (400-line limit)" >> /tmp/audit-report.md
@@ -78,6 +86,7 @@ jobs:
           if [ "$over_count" -eq 0 ]; then
             echo "All files under 400 lines." >> /tmp/audit-report.md
           fi
+          echo "over=$over_count" >> $GITHUB_OUTPUT
 
       - name: Skill/agent inventory
         run: |
@@ -90,8 +99,8 @@ jobs:
           echo "- Agents: $agent_count" >> /tmp/audit-report.md
           echo "- Total lines: $(find skills/ shared/ agents/ -name '*.md' -exec cat {} + | wc -l | tr -d ' ')" >> /tmp/audit-report.md
 
-      - name: Open issue if problems found
-        if: steps.freshness.outputs.stale > 0
+      - name: Open issue if any problems found
+        if: steps.freshness.outputs.stale > 0 || steps.links.outputs.link_problems != 0 || steps.sizes.outputs.over > 0
         uses: actions/github-script@v7
         with:
           script: |
