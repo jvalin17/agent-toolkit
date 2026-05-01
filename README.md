@@ -10,7 +10,7 @@ cd agent-toolkit
 ./install.sh
 ```
 
-Symlinks skills + agents globally, adds auto-update hook (pulls latest before every skill invocation). Requires `jq`.
+Symlinks skills + agents globally, adds auto-update hook (pulls latest before every skill invocation). `jq` required for the auto-update hook — install still works without it, hook is just skipped.
 
 ## Skills
 
@@ -36,7 +36,7 @@ All skills read/write `project-state.md` — core intent, parking lot (flags if 
 
 ### Rules Compliance (G11)
 
-Before writing code, skills invoke the `rules-indexer` agent to scan all project .md files (CLAUDE.md, DECISIONS.md, project-state.md, architecture docs, learnings). Changes that contradict existing decisions are blocked.
+Before writing code, skills invoke the `rules-indexer` agent to scan all project .md files (CLAUDE.md, DECISIONS.md, project-state.md, architecture docs, learnings). Changes that contradict existing decisions are flagged — not silently overridden.
 
 ### Draft Early, Deepen on Demand
 
@@ -142,7 +142,7 @@ shared/                 guardrails + report-format + project-state-template
 
 Safety limits on every skill. When hit: warns, records, continues.
 
-**Universal (G1-G11):** No secrets. No destructive ops. File safety. No PII. Mid-conversation updates. LLM data security. README auto-update. Check rules before acting.
+**Universal (G1-G11):** No secrets. No destructive ops. File safety. No PII. Mid-conversation updates. LLM data security. README auto-update. Check rules before acting — flag contradictions, don't silently override.
 
 **Pre-commit (G-PC-1 to G-PC-5):** No sloppy tests. All instructions addressed. No false "done." Verify in running app. Ask on ambiguity.
 
@@ -166,6 +166,15 @@ See `shared/guardrails.md` for details.
 ```
 
 Skills read each other's output via `project-state.md` — run in order or independently.
+
+**When to run which:**
+- `/precommit` — fast gate, before every commit (1 min)
+- `/reviewer` — thorough audit, on demand after a feature is complete (10 min)
+- `/evaluate` — prompt compliance checkpoint, between skills or at the end (5 min)
+
+## Portability
+
+Built for Claude Code. The patterns (TDD slabs, precommit gate, hypothesis debugging, feedback-driven rules) work with any AI coding tool — adapt the format to your agent's instruction system (`.cursorrules`, `AGENTS.md`, etc.). The SKILL.md format and agent invocation syntax are Claude Code specific; the rules and workflows inside are universal.
 
 ## Built From Real Usage
 
