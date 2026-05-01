@@ -128,9 +128,9 @@ Token-optimized. Lean orchestrators load sub-skills on demand — only the area 
 
 ```
 skills/
-  requirements/     69-line orchestrator + 4 sub-skills + 7 references
-  architecture/     64-line orchestrator + 8 sub-skills + 4 references
-  implementation/   83-line orchestrator + 7 sub-skills + 7 references
+  requirements/     71-line orchestrator + 4 sub-skills + 7 references
+  architecture/     66-line orchestrator + 8 sub-skills + 4 references
+  implementation/   85-line orchestrator + 7 sub-skills + 7 references
   reviewer/        103-line orchestrator + 6 sub-skills
   explore/         137 lines
   debug/           182 lines
@@ -141,10 +141,10 @@ skills/
   updater/         180 lines
 
 shared/
-  guardrails-quick.md    30-line summary (loaded by default)
-  guardrails.md          full rules (loaded only when triggered)
-  report-format.md       progress report template
-  project-state.md       shared state across all skills
+  guardrails-quick.md         30-line summary (loaded by default)
+  guardrails.md               full rules (loaded only when triggered)
+  report-format.md            progress report template
+  project-state-template.md   template for project-state.md (created at project root by skills)
 ```
 
 ## Agents
