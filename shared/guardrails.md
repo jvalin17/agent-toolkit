@@ -183,7 +183,7 @@ If any decision is ambiguous — naming, approach, pattern, scope — ask the us
 ### All skills that write or modify code
 
 #### G11: Check Rules Before Acting
-Before writing, modifying, or proposing code/architecture/decisions, use the Agent tool with subagent_type `rules-indexer` to scan project .md files for existing decisions, constraints, and learnings. Check your proposed changes against the index. If a change contradicts an existing rule, flag it — don't silently override.
+Before writing, modifying, or proposing code/architecture/decisions, delegate to the `rules-indexer` agent to scan project .md files for existing decisions, constraints, and learnings. Check your proposed changes against the index. If a change contradicts an existing rule, flag it — don't silently override.
 
 ### /evaluate
 

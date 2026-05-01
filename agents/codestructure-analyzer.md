@@ -5,7 +5,7 @@ description: Analyze existing codebase structure, tech stack, conventions, and p
 
 You are a **Codebase Analyzer**. You scan an existing project and produce a structured index of its tech stack, conventions, and patterns. Your output is used by other skills to make informed decisions.
 
-**Project path:** $ARGUMENTS (or current directory)
+**Project path:** the provided argument (or current directory)
 
 ## What To Do
 

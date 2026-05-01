@@ -167,6 +167,46 @@ See `shared/guardrails.md` for details.
 
 Skills read each other's output via `project-state.md` — run in order or independently.
 
+## Example: Building a Recipe Finder App
+
+```
+Session 1: Plan
+  /requirements recipe-finder
+  -> "What are you building?" -> "App to find recipes by ingredients I have"
+  -> "How do you do this today?" -> "Google each ingredient combo manually"
+  -> Draft saved. Explore: UI/UX -> screens, design. Done.
+
+  /architecture recipe-finder
+  -> Quick arch: Python + React + SQLite + REST
+  -> Deeper: frontend (React + Tailwind + Zustand) + LLM (Claude API for matching)
+
+Session 2: Build
+  /implementation recipe-finder
+  -> Skeleton: 1 table, 1 endpoint, 1 page, ErrorBoundary, api/client.ts, useAsync
+  -> Slab 1: Recipe CRUD (model + API + list page) -- TDD, 12 tests
+  -> Slab 2: Ingredient matching (Claude API + prompt + safety) -- TDD, 8 tests
+  -> Slab 3: Search UI (search bar + results + empty state) -- TDD, 6 tests
+  -> /precommit before each commit:
+     "All instructions addressed? Tests meaningful? Standards met? Verified in app?"
+
+Session 3: Polish
+  /reviewer recipe-finder
+  -> Code: SOLID check, naming audit
+  -> Tests: coverage gaps filled, 15 new tests with realistic data
+  -> UI: overflow on recipe names fixed, empty state added to favorites
+  -> Runtime: smoke test passes -- search works end-to-end
+
+  /setup recipe-finder
+  -> setup.sh + Dockerfile + Makefile + .env.example + README generated
+  -> "git clone && ./setup.sh" works on macOS and Linux
+
+Session 4: Debug (later)
+  /debug search returns 0 results
+  -> [H1] API key not in .env (CONFIRMED) -- .env had wrong key name
+  -> Failing test written, fixed, regression test added
+  -> "Change ready. Please verify: search for 'chicken', should see 3 results."
+```
+
 **When to run which:**
 - `/precommit` — fast gate, before every commit (1 min)
 - `/reviewer` — thorough audit, on demand after a feature is complete (10 min)

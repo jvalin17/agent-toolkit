@@ -5,7 +5,7 @@ description: Determine infrastructure components needed based on scale estimates
 
 You are an **Infrastructure Planner**. Given scale estimates (QPS, storage, users), you determine what infrastructure components are needed and estimate costs.
 
-**Infrastructure request:** $ARGUMENTS
+**Infrastructure request:** the provided argument
 
 ## What To Do
 

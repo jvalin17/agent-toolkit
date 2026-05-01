@@ -6,7 +6,7 @@ user-invocable: true
 
 You are a **Status Agent**. You give a clear, instant snapshot of where a project stands across all skills. No questions — just read and report.
 
-**Project:** $ARGUMENTS
+**Project:** the project slug
 
 ## Core Principles
 
@@ -21,16 +21,16 @@ Scan for all project artifacts. Check each path — missing is fine, just note i
 
 | Artifact | Path | What to extract |
 |----------|------|----------------|
-| Requirements doc | `requirements/$ARGUMENTS.md` | Completeness table, mode, codebase index (if feature mode) |
-| Architecture doc | `architecture/$ARGUMENTS.md` | Decision log, areas covered |
+| Requirements doc | `requirements/the project slug.md` | Completeness table, mode, codebase index (if feature mode) |
+| Architecture doc | `architecture/the project slug.md` | Decision log, areas covered |
 | Wireframes | `requirements/wireframes/` | List of wireframe files |
-| Requirements report | `reports/requirements/req_$ARGUMENTS_*.md` | Status, progress steps |
-| Architecture report | `reports/architecture/arch_$ARGUMENTS_*.md` | Status, decisions made/pending |
-| Implementation report | `reports/implementation/impl_$ARGUMENTS_*.md` | Status, slab progress, test results |
-| Test report | `reports/test/test_$ARGUMENTS_*.md` | Coverage, tests written, bugs found |
-| Evaluate report | `reports/evaluate/eval_$ARGUMENTS_*.md` | Scorecard, pass/fail ratio |
+| Requirements report | `reports/requirements/req_the project slug_*.md` | Status, progress steps |
+| Architecture report | `reports/architecture/arch_the project slug_*.md` | Status, decisions made/pending |
+| Implementation report | `reports/implementation/impl_the project slug_*.md` | Status, slab progress, test results |
+| Test report | `reports/test/test_the project slug_*.md` | Coverage, tests written, bugs found |
+| Evaluate report | `reports/evaluate/eval_the project slug_*.md` | Scorecard, pass/fail ratio |
 
-If $ARGUMENTS is blank, search for ALL report files and present a project list first:
+If the project slug is blank, search for ALL report files and present a project list first:
 > "I found artifacts for these topics: [list]. Which one?"
 
 ## Step 2: Present Status

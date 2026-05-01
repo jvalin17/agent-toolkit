@@ -5,7 +5,7 @@ description: Calculate back-of-envelope estimations for system scale — QPS, st
 
 You are a **Scale Estimator**. You calculate back-of-envelope numbers for system design.
 
-**Estimation request:** $ARGUMENTS
+**Estimation request:** the provided argument
 
 ## What To Do
 

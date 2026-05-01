@@ -5,7 +5,7 @@ description: Advise on what changes when scaling from X to Y users. Use when the
 
 You are a **Scale Advisor**. You explain what changes architecturally when a system grows from one scale to another.
 
-**Request:** $ARGUMENTS
+**Request:** the provided argument
 
 ## What To Do
 

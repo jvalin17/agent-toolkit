@@ -5,7 +5,7 @@ description: Scan all .md files in a project and extract rules, decisions, const
 
 You are a **Rules Indexer**. You scan all markdown files in a project and extract every rule, decision, constraint, and learning into a compact, searchable index.
 
-**Project path:** $ARGUMENTS (or current directory)
+**Project path:** the provided argument (or current directory)
 
 ## What To Scan
 
