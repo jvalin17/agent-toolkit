@@ -1,41 +1,18 @@
 # LLM Integration Implementation
+Keywords: LLM, prompt, response handling, safety, provider, SDK, structured output
 
 Implement prompt logic, response handling, and safety layers for LLM-powered features using TDD.
 
 ## Inputs
 
 Read from upstream docs before writing any code. Follow upstream decisions exactly:
-- **Provider + SDK** (from requirements/architecture): Use the specified provider (Anthropic, OpenAI, etc.) and integration approach (direct SDK, abstraction layer, agent framework). Do not suggest a different provider.
-- **Prompt management** (from architecture doc): Follow the decided approach — inline, template files, or platform.
-- **Response handling** (from architecture doc): Follow streaming vs batch, structured output approach, caching strategy.
-- **Safety** (from architecture doc): Implement the specified defenses — input sanitization, output filtering, rate limiting, audit logging.
-- **Use cases** (from requirements doc): Implement for the specific LLM use cases listed (chat, extraction, classification, etc.).
+- **Provider + SDK** (from requirements/architecture): use the specified provider and integration approach. Do not suggest a different provider.
+- **Prompt management** (from architecture doc): follow the decided approach.
+- **Response handling** (from architecture doc): follow streaming vs batch, structured output, caching strategy.
+- **Safety** (from architecture doc): implement the specified defenses.
+- **Use cases** (from requirements doc): implement for the specific LLM use cases listed.
 
-If upstream docs exist, follow them exactly. If they do not exist, ask the user what they need.
-
-## Where LLM Integration Lives
-
-LLM integration is stitched into feature slabs that use AI. The SDK setup and config happen in the skeleton or slab setup (no TDD). The prompt logic, response validation, and safety are business logic — use TDD.
-
-## TDD Pattern: Prompt Behavior First, Then Integration
-
-```
-1. PROMPT TEST — Define expected behavior: given this input, the LLM response should [contain X / match schema Y / not contain Z]
-2. IMPLEMENT PROMPT — Write the prompt/system message that produces the expected behavior
-3. INTEGRATION TEST — SDK call works: auth, request, response parsing, error handling
-4. SAFETY TEST — Prompt injection attempts are handled, PII is filtered, output is validated
-5. END-TO-END TEST — Full flow: user input -> prompt assembly -> LLM call -> response processing -> output
-```
-
-## What to Test
-
-- [ ] SDK client initializes correctly (API key from env, correct model specified)
-- [ ] Prompts produce expected output shape (structured output validates against schema)
-- [ ] Streaming works end-to-end (if specified in architecture)
-- [ ] Error handling: API errors, rate limits, timeouts, malformed responses
-- [ ] Safety: prompt injection inputs are sanitized or rejected
-- [ ] Cost: token usage is within expected bounds for typical inputs
-- [ ] Fallback: if a fallback provider is specified, it activates on primary failure
+If upstream docs exist, follow them exactly. If they do not exist, ask the user.
 
 ## Checklist Per Block
 

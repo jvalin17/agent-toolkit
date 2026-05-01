@@ -176,6 +176,15 @@ Never say "fixed", "done", or "complete" without verification. For user-facing c
 Tests passing is necessary but not sufficient. For user-facing changes, check the port for stale servers and verify the change in the actual running app.
 **Template:** "Tests pass. Checking running app... [result]."
 
+#### G-PC-5: Ask on Ambiguity
+If any decision is ambiguous — naming, approach, pattern, scope — ask the user. Never silently choose. Log the concern (not the user's answer) in project-state.md under Active Warnings.
+**Template:** "AMBIGUOUS: [concern]. How do you want to handle this?"
+
+### All skills that write or modify code
+
+#### G11: Check Rules Before Acting
+Before writing, modifying, or proposing code/architecture/decisions, use the Agent tool with subagent_type `rules-indexer` to scan project .md files for existing decisions, constraints, and learnings. Check your proposed changes against the index. If a change contradicts an existing rule, flag it — don't silently override.
+
 ### /evaluate
 
 #### G-EVAL-1: Unverifiable Claims Highlighted

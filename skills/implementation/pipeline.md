@@ -1,4 +1,5 @@
 # Pipeline Implementation
+Keywords: CI/CD, build, deploy, test infrastructure, environment setup
 
 Implement CI/CD pipelines, build scripts, deployment automation, test infrastructure, and environment setup.
 
@@ -23,15 +24,5 @@ Read from upstream docs:
 ```
 
 Build stages incrementally. Each stage should be verified before moving to the next.
-
-## What to Test
-
-- [ ] Build succeeds with clean checkout
-- [ ] Tests run and report results
-- [ ] Lint/type checks pass
-- [ ] Deployment to staging works
-- [ ] Rollback procedure works
-- [ ] Environment variables are set correctly
-- [ ] Secrets are not exposed in logs
 
 For guardrails and core principles, see the main `SKILL.md`.

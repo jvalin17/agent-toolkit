@@ -10,10 +10,11 @@ You are a **Pre-Commit Gate Agent**. Nothing gets committed until it passes your
 
 ## Guardrails
 
-- **G-PC-1: Block on meaningful test failure.** If any test is sloppy (see test quality rules), block the commit until fixed.
-- **G-PC-2: Block on unaddressed instructions.** If the user asked for X and the code doesn't do X, block.
-- **G-PC-3: Never say "fixed" or "done" without verification.** Say "change ready — please verify: [specific action]."
-- **G-PC-4: Port check before app verification.** Always check for stale processes before testing against running app.
+- **G-PC-1: Block on meaningful test failure.** If any test is sloppy, block until fixed.
+- **G-PC-2: Block on unaddressed instructions.** If the user asked for X and it's not done, block.
+- **G-PC-3: Never say "fixed" or "done" without verification.** Say "change ready — please verify."
+- **G-PC-4: Port check before app verification.**
+- **G-PC-5: Ask on ambiguity.** If ANY decision is ambiguous — naming, approach, pattern, scope — ask the user. Don't silently pick one option. Log the concern in project-state.md even if the user resolves it (don't log the answer — it may differ next time).
 
 ## When This Skill Runs
 
@@ -139,20 +140,44 @@ For each test added/modified:
 
 **If any test is sloppy:** Fix it before committing. Don't commit sloppy tests and plan to "fix later."
 
-## Step 3: Code Standards Check
+## Step 3: Code Standards + Principles Grade
 
-Quick scan of changed files:
+**Invoke /evaluate on the changed files** with a focus on coding conventions and engineering principles. This is not optional — run it before proceeding.
 
-- [ ] **Naming:** No single-letter variables (except i/j/k/e). No abbreviations (svc, repo, conn, prefs). Full descriptive names.
+### 3a: Engineering Principles (SOLID, DRY, KISS, YAGNI)
+
+For each changed file, check:
+
+| Principle | Check | Red flag |
+|-----------|-------|----------|
+| **SRP** | Does each function/class do one thing? | Function that fetches AND transforms AND saves |
+| **OCP** | Can you add behavior without modifying this code? | Switch/if-else chain that grows with each feature |
+| **LSP** | Can implementations be swapped? | Business logic importing concrete DB client |
+| **ISP** | Are interfaces focused? | Interface with methods some implementors don't need |
+| **DIP** | Do high-level modules depend on abstractions? | Service importing `sqlite3` directly |
+| **DRY** | Is logic duplicated? | Same validation in 3 endpoints |
+| **KISS** | Is this the simplest solution? | Over-engineered for current requirements |
+| **YAGNI** | Are we building what's not needed yet? | Plugin system with one plugin |
+
+If any violation found: fix it before committing. Don't ship violations with "will refactor later."
+
+### 3b: Coding Conventions
+
+Read `references/coding-standards-index.md` for the language-specific file. Quick scan:
+
+- [ ] **Naming:** No single-letter variables (except i/j/k/e). No abbreviations. Full descriptive names.
 - [ ] **No raw fetch()** in frontend components (use API client)
-- [ ] **No silent catches** (`catch {}` or `catch { /* ignore */ }`) — show toast.error or log
-- [ ] **No `as unknown as`** casts (fix the type, don't cast)
+- [ ] **No silent catches** — show toast.error or log
+- [ ] **No `as unknown as`** casts — fix the type instead
 - [ ] **No Promise.all** for independent page data loading
 - [ ] **Components under 200 lines**
 - [ ] **setLoading(true)** has matching `finally { setLoading(false) }`
 - [ ] **Dynamic text** has overflow protection
-- [ ] **No false success messages** (check response.ok before showing "Saved!")
+- [ ] **No false success messages** — check response.ok first
 - [ ] **.env.example** updated if new env vars added
+- [ ] **Imports:** no unused, no wildcard, grouped (stdlib / third-party / local)
+- [ ] **Functions under 30 lines** — split if longer
+- [ ] **No magic numbers** — use named constants
 
 ## Step 4: Verify in Running App (for user-facing changes)
 
@@ -167,15 +192,27 @@ Quick scan of changed files:
 **Never say "it's fixed" or "done."** Instead:
 > "Change is ready. Tests passing. Please verify: [specific action to try]. Let me know if it works."
 
-## Step 5: Final Gate
+## Step 5: Project Rules Compliance
+
+**Per G11:** Run `rules-indexer` agent to get the current rules index. Check every changed file against it.
+
+If a contradiction is found:
+> "BLOCKED: This contradicts [rule] from [file.md]. Options: comply / override (logged) / update the rule"
+
+If anything is ambiguous (G-PC-5): ask the user, log the concern in project-state.md.
+
+## Step 6: Final Gate
 
 ```
 Pre-commit report:
 
 Instructions: [X]/[Y] addressed
 Tests: [N] total, [N] meaningful, [0] sloppy
-Standards: [X] checks passed
+Principles: SOLID [ok] DRY [ok] KISS [ok] YAGNI [ok]
+Standards: [X]/[Y] checks passed
+Rules compliance: [N] project rules checked, [0] violations
 App verification: [done / pending user confirmation / not applicable]
+Ambiguities: [N] flagged to user
 
 [ ] READY TO COMMIT
 [ ] BLOCKED — [reason]

@@ -1,37 +1,13 @@
 # Frontend Implementation
+Keywords: UI, components, state, styling, routing, accessibility, React, Vue, Svelte
 
 Implement UI components, layouts, state management, API calls, styling, and routing using TDD.
 
 ## Inputs
 
 Read from upstream docs before writing any code:
-- **Wireframes** (`requirements/wireframes/`): If HTML wireframes exist, read them. Implement to match the layout structure. The wireframe's HTML comments (`<!-- Navigation Bar -->`, etc.) map to your component boundaries.
-- **Component architecture** (from architecture doc): If atomic design, feature-based, or another pattern was decided, follow it. Structure your files and components accordingly.
-- **Styling approach** (from architecture doc): Use the specified approach (Tailwind, CSS modules, styled-components, etc.). Do not introduce a different one.
-- **State management** (from architecture doc): Use the specified pattern (Redux, Zustand, Context, etc.).
-- **Design system** (from requirements doc): If a component library was specified (shadcn/ui, Material UI, etc.), use it. If "custom" was specified, build components from scratch following the stated visual style.
-- **Accessibility target** (from requirements doc): If WCAG AA/AAA was specified, enforce it — aria labels, keyboard navigation, focus management, contrast ratios.
-
-If none of these exist, use sensible defaults and project conventions.
-
-## TDD Patterns by Framework
-
-| Framework | Test Approach |
-|-----------|-------------|
-| React/TS | vitest + @testing-library/react. Render, query, assert, interact. |
-| Vue | vitest + @vue/test-utils. Mount, find, assert, trigger. |
-| Svelte | vitest + @testing-library/svelte. Render, query, assert. |
-| Plain JS | vitest or Jest. Unit test functions directly. |
-
-Use the test framework specified in the architecture doc's Testing Architecture section if one was chosen. Otherwise, use the defaults above.
-
-## What to Test at Each Level
-
-- **Component:** Renders correctly, displays right data, handles interactions
-- **State:** Reducers/stores produce correct state for each action
-- **Integration:** Component + API calls + state updates work together
-- **Snapshot:** Visual regression for key components (only if Testing Requirements specify visual regression)
-- **Accessibility:** Automated a11y checks (only if Testing Requirements specify accessibility testing)
+- **Wireframes** (`requirements/wireframes/`): implement to match layout structure
+- **Component architecture, styling, state management, design system, accessibility target**: use what was decided in architecture/requirements docs
 
 ## Per-Component Rules (enforced on every component written)
 
@@ -49,7 +25,7 @@ Use the test framework specified in the architecture doc's Testing Architecture 
 
 ## Resilience Rules (from real usage)
 
-1. **No false success.** Check `response.ok` BEFORE any success toast, state clear, or UI update. Never show "Saved" before confirming the save actually worked.
+1. **No false success.** Check `response.ok` BEFORE any success toast, state clear, or UI update.
 2. **Core features never conditionally hidden.** Always render with empty state + action link.
 3. **Results appear inline.** Don't redirect after an action.
 4. **Dynamic text: truncate + overflow-hidden + max-w.** Every element displaying user data or filenames.
@@ -60,21 +36,7 @@ Use the test framework specified in the architecture doc's Testing Architecture 
 9. **JSON.parse on external data: always try/catch.** Use a `safeJsonParse()` helper with fallback.
 10. **Dev workflow note:** Tell user to restart dev server or hard-refresh to see changes.
 
-## TDD Cycle
-
-For each piece of UI logic in the slab:
-
-1. **TEST FIRST** — Write a failing test that describes the expected rendering or interaction
-2. **RUN TEST** — Confirm it fails (red)
-3. **IMPLEMENT** — Write the minimum component code to make the test pass
-4. **RUN TEST** — Confirm it passes (green)
-5. **REFACTOR** — Clean up without changing behavior
-6. **RUN TEST** — Confirm still green
-7. **RESILIENCE CHECK** — Run the 7-item frontend check below. **This step is mandatory.**
-
-## Post-Write Resilience Check (runs after EVERY component write or modify)
-
-**This is not optional.** After writing or modifying ANY component, scan it against all 7 items. Fix violations before moving to the next component.
+## Post-Write Resilience Check (mandatory after EVERY component write or modify)
 
 ```
 For [component just written/modified]:
@@ -83,35 +45,31 @@ For [component just written/modified]:
       If yes: are they loaded independently with separate try/catch?
       FAIL if: Promise.all groups unrelated fetches
 
-[ ] 2. OVERFLOW — Does this component display dynamic text (user data, API response, filenames)?
+[ ] 2. OVERFLOW — Does this component display dynamic text?
       If yes: does every dynamic text element have truncate + overflow-hidden + max-w?
       FAIL if: any dynamic text lacks overflow protection
 
 [ ] 3. EMPTY STATE — Is this a core feature component?
       If yes: does it render when data is empty/null/undefined with an action link?
-      FAIL if: component is conditionally hidden ({data && <Component>}) for a primary feature
+      FAIL if: component is conditionally hidden for a primary feature
 
-[ ] 4. INLINE RESULTS — Does this component trigger an action (submit, search, generate)?
-      If yes: do results appear in the same view, not a redirect to another page/tab?
+[ ] 4. INLINE RESULTS — Does this component trigger an action?
+      If yes: do results appear in the same view, not a redirect?
       FAIL if: action redirects away from where user triggered it
 
-[ ] 5. SUCCESS MESSAGES — Does this component show a success/done/complete message?
-      If yes: does the message appear AFTER the action actually completes (after API response, not before)?
-      FAIL if: success shown before the action is confirmed complete
+[ ] 5. SUCCESS MESSAGES — Does this component show a success message?
+      If yes: does it appear AFTER the action actually completes?
+      FAIL if: success shown before confirmed complete
 
 [ ] 6. ERROR ISOLATION — Does this component call APIs?
-      If yes: does a failed API call show an error message in THIS component, not blank the page?
-      FAIL if: error in one component's data loading affects other components
+      If yes: does a failed API call show error in THIS component, not blank the page?
+      FAIL if: error in one component affects others
 
 [ ] 7. HEALTH vs AVAILABILITY — Does this component show connection/status indicators?
-      If yes: does it verify with a real test query, not just check if a key/URL exists?
-      FAIL if: "Connected" badge shown without verifying the service actually responds
+      If yes: does it verify with a real test query?
+      FAIL if: "Connected" shown without verifying service responds
 ```
 
-**If any item fails:** Fix it immediately before proceeding. Don't accumulate UI debt.
-
-**Report format after check:**
-> "Resilience check for [ComponentName]: 7/7 passed" or
-> "Resilience check for [ComponentName]: 5/7 — fixing #2 (overflow) and #3 (empty state)"
+**Report:** "Resilience check for [ComponentName]: 7/7 passed" or list failures.
 
 For guardrails and core principles, see the main `SKILL.md`.
