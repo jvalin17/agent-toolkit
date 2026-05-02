@@ -52,16 +52,28 @@ Read `skeleton.md`. Thin end-to-end path. No TDD. Port from env var (default 804
 ### Phase 2: Feature Slabs
 Derive from architecture + requirements priorities. Dependencies first, must before should, vertical slices, security stitched in. Frontend slabs wait until backend flow is validated.
 
-## Per-Slab Cycle
+## Per-Slab Cycle — ONE FEATURE AT A TIME
+
+**Do not start the next slab until the current one is committed, reviewed, and confirmed working.** This is the most important rule in implementation. Rushing through multiple features produces coupled, untested, unreviewable code.
 
 ```
-1. SETUP — scaffold/wiring (no TDD)
+1. SETUP — scaffold/wiring for THIS slab only (no TDD)
 2. SECURITY — if slab touches auth/data/APIs: read security.md
 3. TDD — every test has specific value assertions (assertEqual, toBe, toEqual)
-4. INTEGRATE — verify full slice works end-to-end
+4. INTEGRATE — verify THIS feature works end-to-end
 5. PRE-COMMIT — run /precommit (instructions, test quality, standards, rules, app verification)
 6. COMMIT — one slab = one commit (only after gate passes)
+7. STOP — present result to user:
+   "Slab [N] complete: [feature name]. [X] tests passing.
+    Next slab: [next feature]. Ready to proceed?"
+   Wait for user confirmation before starting next slab.
 ```
+
+**Why stop between slabs:**
+- Each feature gets reviewed in isolation — easier to catch issues
+- If a feature needs rework, you haven't built 3 more on top of it
+- User can reprioritize remaining slabs based on what they've seen
+- Keeps commits atomic and revertable
 
 ## Sub-Modes
 
