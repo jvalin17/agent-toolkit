@@ -1,6 +1,6 @@
 # Agent Toolkit
 
-[![Skills: 11](https://img.shields.io/badge/Skills-11-blue?style=for-the-badge)](skills/)
+[![Skills: 12](https://img.shields.io/badge/Skills-12-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
@@ -31,6 +31,7 @@ Then in any project:
 /architecture my-app              # design architecture
 /implementation my-app            # build with TDD
 /debug something is broken        # systematic diagnosis
+/assess my-app                    # architecture fitness check + safe refactoring
 /precommit                        # quality gate before commit
 /reviewer my-app                  # code + tests + a11y audit
 /setup my-app                     # install scripts + Docker + README
@@ -47,6 +48,7 @@ Then in any project:
 | `/architecture` | Design architecture with trade-offs. User journey mandatory. Legal checks. Concurrency warnings. |
 | `/implementation` | Build with TDD. Walking skeleton, then feature slabs. Fix, refactor, demo modes. Frontend hardening pass. |
 | `/debug` | Systematic debugging. Hypothesis-driven, layer-by-layer. Reproduce with test, then fix. 3-strikes escalation. |
+| `/assess` | Architecture fitness check. Scale-aware — suggests changes only when thresholds justify them. Safe refactoring with characterize-abstract-build-switch-verify-remove sequence. |
 | `/precommit` | Quality gate before every commit. All instructions addressed? Tests meaningful? SOLID/DRY? Rules compliance? Verified in running app? |
 | `/reviewer` | Code quality + write tests + smoke test + accessibility + dependency audit + UI validation. |
 | `/setup` | Generate install scripts, Docker, Makefile, README. One-command setup, platform agnostic. |
@@ -118,6 +120,8 @@ Then in any project:
 
 | Skill | When | Time |
 |-------|------|------|
+| `/assess` | Before major changes, or periodically to check fitness | ~15 min |
+|-------|------|------|
 | `/precommit` | Before every commit | ~1 min |
 | `/reviewer` | After a feature is complete | ~10 min |
 | `/evaluate` | Between skills or at the end | ~5 min |
@@ -132,6 +136,7 @@ skills/
   architecture/     66-line orchestrator + 8 sub-skills + 4 references
   implementation/   85-line orchestrator + 7 sub-skills + 7 references
   reviewer/        103-line orchestrator + 6 sub-skills
+  assess/          164-line orchestrator + 2 references (patterns + anti-patterns)
   explore/         137 lines
   debug/           182 lines
   precommit/       232 lines
