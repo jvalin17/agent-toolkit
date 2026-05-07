@@ -68,13 +68,13 @@ jobs:
         id: sizes
         run: |
           echo "" >> /tmp/audit-report.md
-          echo "## File Size Check (400-line limit)" >> /tmp/audit-report.md
+          echo "## File Size Check (250-line limit)" >> /tmp/audit-report.md
           echo "" >> /tmp/audit-report.md
 
           over_count=0
           while IFS= read -r file; do
             lines=$(wc -l < "$file")
-            if [ "$lines" -gt 400 ]; then
+            if [ "$lines" -gt 250 ]; then
               echo "- [OVER] $file — $lines lines" >> /tmp/audit-report.md
               over_count=$((over_count + 1))
             fi
