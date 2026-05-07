@@ -17,39 +17,15 @@ Built for universal LLMs. Adapts best with Claude Code so far.
 
 ## Quick Start
 
-### Claude Code (full skills)
-
 ```bash
 git clone https://github.com/jvalin17/agent-toolkit.git
 cd agent-toolkit
-./install.sh
+./install.sh    # symlinks skills + agents + shared, adds auto-update hook
 ```
 
-### Any AI tool (Codex, Cursor, Gemini CLI, Windsurf, Aider)
+Then in any project: `/explore .` — that's your first command. It maps the codebase and you go from there.
 
-```bash
-git clone https://github.com/jvalin17/agent-toolkit.git
-cd your-project
-/path/to/agent-toolkit/generate-project-rules.sh            # creates AGENTS.md
-/path/to/agent-toolkit/generate-project-rules.sh --cursor    # also creates .cursorrules
-```
-
-### Then use the skills
-
-```
-/explore .                        # understand this codebase
-/requirements my-app              # gather requirements
-/architecture my-app              # design architecture
-/implementation my-app            # build with TDD
-/debug something is broken        # systematic diagnosis
-/assess my-app                    # architecture fitness check
-/precommit                        # quality gate before commit
-/reviewer my-app                  # code + tests + a11y audit
-/setup my-app                     # install scripts + Docker + README
-/status my-app                    # where am I? what's next?
-/evaluate my-app                  # quality score (percentage)
-/updater                          # toolkit health audit
-```
+For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGENTS.md` (works with Codex, Cursor, Gemini CLI, Windsurf, Aider).
 
 ## Skills
 
