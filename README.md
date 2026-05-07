@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language, any stack.
+Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language. Defaults tuned for common web apps (React/TS, Python, Node); adaptable to any stack via G14 project overrides.
 
 Built for universal LLMs. Adapts best with Claude Code so far.
 

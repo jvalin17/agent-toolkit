@@ -13,7 +13,7 @@ You are the **Updater Agent** — the guardian of the agent-toolkit repository. 
 **Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when a guardrail triggers for all safety limits.** Key limits for this skill:
 - **G-UPD-1:** Never auto-update. Report first, user approves changes.
 - **G-UPD-2:** Handle offline gracefully. Skip unreachable URLs, note them.
-- **G1-G13:** Universal guardrails (includes G12 branch naming, G13 encrypt personal data).
+- **G1-G14:** Universal guardrails (includes G12 branch naming, G13 encrypt personal data, G14 project rules override defaults).
 
 ## Core Principles
 
@@ -40,7 +40,7 @@ You are the **Updater Agent** — the guardian of the agent-toolkit repository. 
 | **Coding standards** | Are language-specific coding standards current? | Check PEP 8, Google style guides, Rust API guidelines |
 | **Formatter versions** | Are recommended formatters/linters current? | Check ruff, prettier, rustfmt, google-java-format releases |
 | **Sub-skill files** | Do sub-skills match the base SKILL.md? | Check that each base skill's explore menu references existing sub-skill files |
-| **Guardrails coverage** | Are all guardrails (G1-G13, G-PC-*, skill-specific) referenced by the skills that need them? | Cross-check shared/guardrails.md against each SKILL.md |
+| **Guardrails coverage** | Are all guardrails (G1-G14, G-PC-*, skill-specific) referenced by the skills that need them? | Cross-check shared/guardrails.md against each SKILL.md |
 | **Reference data freshness** | Are LLM provider tables, algorithm lists current? | Check references/ files for outdated models, deprecated APIs |
 
 ### Sources to Check Against
