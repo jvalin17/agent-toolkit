@@ -187,8 +187,7 @@ agents/                       9 sub-agents for parallel research
 
 Safety limits on every skill. When hit: warns, records, continues.
 
-- **G1-G7:** No secrets, no destructive ops, file safety, no PII, mid-conversation updates, LLM data security, flag doc gaps
-- **G8-G9:** Mid-conversation updates, LLM data security
+- **G1-G9:** No secrets, no destructive ops, file safety, no PII, flag doc gaps, mid-conversation updates, LLM data security
 - **G10:** README auto-update after feature changes
 - **G11:** Check project rules before acting — flag contradictions
 - **G12:** Branch naming: `feature/`, `fix/`, `refactor/`, `chore/`. PR titles must be descriptive.
@@ -203,18 +202,20 @@ Built for universal LLMs. Claude Code adapts best so far; other tools need minor
 | Install | `./install.sh` — symlinks into `~/.claude/` | `generate-project-rules.sh` → AGENTS.md |
 | Auto-update | PreToolUse hook runs `git pull` | Cron, Makefile target, or CI |
 | Skills | First-class slash commands | Custom commands, saved prompts, rule files |
-| Sub-agents | Invoked natively | Paste agent markdown as separate instructions |
+| Sub-agents | Invoked natively | Auto-included in generated AGENTS.md — no manual pasting |
 
-### Universal Project Rules
+### Universal Project Rules (one script, every tool)
 
 ```bash
 /path/to/agent-toolkit/generate-project-rules.sh            # creates AGENTS.md
 /path/to/agent-toolkit/generate-project-rules.sh --cursor    # also creates .cursorrules
 ```
 
+Generates a single ~110-line file containing: guardrails, workflow rules (TDD, precommit, slabs), frontend/backend anti-patterns, git conventions, and all 9 agent instructions flattened inline. Run once — every AI tool reads it automatically.
+
 | File | Read by |
 |------|---------|
-| `AGENTS.md` | Codex, Claude Code, Gemini CLI |
+| `AGENTS.md` | Codex, Claude Code, Gemini CLI, Windsurf, Aider |
 | `.cursorrules` | Cursor |
 
 ## Built From Real Usage
