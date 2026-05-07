@@ -23,7 +23,9 @@ cd agent-toolkit
 ./install.sh    # symlinks skills + agents + shared, adds auto-update hook
 ```
 
-Then in any project: `/explore .` — that's your first command. It maps the codebase and you go from there.
+Then in any project:
+- **Existing codebase?** → `/explore .` to understand it first
+- **Greenfield?** → `/requirements my-app` to start building ([see Flow 1](#flow-1-greenfield--plan-build-ship))
 
 For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGENTS.md` (works with Codex, Cursor, Gemini CLI, Windsurf, Aider).
 

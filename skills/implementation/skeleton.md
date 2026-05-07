@@ -11,7 +11,9 @@ Read the architecture doc's component diagram and data flow. Trace the simplest 
 
 The skeleton is scaffold work (config, project setup, connection strings, routing), not business logic. Just get it running.
 
-## Frontend Foundation (if project has UI)
+## Frontend Foundation (if project has a web UI)
+
+The table below assumes a React/TS-style SPA. For other stacks (Next.js SSR, CLI tools, mobile apps, static sites), adapt the equivalents — the principles (typed API client, error boundary, shared types) apply universally, the specific files differ.
 
 Before writing the first component, the skeleton must include these files:
 
