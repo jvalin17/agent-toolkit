@@ -37,6 +37,7 @@ Then in any project:
 /setup my-app                     # install scripts + Docker + README
 /status my-app                    # where am I? what's next?
 /evaluate my-app                  # did it match what was asked?
+/updater                          # periodic toolkit health audit
 ```
 
 ## Skills
@@ -121,7 +122,6 @@ Then in any project:
 | Skill | When | Time |
 |-------|------|------|
 | `/assess` | Before major changes, or periodically to check fitness | ~15 min |
-|-------|------|------|
 | `/precommit` | Before every commit | ~1 min |
 | `/reviewer` | After a feature is complete | ~10 min |
 | `/evaluate` | Between skills or at the end | ~5 min |
@@ -133,7 +133,7 @@ Token-optimized. Lean orchestrators load sub-skills on demand — only the area 
 ```
 skills/
   requirements/     71-line orchestrator + 4 sub-skills + 7 references
-  architecture/     66-line orchestrator + 8 sub-skills + 4 references
+  architecture/     ~68-line orchestrator + 8 sub-skills + 4 references
   implementation/   85-line orchestrator + 7 sub-skills + 7 references
   reviewer/        103-line orchestrator + 6 sub-skills
   assess/          164-line orchestrator + 2 references (patterns + anti-patterns)
