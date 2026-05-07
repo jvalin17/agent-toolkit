@@ -15,6 +15,7 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G10:** Update README after feature changes
 - **G11:** Check rules before acting — flag contradictions, don't silently override
 - **G12:** Branch/PR naming — `feature/<name>`, `fix/<name>`, `refactor/<name>`. PR titles are concise and descriptive.
+- **G13:** Personal data and user preferences must be encrypted at rest. Never store plaintext passwords, tokens, or personal information in database or files.
 
 ## Pre-commit (G-PC-1 to G-PC-5)
 - **G-PC-1:** No sloppy tests — require specific value assertions

@@ -183,7 +183,7 @@ agents/                       9 sub-agents for parallel research
 | `readme-validator` | Verify every claim in README is true |
 | `rules-indexer` | Scan project docs for decisions and constraints |
 
-## Guardrails (G1-G12)
+## Guardrails (G1-G13)
 
 Safety limits on every skill. When hit: warns, records, continues.
 
@@ -191,6 +191,7 @@ Safety limits on every skill. When hit: warns, records, continues.
 - **G10:** README auto-update after feature changes
 - **G11:** Check project rules before acting — flag contradictions
 - **G12:** Branch naming: `feature/`, `fix/`, `refactor/`, `chore/`. PR titles must be descriptive.
+- **G13:** Personal data and user preferences encrypted at rest. Never plaintext.
 - **G-PC-1-5:** No sloppy tests, all instructions addressed, no false "done", verify in running app, ask on ambiguity
 
 ## Portability

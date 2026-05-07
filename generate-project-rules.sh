@@ -92,6 +92,7 @@ cat >> AGENTS.md << 'WORKFLOW'
 - Parameterized queries — no string concatenation for SQL
 - Input validation on every user-facing endpoint
 - No secrets in logs
+- Personal data and user preferences: always encrypt at rest (bcrypt for passwords, AES-256 for data)
 
 ### Git
 - Branch names: `feature/<name>`, `fix/<name>`, `refactor/<name>`, `chore/<name>`

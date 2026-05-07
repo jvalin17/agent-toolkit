@@ -193,6 +193,13 @@ When creating branches or pull requests, use descriptive conventional names:
 - `chore/<short-name>` for maintenance/config
 PR titles must be concise and descriptive — not "Update code" or "Fix stuff."
 
+#### G13: Encrypt Personal Data at Rest
+Any personal information or user preferences stored in a database or file must be encrypted. Never store plaintext passwords, tokens, personal details, or user preferences. Use:
+- Password hashing (bcrypt, argon2) for passwords — never reversible encryption
+- Encryption at rest (AES-256, Fernet) for personal data and preferences
+- Secure token storage (hashed or encrypted) for API keys and session tokens
+**Template:** "This stores personal data. Using [encryption method] for [field]. Plaintext storage is not acceptable."
+
 ### /evaluate
 
 #### G-EVAL-1: Unverifiable Claims Highlighted
