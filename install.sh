@@ -10,10 +10,12 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SKILLS_SRC="$SCRIPT_DIR/skills"
 AGENTS_SRC="$SCRIPT_DIR/agents"
+SHARED_SRC="$SCRIPT_DIR/shared"
 OLD_COMMANDS_SRC="$SCRIPT_DIR/commands"
 
 SKILLS_DEST="$HOME/.claude/skills"
 AGENTS_DEST="$HOME/.claude/agents"
+SHARED_DEST="$HOME/.claude/shared"
 OLD_COMMANDS_DEST="$HOME/.claude/commands"
 
 installed=0
@@ -83,6 +85,17 @@ for agent_file in "$AGENTS_SRC"/*.md; do
     [ -f "$agent_file" ] || continue
     filename="$(basename "$agent_file")"
     link_item "$agent_file" "$AGENTS_DEST/$filename" "$filename" "file"
+done
+
+# --- Install Shared Files ---
+echo ""
+echo "Installing shared files..."
+mkdir -p "$SHARED_DEST"
+
+for shared_file in "$SHARED_SRC"/*.md; do
+    [ -f "$shared_file" ] || continue
+    filename="$(basename "$shared_file")"
+    link_item "$shared_file" "$SHARED_DEST/$filename" "$filename" "file"
 done
 
 # --- Clean up old commands that migrated to skills ---

@@ -33,6 +33,8 @@ Read `project-state.md` at start. Write decisions, warnings, handoff summary at 
 Check `architecture/<slug>.md` for re-entry → Continue / Revisit / Start fresh.
 Read `requirements/<slug>.md`. If it has "Codebase Index" → feature add-on, skip to Step 2b.
 
+**Reuse check (before designing new components):** Search the existing codebase for code that does similar things. List what can be reused, what needs adaptation, and what's genuinely new. This single step prevents rebuilding what already exists.
+
 ## Step 1: Quick Architecture (greenfield)
 
 One-page: pattern, tech stack, data layer, API, component diagram, user journey, concurrency check, local/cheap version. Write to `architecture/<slug>.md`.

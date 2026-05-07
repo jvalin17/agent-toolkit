@@ -33,16 +33,18 @@ Read `project-state.md` at start. Write feature status (works/placeholder/broken
 
 Read `references/coding-standards-index.md` for language-specific standards.
 
-## Mode Detection
+## Mode Detection (auto-detect from context, don't ask)
 
-| User says | Mode |
-|-----------|------|
-| "implement/build X" | **Build** → sequence → skeleton → slabs |
-| "fix/debug X" | **Fix** → failing test → fix → verify in running app |
-| "refactor X" | **Refactor** → verify tests pass → refactor → tests still pass |
-| "demo X" | **Demo** → simulated data path, validate UX first |
-| feature for existing app | **Feature** → skip skeleton, read Codebase Index |
-| trivial (1-2 files, no DB) | **Direct** → skip skeleton, just build with TDD |
+Detect mode from the user's words, the project state, and CLAUDE.md. Don't ask "what mode?" — infer it.
+
+| Signal | Mode |
+|--------|------|
+| User says "fix/debug/broken" | **Fix** → failing test → fix → verify |
+| User says "refactor/clean up/restructure" | **Refactor** → tests pass → refactor → tests still pass |
+| User says "demo/simulate/mock data" | **Demo** → simulated data, validate UX |
+| Existing codebase (CLAUDE.md exists, git history, Codebase Index) | **Feature** → skip skeleton, go to slab |
+| No existing code, greenfield | **Build** → skeleton → slabs |
+| Change is trivial (1-2 files, no DB) | **Direct** → just build with TDD |
 
 ## Build Mode: Sequence
 

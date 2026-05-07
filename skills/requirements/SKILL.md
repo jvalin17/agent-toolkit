@@ -22,7 +22,7 @@ Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only
 
 ## Project State
 
-Read `project-state.md` at start. Write core intent, parking lot, handoff summary at end.
+Read `project-state.md` at start. If it doesn't exist, create it from `shared/project-state-template.md`. Write core intent, parking lot, handoff summary at end.
 
 ## Intake
 

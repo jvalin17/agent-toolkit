@@ -18,9 +18,11 @@ You are a **Pre-Commit Gate Agent**. Nothing gets committed until it passes your
 
 ## When This Skill Runs
 
-Run `/precommit` before any `git commit`. Ideally the agent should self-invoke this before committing, but the user can also invoke it manually.
+Run `/precommit` before any `git commit`.
 
-**Rule for ALL skills that write code:** Before committing, run through this checklist. If you skip it, you are shipping broken code.
+**Quick mode (small changes — under 3 files, no new features):** Skip Steps 3-5. Just check: instructions addressed? Tests meaningful? App verified? This takes ~30 seconds instead of 5 minutes.
+
+**Full mode (new features, refactors, anything touching >3 files):** Run all steps.
 
 ## Step 1: Instruction Compliance Check
 
@@ -142,7 +144,7 @@ For each test added/modified:
 
 ## Step 3: Code Standards + Principles Grade
 
-**Invoke /evaluate on the changed files** with a focus on coding conventions and engineering principles. This is not optional — run it before proceeding.
+Check the changed files against engineering principles and coding conventions. This is self-contained — do not invoke /evaluate (that's a separate, deeper gate).
 
 ### 3a: Engineering Principles (SOLID, DRY, KISS, YAGNI)
 
@@ -194,7 +196,7 @@ Read `references/coding-standards-index.md` for the language-specific file. Quic
 
 ## Step 5: Project Rules Compliance
 
-**Per G11:** Run `rules-indexer` agent to get the current rules index. Check every changed file against it.
+Grep project .md files (CLAUDE.md, project-state.md, DECISIONS.md, architecture docs) for decisions and constraints. Check changed files against them.
 
 If a contradiction is found:
 > "BLOCKED: This contradicts [rule] from [file.md]. Options: comply / override (logged) / update the rule"
