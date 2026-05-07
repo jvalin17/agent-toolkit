@@ -200,6 +200,9 @@ Any personal information or user preferences stored in a database or file must b
 - Secure token storage (hashed or encrypted) for API keys and session tokens
 **Template:** "This stores personal data. Using [encryption method] for [field]. Plaintext storage is not acceptable."
 
+#### G14: Project Rules Override Toolkit Defaults
+If a project's CLAUDE.md, AGENTS.md, DECISIONS.md, or other project-level docs specify a convention, pattern, stack choice, or workflow that contradicts a toolkit skill's default — the project wins. The toolkit provides sensible defaults for teams that haven't decided yet, not mandates that override team standards. When a conflict is detected, follow the project rule and note: "Using project convention [X] instead of toolkit default [Y]."
+
 ### /evaluate
 
 #### G-EVAL-1: Unverifiable Claims Highlighted

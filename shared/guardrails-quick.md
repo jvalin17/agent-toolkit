@@ -2,7 +2,7 @@
 
 One-line summaries. Read full `guardrails.md` only when a guardrail triggers or you need the detail.
 
-## Universal (G1-G13)
+## Universal (G1-G14)
 - **G1:** No secrets in output — use env var placeholders
 - **G2:** No destructive ops without user confirmation
 - **G3:** State limitations clearly — "verified exists, can't verify works"
@@ -16,6 +16,7 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G11:** Check rules before acting — flag contradictions, don't silently override
 - **G12:** Branch/PR naming — `feature/<name>`, `fix/<name>`, `refactor/<name>`. PR titles are concise and descriptive.
 - **G13:** Personal data and user preferences must be encrypted at rest. Never store plaintext passwords, tokens, or personal information in database or files.
+- **G14:** Project rules override toolkit defaults. If a project's CLAUDE.md, AGENTS.md, or DECISIONS.md specifies a convention that contradicts a skill's default, the project wins. The toolkit provides sensible defaults — not mandates.
 
 ## Pre-commit (G-PC-1 to G-PC-5)
 - **G-PC-1:** No sloppy tests — require specific value assertions

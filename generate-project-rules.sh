@@ -93,6 +93,7 @@ cat >> AGENTS.md << 'WORKFLOW'
 - Input validation on every user-facing endpoint
 - No secrets in logs
 - Personal data and user preferences: always encrypt at rest (bcrypt for passwords, AES-256 for data)
+- Project rules override these defaults. If this project has its own conventions (in CLAUDE.md, DECISIONS.md, etc.), follow the project — not this file.
 
 ### Git
 - Branch names: `feature/<name>`, `fix/<name>`, `refactor/<name>`, `chore/<name>`
