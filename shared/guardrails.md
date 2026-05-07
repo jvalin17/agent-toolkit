@@ -185,6 +185,14 @@ If any decision is ambiguous — naming, approach, pattern, scope — ask the us
 #### G11: Check Rules Before Acting
 Before writing, modifying, or proposing code/architecture/decisions, delegate to the `rules-indexer` agent to scan project .md files for existing decisions, constraints, and learnings. Check your proposed changes against the index. If a change contradicts an existing rule, flag it — don't silently override.
 
+#### G12: Branch and PR Naming
+When creating branches or pull requests, use descriptive conventional names:
+- `feature/<short-name>` for new features
+- `fix/<short-name>` for bug fixes
+- `refactor/<short-name>` for refactoring
+- `chore/<short-name>` for maintenance/config
+PR titles must be concise and descriptive — not "Update code" or "Fix stuff."
+
 ### /evaluate
 
 #### G-EVAL-1: Unverifiable Claims Highlighted

@@ -13,7 +13,8 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G8:** Mid-conversation updates — update docs in place, don't restart
 - **G9:** LLM data security — never send secrets to external LLMs, mark data exit points
 - **G10:** Update README after feature changes
-- **G11:** Check rules before acting — delegate to `rules-indexer`, flag contradictions
+- **G11:** Check rules before acting — flag contradictions, don't silently override
+- **G12:** Branch/PR naming — `feature/<name>`, `fix/<name>`, `refactor/<name>`. PR titles are concise and descriptive.
 
 ## Pre-commit (G-PC-1 to G-PC-5)
 - **G-PC-1:** No sloppy tests — require specific value assertions

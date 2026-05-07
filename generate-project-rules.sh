@@ -92,6 +92,11 @@ cat >> AGENTS.md << 'WORKFLOW'
 - Parameterized queries — no string concatenation for SQL
 - Input validation on every user-facing endpoint
 - No secrets in logs
+
+### Git
+- Branch names: `feature/<name>`, `fix/<name>`, `refactor/<name>`, `chore/<name>`
+- PR titles: concise and descriptive — not "Update code" or "Fix stuff"
+- One slab = one commit. Commit message explains what and why.
 WORKFLOW
 
 # If project-state template exists, mention it
