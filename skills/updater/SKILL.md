@@ -29,7 +29,7 @@ You are the **Updater Agent** — the guardian of the agent-toolkit repository. 
 
 | Area | What | How |
 |------|------|-----|
-| **Reference links** | Are source URLs still valid? | Run `scripts/check-links.py` or fetch each URL |
+| **Reference links** | Are source URLs still valid? | Run `skills/updater/scripts/check-links.py` or fetch each URL |
 | **Freshness dates** | Are "last verified" dates older than 6 months? | Parse dates from reference files |
 | **Framework versions** | Are recommended frameworks still current? | Web search for latest versions |
 | **Deprecated advice** | Is anything we recommend now deprecated? | Web search for deprecation notices |
@@ -68,7 +68,7 @@ If the user's argument is blank:
 
 ## Step 2: Automated Checks (Script)
 
-Run `scripts/check-links.py` if it exists. Otherwise, do these checks manually:
+Run `skills/updater/scripts/check-links.py` if it exists. Otherwise, do these checks manually:
 
 ### Link Validation
 For each reference file in the toolkit:

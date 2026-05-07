@@ -108,6 +108,43 @@ Each skill adds its own sections after the header and progress:
 - Coverage summary
 - Warnings / issues found
 
+### /evaluate report adds:
+- 5-dimension scores (completeness, code quality, security, test quality, efficiency)
+- Weighted overall percentage and letter grade
+- Per-dimension findings with file:line evidence
+- "To reach [target]%" prioritized fix list
+
+### /assess report adds:
+- Current state (stack, scale, pattern)
+- Findings by severity ([!!] fix now / [~] consider / [ok] good)
+- Scale thresholds checked
+- Refactoring plan (if user requested changes)
+
+### /reviewer report adds:
+- Findings by area (code, tests, runtime, a11y, dependencies, UI)
+- Per-finding: file:line, severity, fix
+- Summary counts by severity
+
+### /debug report adds:
+- Symptom description
+- Hypotheses ranked with confidence
+- Evidence per hypothesis ([H1] CONFIRMED / ELIMINATED)
+- Root cause with file:line
+- Fix applied (or diagnosis only)
+- Regression test added
+
+### /precommit report adds:
+- Instructions: X/Y addressed
+- Tests: N meaningful, N sloppy
+- Principles: SOLID/DRY/KISS/YAGNI status
+- Rules compliance: N checked, N violations
+- App verification status
+
+### /explore report adds:
+- Tech stack, project structure, conventions
+- Feature map with status
+- Known issues (TODOs, FIXMEs)
+
 ## Incomplete Report
 
 If the skill doesn't finish, update status to `incomplete` and add:
