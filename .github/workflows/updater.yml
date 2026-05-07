@@ -81,7 +81,7 @@ jobs:
           done < <(find skills/ shared/ agents/ -name "*.md" -type f)
 
           if [ "$over_count" -eq 0 ]; then
-            echo "All files under 400 lines." >> /tmp/audit-report.md
+            echo "All files under 250 lines." >> /tmp/audit-report.md
           fi
           echo "over=$over_count" >> $GITHUB_OUTPUT
 

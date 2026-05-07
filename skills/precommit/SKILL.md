@@ -222,8 +222,9 @@ Ambiguities: [N] flagged to user
 [ ] BLOCKED — [reason]
 ```
 
-If READY: proceed with commit.
-If BLOCKED: fix all issues, re-run checks, then commit.
+**Do NOT commit automatically.** Present the report and wait for user to say "commit" or "go ahead." Never assume permission. The user decides when to commit, not the agent.
+
+If BLOCKED: fix all issues, re-run checks, present again, wait for user.
 
 ## Integration with Other Skills
 
