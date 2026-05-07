@@ -180,14 +180,22 @@ Safety limits on every skill. When hit: warns, records, continues.
 
 ## Portability
 
-Built for universal LLMs — the patterns, workflows, and rules work with any AI coding agent. Claude Code adapts best so far thanks to native skill/agent support and auto-update hooks. For other tools, adapt the SKILL.md format to your agent's instruction system:
+Built for universal LLMs. Claude Code adapts best so far; other tools need minor wiring.
+
+| Piece | Claude Code | Other agents |
+|-------|------------|--------------|
+| Install | `./install.sh` — symlinks skills, agents, shared into `~/.claude/` | Copy files or symlink into your config layout, or keep the repo beside the project |
+| Auto-update | PreToolUse hook runs `git pull` before every skill | Not automatic — use cron, Makefile target, or CI to sync from this repo |
+| Slash skills (`/requirements`, ...) | First-class slash commands after install | Custom commands, saved prompts, rule files, or "when I say X, follow Y" |
+| Sub-agents (`rules-indexer`, ...) | Invoked natively if runtime supports agent spawning | Paste the agent markdown as instructions for a separate chat, or flatten into one system prompt |
 
 | Tool | How to adapt |
 |------|-------------|
-| Claude Code | Works natively — `./install.sh` and go |
+| Claude Code | `./install.sh` and go |
 | Cursor | Copy skill content to `.cursorrules` or project rules |
 | Codex / Devin | Use as `AGENTS.md` or system prompts |
-| Any LLM agent | The instructions are plain English — paste into your agent's config |
+| Windsurf / Aider | Use as rule files or system prompts |
+| Any LLM | Instructions are plain English — paste into your agent's config |
 
 ## Built From Real Usage
 
