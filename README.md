@@ -189,13 +189,22 @@ Built for universal LLMs. Claude Code adapts best so far; other tools need minor
 | Slash skills (`/requirements`, ...) | First-class slash commands after install | Custom commands, saved prompts, rule files, or "when I say X, follow Y" |
 | Sub-agents (`rules-indexer`, ...) | Invoked natively if runtime supports agent spawning | Paste the agent markdown as instructions for a separate chat, or flatten into one system prompt |
 
-| Tool | How to adapt |
-|------|-------------|
-| Claude Code | `./install.sh` and go |
-| Cursor | Copy skill content to `.cursorrules` or project rules |
-| Codex / Devin | Use as `AGENTS.md` or system prompts |
-| Windsurf / Aider | Use as rule files or system prompts |
-| Any LLM | Instructions are plain English — paste into your agent's config |
+### Universal Project Rules (any tool)
+
+Run this from any project to generate agent rules that every tool reads:
+
+```bash
+/path/to/agent-toolkit/generate-project-rules.sh            # creates AGENTS.md
+/path/to/agent-toolkit/generate-project-rules.sh --cursor    # also creates .cursorrules
+```
+
+Produces a single ~90-line file with the toolkit's key rules (guardrails, TDD, frontend/backend anti-patterns, precommit checks). Same content, different filenames:
+
+| File | Read by |
+|------|---------|
+| `AGENTS.md` | Codex, Claude Code, Gemini CLI |
+| `.cursorrules` | Cursor |
+| Claude Code also uses | `~/.claude/skills/` (full skills via `./install.sh`) |
 
 ## Built From Real Usage
 
