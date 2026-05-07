@@ -29,20 +29,20 @@ For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGE
 
 ## Skills
 
-| Skill | What It Does |
-|-------|-------------|
-| `/explore` | Understand any codebase (or multiple repos). 4-phase: recon, architecture, conventions, issues. |
-| `/requirements` | Gather requirements. Draft early, explore on demand. "How do you do this today?" prevents wrong product. |
-| `/architecture` | Design with trade-offs. User journey mandatory. Legal/ToS checks. Reuse check before new components. |
-| `/implementation` | TDD. Walking skeleton, then one feature slab at a time. Fix, refactor, demo modes. Hardening pass. |
-| `/debug` | Hypothesis-driven diagnosis. Layer-by-layer. Reproduce with test, then fix. 3-strikes escalation. |
-| `/assess` | Architecture fitness. Scale-aware — only suggests changes when thresholds justify them. Safe refactoring. |
-| `/precommit` | Quality gate. Instructions addressed? Tests meaningful? SOLID/DRY? Rules compliance? Verified in app? |
-| `/reviewer` | Code quality + tests + smoke test + accessibility + dependencies + UI validation. |
-| `/setup` | Install scripts, Docker, Makefile, README. One command, platform agnostic. |
-| `/status` | Project dashboard. What's done, what's next. |
-| `/evaluate` | 5-dimension quality score: completeness, code quality, security, test quality, efficiency. Percentage grade. |
-| `/updater` | Toolkit health: links, freshness, standards, file sizes. |
+| Skill | What It Does | Example |
+|-------|-------------|---------|
+| `/explore` | Understand any codebase (or multiple repos). 4-phase: recon, architecture, conventions, issues. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
+| `/requirements` | Gather requirements. Draft early, explore on demand. "How do you do this today?" prevents wrong product. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
+| `/architecture` | Design with trade-offs. User journey mandatory. Legal/ToS checks. Reuse check before new components. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
+| `/implementation` | TDD. Walking skeleton, then one slab at a time. Fix, refactor, demo modes. Hardening pass. | [Greenfield](#flow-1-greenfield--plan-build-ship), [Fix/Refactor](#flow-4-fix-refactor-demo) |
+| `/debug` | Hypothesis-driven diagnosis. Layer-by-layer. Reproduce with test, then fix. 3-strikes escalation. | [Debug](#flow-3-debug) |
+| `/assess` | Architecture fitness. Scale-aware — only suggests when thresholds justify. Safe refactoring. | [Assessment](#flow-5-architecture-assessment) |
+| `/precommit` | Quality gate. Instructions addressed? Tests meaningful? SOLID/DRY? Verified in app? | [Greenfield](#flow-1-greenfield--plan-build-ship) |
+| `/reviewer` | Code quality + tests + smoke test + a11y + dependencies + UI validation. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
+| `/setup` | Install scripts, Docker, Makefile, README. One command, platform agnostic. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
+| `/status` | Project dashboard. What's done, what's next. | — |
+| `/evaluate` | 5-dimension quality score. Completeness, code quality, security, tests, efficiency. Percentage grade. | [Scoring](#flow-6-quality-scoring) |
+| `/updater` | Toolkit health: links, freshness, standards, file sizes. | — |
 
 ## Flows
 
