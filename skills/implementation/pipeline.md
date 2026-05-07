@@ -25,4 +25,6 @@ Read from upstream docs:
 
 Build stages incrementally. Each stage should be verified before moving to the next.
 
+For CI/CD patterns and testing frameworks, see `references/testing-frameworks.md`.
+
 For guardrails and core principles, see the main `SKILL.md`.

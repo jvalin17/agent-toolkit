@@ -30,7 +30,7 @@ If setup files already exist, ask: regenerate / fill gaps / update.
 
 ## Step 2: Generate Files
 
-Generate ALL of these. Each must be complete and working.
+Generate ALL of these. Each must be complete and working. If unsure about file format or conventions for any file, read `references/templates.md` for examples.
 
 ### a) setup.sh (+ setup.bat or setup.ps1 for Windows)
 

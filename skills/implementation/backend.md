@@ -23,6 +23,6 @@ Read from upstream docs (requirements, architecture, testing architecture). Foll
 - [ ] .env.example updated with any new env vars
 - [ ] Follows project's established patterns
 
-For language-specific coding standards, see `references/coding-standards-index.md`.
+For language-specific coding standards, see `references/coding-standards-index.md`. For TDD patterns and test framework conventions, see `references/tdd-patterns.md` and `references/testing-frameworks.md`.
 
 For guardrails and core principles, see the main `SKILL.md`.

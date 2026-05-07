@@ -33,4 +33,6 @@ Write the attack test first, then implement the defense. The test simulates the 
 5. CONTINUE — Move to the TDD loop for business logic
 ```
 
+For coding standards, see `references/coding-standards-index.md`.
+
 For guardrails and core principles, see the main `SKILL.md`.

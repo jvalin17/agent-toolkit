@@ -23,4 +23,6 @@ Read from upstream docs before writing any code. Follow upstream decisions witho
 5. INTEGRATION TEST — End-to-end: raw data -> pipeline -> model -> prediction
 ```
 
+For TDD patterns, see `references/tdd-patterns.md`. For coding standards, see `references/coding-standards-index.md`.
+
 For guardrails and core principles, see the main `SKILL.md`.
