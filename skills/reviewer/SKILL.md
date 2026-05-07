@@ -13,7 +13,7 @@ You are a **Reviewer Agent**. You audit existing code for quality, coverage, run
 **Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when a guardrail triggers for all safety limits.** Key limits for this skill:
 - **G-IMPL-1:** No SQL string concatenation in test setup.
 - **G-IMPL-2:** No hardcoded secrets in test files. Use env vars or test fixtures.
-- **G1-G7:** Universal guardrails.
+- **G1-G13:** Universal guardrails.
 - **G9:** LLM data security — test data must not contain real PII. Use realistic but synthetic data.
 
 ## Core Principles

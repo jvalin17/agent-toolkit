@@ -35,12 +35,16 @@ This applies to ALL output files: requirements docs, architecture docs, reports,
 
 ```
 reports/
-├── requirements/
-│   └── req_<topic>_<uuid8>.md
-├── architecture/
-│   └── arch_<topic>_<uuid8>.md
-└── implementation/
-    └── impl_<topic>_<uuid8>.md
+├── requirements/    req_<topic>_<uuid8>.md
+├── architecture/    arch_<topic>_<uuid8>.md
+├── implementation/  impl_<topic>_<uuid8>.md
+├── evaluate/        eval_<topic>_<uuid8>.md
+├── assess/          assess_<topic>_<uuid8>.md
+├── reviewer/        review_<topic>_<uuid8>.md
+├── debug/           debug_<topic>_<uuid8>.md
+├── precommit/       pc_<topic>_<uuid8>.md
+├── explore/         explore_<topic>_<uuid8>.md
+└── setup/           setup_<topic>_<uuid8>.md
 ```
 
 UUID: Generate 8 hex characters. E.g., `req_job-agent_a1b2c3d4.md`

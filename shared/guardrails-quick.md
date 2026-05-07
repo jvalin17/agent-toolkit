@@ -2,7 +2,7 @@
 
 One-line summaries. Read full `guardrails.md` only when a guardrail triggers or you need the detail.
 
-## Universal (G1-G11)
+## Universal (G1-G13)
 - **G1:** No secrets in output — use env var placeholders
 - **G2:** No destructive ops without user confirmation
 - **G3:** State limitations clearly — "verified exists, can't verify works"
