@@ -108,6 +108,31 @@ Create `project-state.md` at project root to track: core intent, key decisions, 
 STATE
 fi
 
+# Append agent instructions (flattened — no sub-agent spawning needed)
+AGENTS_DIR="$SCRIPT_DIR/agents"
+
+if [ -d "$AGENTS_DIR" ]; then
+    echo "" >> AGENTS.md
+    echo "## Specialized Tasks" >> AGENTS.md
+    echo "" >> AGENTS.md
+    echo "Follow these instructions when the matching situation arises." >> AGENTS.md
+    echo "" >> AGENTS.md
+
+    for agent_file in "$AGENTS_DIR"/*.md; do
+        [ -f "$agent_file" ] || continue
+
+        # Extract description from frontmatter
+        desc=$(grep '^description:' "$agent_file" | sed 's/^description: *//' | head -1)
+
+        # Extract first paragraph of body (concise instructions, not full template)
+        first_para=$(awk 'BEGIN{n=0} /^---/{n++; next} n>=2 && NF{p=1} p && !NF{exit} p{print}' "$agent_file")
+
+        if [ -n "$first_para" ]; then
+            echo "- **$desc** — $first_para" >> AGENTS.md
+        fi
+    done
+fi
+
 echo "Created: AGENTS.md"
 
 # Optionally create .cursorrules (same content)
