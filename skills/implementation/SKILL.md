@@ -63,19 +63,20 @@ Derive from architecture + requirements priorities. Dependencies first, must bef
 2. SECURITY — if slab touches auth/data/APIs: read security.md
 3. TDD — every test has specific value assertions (assertEqual, toBe, toEqual)
 4. INTEGRATE — verify THIS feature works end-to-end
-5. PRE-COMMIT — run /precommit (instructions, test quality, standards, rules, app verification)
-6. COMMIT — one slab = one commit (only after gate passes)
-7. STOP — present result to user:
-   "Slab [N] complete: [feature name]. [X] tests passing.
-    Next slab: [next feature]. Ready to proceed?"
-   Wait for user confirmation before starting next slab.
+5. USER VERIFY — ask user to check in browser/app, not just tests:
+   "Tests pass. Please open [page/endpoint] and verify [specific thing].
+    Send a screenshot if something looks wrong — I can read images."
+6. EVALUATE — run /evaluate on this slab. Don't wait until the end.
+7. PRE-COMMIT — run /precommit (instructions, test quality, standards, rules)
+8. COMMIT — one slab = one commit (only after gate passes)
+9. STOP — present result, wait for user confirmation before next slab.
 ```
 
-**Why stop between slabs:**
-- Each feature gets reviewed in isolation — easier to catch issues
-- If a feature needs rework, you haven't built 3 more on top of it
-- User can reprioritize remaining slabs based on what they've seen
-- Keeps commits atomic and revertable
+**Tests passing ≠ feature working.** Don't accept your own output. When you show "24 tests passing", the user should see it in the browser. If they say "it's boring" or "text isn't visible" after 5 slabs — that feedback came too late. Catch it at slab 1.
+
+**Lock requirements before building.** If requirements keep changing mid-slab (theme, data format, field names), stop and re-run /requirements. 10 more minutes on requirements saves 2 hours of rebuilding.
+
+**Screenshots > descriptions.** When the user reports a visual problem, ask for a screenshot. "Text is not visible" could mean 10 different things — a screenshot makes it one thing.
 
 ## Sub-Modes
 

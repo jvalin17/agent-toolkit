@@ -191,7 +191,10 @@ When creating branches or pull requests, use descriptive conventional names:
 - `fix/<short-name>` for bug fixes
 - `refactor/<short-name>` for refactoring
 - `chore/<short-name>` for maintenance/config
-PR titles must be concise and descriptive — not "Update code" or "Fix stuff."
+PR titles must answer "what does this change DO for the user?" — not "what files did I modify."
+- Bad: "Update code", "Fix stuff", "Jobsmith enhancements: smart search, filters, ranking engine"
+- Good: "Smart search with consultancy filtering", "Fix CI TypeScript strict mode errors"
+- Monorepo: prefix with component — `[Jobsmith] Smart search`, `[Fix] CI errors`
 
 #### G13: Encrypt Personal Data at Rest
 Any personal information or user preferences stored in a database or file must be encrypted. Never store plaintext passwords, tokens, personal details, or user preferences. Use:

@@ -14,7 +14,7 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G9:** LLM data security — never send secrets to external LLMs, mark data exit points
 - **G10:** Update README after feature changes
 - **G11:** Check rules before acting — flag contradictions, don't silently override
-- **G12:** Branch/PR naming — `feature/<name>`, `fix/<name>`, `refactor/<name>`. PR titles are concise and descriptive.
+- **G12:** Branch naming: `feature/<name>`, `fix/<name>`, `refactor/<name>`. PR titles answer "what does this DO for the user?" not "what files changed."
 - **G13:** Personal data and user preferences must be encrypted at rest. Never store plaintext passwords, tokens, or personal information in database or files.
 - **G14:** Project rules override toolkit defaults. If a project's CLAUDE.md, AGENTS.md, or DECISIONS.md specifies a convention that contradicts a skill's default, the project wins. The toolkit provides sensible defaults — not mandates.
 
