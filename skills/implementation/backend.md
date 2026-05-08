@@ -16,6 +16,7 @@ Read from upstream docs (requirements, architecture, testing architecture). Foll
 5. **Config changes must not require restart.** If settings are stored in DB, lazy-load per request or reload services when settings change. Don't cache config at startup.
 6. **Document dependency constraints.** When a project has 10+ dependencies, create DECISIONS.md listing each package, version, size, and why it's there.
 7. **Live integration tests with separate marker.** Every external API integration needs at least 1 live test (e.g., `@pytest.mark.live`) that hits the real API. Don't mix with unit tests — run separately.
+8. **Never expose raw exceptions to clients.** Log full error details server-side. Return generic error message to user. Stack traces are a security leak.
 
 ## Checklist Per Block
 

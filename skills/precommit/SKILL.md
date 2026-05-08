@@ -192,6 +192,8 @@ Read `references/coding-standards-index.md` for the language-specific file. Quic
 2. **API verification:** For backend changes, `curl` the affected endpoint and check the response
 3. **Frontend verification:** For UI changes, describe the specific action to verify:
    > "Please verify: open the app, go to [page], click [button], you should see [expected result]."
+4. **Empty state check:** For every UI section in this change — what shows when data is empty/missing? If it shows a useless message ("No data found"), either hide the section entirely or show an actionable empty state.
+5. **Input validation check:** Does every endpoint in this change validate all user inputs? No raw dict/JSON pass-through to database.
 
 **Never say "it's fixed" or "done."** Instead:
 > "Change is ready. Tests passing. Please verify: [specific action to try]. Let me know if it works."

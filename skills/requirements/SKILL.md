@@ -41,6 +41,13 @@ Read `project-state.md` at start. If it doesn't exist, create it from `shared/pr
 **STANDARD** (complete app, medium audience) → functional + non-functional + explore menu.
 **SYSTEM DESIGN** (large scale) → full design with scale estimation.
 
+## Example Output for Data Features
+
+For every feature that generates/displays/processes data, include a concrete example of ideal output in the requirements doc. Not "show locality data" but:
+> "For 123 Main St: Safety: B+ (low crime, well-lit). Transit: 8 min to airport. Vibe: Family-friendly. Highlights: 3 great restaurants nearby. Avoid: Industrial area south of Oak Rd."
+
+If the user's description is ambiguous ("show locality intelligence"), ask: "What does the ideal output look like for a real address? Give me an example." Don't interpret — clarify.
+
 ## Core Flow Tracing
 
 Before listing capabilities, trace the primary user flow end-to-end. Every step on this path = "must" priority. Multi-input features get one row per input mode (drag-drop, picker, paste, URL).

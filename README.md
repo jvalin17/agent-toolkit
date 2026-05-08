@@ -1,6 +1,6 @@
 # Agent Toolkit
 
-[![Skills: 12](https://img.shields.io/badge/Skills-12-blue?style=for-the-badge)](skills/)
+[![Skills: 13](https://img.shields.io/badge/Skills-13-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
@@ -39,6 +39,7 @@ For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGE
 | `/implementation` | TDD. Walking skeleton, then one slab at a time. Fix, refactor, demo modes. Hardening pass. | [Greenfield](#flow-1-greenfield--plan-build-ship), [Fix/Refactor](#flow-4-fix-refactor-demo) |
 | `/debug` | Hypothesis-driven diagnosis. Layer-by-layer. Reproduce with test, then fix. 3-strikes escalation. | [Debug](#flow-3-debug) |
 | `/assess` | Architecture fitness. Scale-aware — only suggests when thresholds justify. Safe refactoring. | [Assessment](#flow-5-architecture-assessment) |
+| `/verify` | Check output is actually useful, not just technically correct. Session health. User confirms. Offers automation. |
 | `/precommit` | Quality gate. Instructions addressed? Tests meaningful? SOLID/DRY? Verified in app? | [Greenfield](#flow-1-greenfield--plan-build-ship) |
 | `/reviewer` | Code quality + tests + smoke test + a11y + dependencies + UI validation. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
 | `/setup` | Install scripts, Docker, Makefile, README. One command, platform agnostic. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
@@ -63,9 +64,9 @@ For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGE
 
 /implementation recipe-finder
 -> Skeleton: 1 table + 1 endpoint + 1 page + ErrorBoundary + api client
--> Slab 1: Recipe CRUD (TDD, 12 tests) -> /precommit -> commit
--> Slab 2: AI matching (TDD, 8 tests) -> /precommit -> commit
--> Slab 3: Search UI (TDD, 6 tests) -> /precommit -> commit
+-> Slab 1: Recipe CRUD (TDD, 12 tests) -> /verify -> /precommit -> commit
+-> Slab 2: AI matching (mock output first, TDD) -> /verify -> /precommit -> commit
+-> Slab 3: Search UI (TDD, 6 tests) -> /verify -> /precommit -> commit
 -> Frontend hardening pass (crash/stuck-state/silent-lie prevention)
 
 /reviewer recipe-finder -> code + tests + a11y + deps + UI checks
@@ -138,10 +139,11 @@ For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGE
 
 | Skill | When | Time |
 |-------|------|------|
-| `/assess` | Before major changes, or periodically | ~15 min |
-| `/precommit` | Before every commit (quick mode for small changes) | ~1 min |
-| `/reviewer` | After a feature is complete | ~10 min |
-| `/evaluate` | Between skills, at end, or to set quality target | ~5 min |
+| `/verify` | After each slab — is the output useful? User confirms. | ~3 min |
+| `/precommit` | Before every commit — code standards + rules | ~1 min |
+| `/assess` | Before major changes — architecture fitness | ~15 min |
+| `/reviewer` | After a feature is complete — deep code audit | ~10 min |
+| `/evaluate` | Between skills or at end — percentage quality score | ~5 min |
 
 ## Architecture
 
@@ -149,18 +151,19 @@ Token-optimized. Lean orchestrators load sub-skills on demand. All files under 2
 
 ```
 skills/
-  requirements/     ~71-line orchestrator + 4 sub-skills + 7 references
+  requirements/     ~78-line orchestrator + 4 sub-skills + 7 references
   architecture/     ~68-line orchestrator + 8 sub-skills + 4 references
-  implementation/   ~97-line orchestrator + 7 sub-skills + 7 references
+  implementation/   ~104-line orchestrator + 7 sub-skills + 7 references
   reviewer/         103-line orchestrator + 6 sub-skills
   assess/           164-line orchestrator + 2 references
-  explore/          ~141 lines
   debug/            ~188 lines
-  precommit/        ~230 lines
+  evaluate/          174 lines
+  explore/          ~141 lines
+  precommit/        ~239 lines
   setup/             77-line orchestrator + 1 reference
   status/           ~147 lines
-  evaluate/          174 lines
   updater/           180 lines
+  verify/            100 lines
 
 shared/
   guardrails-quick.md         ~30 lines (loaded by default)

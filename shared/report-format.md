@@ -44,7 +44,10 @@ reports/
 ├── debug/           debug_<topic>_<uuid8>.md
 ├── precommit/       pc_<topic>_<uuid8>.md
 ├── explore/         explore_<topic>_<uuid8>.md
-└── setup/           setup_<topic>_<uuid8>.md
+├── setup/           setup_<topic>_<uuid8>.md
+├── verify/          verify_<topic>_<uuid8>.md
+├── status/          status_<topic>_<uuid8>.md
+└── updater/         audit_<scope>_<uuid8>.md
 ```
 
 UUID: Generate 8 hex characters. E.g., `req_job-agent_a1b2c3d4.md`
@@ -148,6 +151,23 @@ Each skill adds its own sections after the header and progress:
 - Tech stack, project structure, conventions
 - Feature map with status
 - Known issues (TODOs, FIXMEs)
+
+### /verify report adds:
+- Session health check results (lines, exchanges, failed fixes)
+- Output quality assessment (useful vs raw dump)
+- User confirmation status (confirmed / flagged issues)
+- Automation offered / accepted / declined
+
+### /status report adds:
+- Pipeline progress per phase
+- Feature status summary (works / placeholder / broken)
+- Next suggested action
+
+### /updater report adds:
+- Link check results (valid / broken / redirected)
+- Freshness check (stale references)
+- File size check (over 250 lines)
+- Skill/agent inventory counts
 
 ## Incomplete Report
 

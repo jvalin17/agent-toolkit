@@ -59,18 +59,22 @@ Derive from architecture + requirements priorities. Dependencies first, must bef
 **Do not start the next slab until the current one is committed, reviewed, and confirmed working.** This is the most important rule in implementation. Rushing through multiple features produces coupled, untested, unreviewable code.
 
 ```
-1. SETUP — scaffold/wiring for THIS slab only (no TDD)
+0. MOCK OUTPUT — if this slab generates/processes/displays data:
+   Show a mock of expected output for a real input. User can:
+   - Approve → build to match
+   - Correct → revise mock, then build
+   - Skip → build, but STILL show actual output to user before committing. No silent commits.
+1. SETUP — re-read requirements for THIS slab. Copy the spec text. Don't build from memory.
 2. SECURITY — if slab touches auth/data/APIs: read security.md
-3. TDD — every test has specific value assertions (assertEqual, toBe, toEqual)
-4. INTEGRATE — verify THIS feature works end-to-end
-5. USER VERIFY — ask user to check in browser/app, not just tests:
-   "Tests pass. Please open [page/endpoint] and verify [specific thing].
-    Send a screenshot if something looks wrong — I can read images."
-6. EVALUATE — run /evaluate on this slab. Don't wait until the end.
-7. PRE-COMMIT — run /precommit (instructions, test quality, standards, rules)
-8. COMMIT — one slab = one commit (only after gate passes)
-9. STOP — present result, wait for user confirmation before next slab.
+3. TDD — meaningful assertions (assertEqual, toBe, toEqual)
+4. INTEGRATE — verify end-to-end
+5. VERIFY — run /verify (output quality + user confirms)
+6. PRE-COMMIT — run /precommit (instructions, tests, standards, rules)
+7. COMMIT — only after user says go
+8. STOP — wait for user before next slab
 ```
+
+**Session limits:** /verify checks these automatically in Step 1. If the slab exceeds thresholds (300 lines, 20 exchanges, 2 failed fixes, 500-line files), it pauses before problems compound.
 
 **Tests passing ≠ feature working.** Don't accept your own output. When you show "24 tests passing", the user should see it in the browser. If they say "it's boring" or "text isn't visible" after 5 slabs — that feedback came too late. Catch it at slab 1.
 
