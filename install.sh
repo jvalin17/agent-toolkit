@@ -119,7 +119,7 @@ SETTINGS_FILE="$HOME/.claude/settings.json"
 
 install_hook() {
     local toolkit_path="$SCRIPT_DIR"
-    local hook_command="git -C $toolkit_path pull --ff-only 2>/dev/null || true"
+    local hook_command="$toolkit_path/update.sh 2>/dev/null || true"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
         # Create settings file with just the hook

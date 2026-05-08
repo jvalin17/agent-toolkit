@@ -23,6 +23,8 @@ cd agent-toolkit
 ./install.sh    # symlinks skills + agents + shared, adds auto-update hook
 ```
 
+**Auto-updates:** After install, the toolkit updates itself before every skill invocation — pulls latest changes AND symlinks any new skills/agents/shared files automatically. You never need to re-run `install.sh` unless you move the repo.
+
 Then in any project:
 - **Existing codebase?** → `/explore .` to understand it first
 - **Greenfield?** → `/requirements my-app` to start building ([see Flow 1](#flow-1-greenfield--plan-build-ship))
