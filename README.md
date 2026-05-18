@@ -1,11 +1,11 @@
 # Agent Toolkit
 
-[![Skills: 13](https://img.shields.io/badge/Skills-13-blue?style=for-the-badge)](skills/)
+[![Skills: 14](https://img.shields.io/badge/Skills-14-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language. Defaults tuned for common web apps (React/TS, Python, Node); adaptable to any stack via G14 project overrides.
+Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language. Defaults tuned for common web apps (React/TS, Python, Node); adaptable to any stack via G14 project overrides. 14 skills, 9 agents, 15 guardrails.
 
 Built for universal LLMs. Adapts best with Claude Code so far.
 
@@ -49,6 +49,7 @@ For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGE
 | `/setup` | Install scripts, Docker, Makefile, README. One command, platform agnostic. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
 | `/status` | Project dashboard. What's done, what's next. | — |
 | `/evaluate` | 5-dimension quality score. Completeness, code quality, security, tests, efficiency. Percentage grade. | [Scoring](#flow-6-quality-scoring) |
+| `/readme` | Maintain reliable README. Line-by-line validation, link checking, test details. Wired into precommit. | — |
 | `/updater` | Toolkit health: links, freshness, standards, file sizes. | — |
 
 ## Flows
@@ -164,6 +165,7 @@ skills/
   evaluate/          174 lines
   explore/          ~141 lines
   precommit/        ~239 lines
+  readme/           ~200 lines
   setup/             77-line orchestrator + 1 reference
   status/           ~147 lines
   updater/           180 lines
@@ -192,7 +194,7 @@ agents/                       9 sub-agents for parallel research
 | `readme-validator` | Verify every claim in README is true |
 | `rules-indexer` | Scan project docs for decisions and constraints |
 
-## Guardrails (G1-G14)
+## Guardrails (G1-G14 + G-IMPL-6)
 
 Safety limits on every skill. When hit: warns, records, continues.
 
@@ -202,6 +204,7 @@ Safety limits on every skill. When hit: warns, records, continues.
 - **G12:** Branch naming: `feature/`, `fix/`, `refactor/`, `chore/`. PR titles must be descriptive.
 - **G13:** Personal data and user preferences encrypted at rest. Never plaintext.
 - **G14:** Project rules override toolkit defaults. Your CLAUDE.md/AGENTS.md/DECISIONS.md wins over any skill's default.
+- **G-IMPL-6:** No easy way out — blocks hardcoded return values, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean flag arguments. Wired into precommit and evaluate.
 - **G-PC-1-5:** No sloppy tests, all instructions addressed, no false "done", verify in running app, ask on ambiguity
 
 ## Portability

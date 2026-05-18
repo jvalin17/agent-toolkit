@@ -17,6 +17,7 @@ Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only
 - **G-PC-3:** Never say "fixed" without verification.
 - **G-PC-4:** Port check before app verification.
 - **G-PC-5:** Ask on ambiguity. Log concern in project-state.md.
+- **G-IMPL-6:** No easy way out — block on hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors.
 
 ## When This Skill Runs
 
@@ -183,6 +184,20 @@ Read `references/coding-standards-index.md` for the language-specific file. Quic
 - [ ] **Functions under 30 lines** — split if longer
 - [ ] **No magic numbers** — use named constants
 
+### 3c: No Easy Way Out (G-IMPL-6)
+
+Scan changed files for shortcut patterns. **Block commit on any match:**
+
+- [ ] **No hardcoded return values** — functions must compute/fetch, not return literals that should be derived
+- [ ] **No magic numbers** — every numeric literal (except 0, 1, -1, indices) must be a named constant
+- [ ] **No copy-paste x3** — same logic in 3+ places must be extracted to a shared function
+- [ ] **No shipped stubs** — `pass`, `TODO: implement`, empty returns, `console.log` pretending to be implementation
+- [ ] **No swallowed errors** — every `catch`/`except` must handle, re-raise, or log with context
+- [ ] **No boolean flag arguments** — if a bool param makes the function do two different things, split into two functions
+
+**If any match found:**
+> "BLOCKED (G-IMPL-6): [pattern] in [file:line]. This is a shortcut, not a solution. Fix: [specific action]."
+
 ## Step 4: Verify in Running App (for user-facing changes)
 
 **Tests passing is necessary but NOT sufficient.** A bug was "fixed" 4 times with passing tests but a stale server was serving old code.
@@ -207,6 +222,19 @@ If a contradiction is found:
 
 If anything is ambiguous (G-PC-5): ask the user, log the concern in project-state.md.
 
+## Step 5b: README Validation
+
+If `README.md` exists and the current changes add, rename, remove, or modify features, endpoints, env vars, commands, or file paths:
+
+1. Run `/readme` in **precommit mode** — fast validation of affected sections only
+2. Check: do the staged changes make any README claim inaccurate?
+3. Check: do the staged changes introduce something the README should document?
+
+**If any FAIL:**
+> "README BLOCKED: [N] inaccurate claims found. Run `/readme fix` to resolve."
+
+**Skip this step** if changes are test-only, docs-only, or config-only with no feature impact.
+
 ## Step 6: Final Gate
 
 ```
@@ -217,6 +245,8 @@ Tests: [N] total, [N] meaningful, [0] sloppy
 Principles: SOLID [ok] DRY [ok] KISS [ok] YAGNI [ok]
 Standards: [X]/[Y] checks passed
 Rules compliance: [N] project rules checked, [0] violations
+Easy way out (G-IMPL-6): [0] shortcuts detected
+README: [PASS / FAIL — N issues / SKIPPED — no feature changes]
 App verification: [done / pending user confirmation / not applicable]
 Ambiguities: [N] flagged to user
 

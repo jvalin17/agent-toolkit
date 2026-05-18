@@ -68,6 +68,7 @@ Scan all changed/new files. Check:
 - [ ] No raw fetch() in components (use API client)
 - [ ] No silent catches
 - [ ] Imports clean: no unused, no wildcard, grouped
+- [ ] **No easy way out (G-IMPL-6):** No hardcoded return values, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean flag arguments
 
 **Score:** checks passed / total checks * 100
 

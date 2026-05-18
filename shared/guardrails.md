@@ -158,6 +158,88 @@ Only recommend well-known, actively maintained packages.
 **Limit:** Implement max 1 file/function per TDD cycle.
 **When triggered:** "This block is getting large. Let me split it into smaller pieces for better test coverage."
 
+#### G-IMPL-6: No Easy Way Out
+Never take shortcuts that make code pass checks without solving the real problem. This guardrail catches lazy implementation patterns that technically work but produce brittle, unmaintainable, or dishonest code.
+
+**Hardcoded return values to pass tests:**
+```
+# BLOCKED: hardcoded return to pass test
+def calculate_score(data):
+    return 72  # returns a constant instead of computing
+
+# BLOCKED: hardcoded list instead of actual query
+def get_hospitals():
+    return [{"name": "Hospital A"}, {"name": "Hospital B"}]
+```
+If a function returns a literal value that should be computed, calculated, or fetched — it's a shortcut. The function must derive its result from its inputs or data source.
+
+**Magic numbers and unnamed constants:**
+```
+# BLOCKED: magic numbers
+if retries > 3:          # what is 3?
+sleep(86400)             # what is 86400?
+padding = 16             # why 16?
+
+# REQUIRED: named constants
+MAX_RETRIES = 3
+SECONDS_PER_DAY = 86400
+GRID_PADDING_PX = 16
+```
+Every numeric literal (except 0, 1, -1, and explicit array indices) must be a named constant with a descriptive name that explains *why* that value.
+
+**Copy-paste instead of abstraction:**
+```
+# BLOCKED: same logic in 3+ places
+def validate_email(email): ...    # in users.py
+def validate_email(email): ...    # in admin.py
+def check_email(email): ...       # in auth.py — same logic, different name
+```
+If the same logic (not just similar — *same*) appears in 3 or more places, extract it. Two occurrences is acceptable; three is a pattern that demands a shared function. Don't pre-extract after the first occurrence — that's YAGNI.
+
+**Stubbed implementations left in place:**
+```
+# BLOCKED: stub shipped as "done"
+def process_payment(order):
+    pass  # TODO: implement
+
+def send_notification(user, message):
+    print(f"Would notify {user}")  # console log pretending to be implementation
+
+async function syncData() {
+    return [];  // empty array instead of real sync
+}
+```
+Stubs are fine during development (skeleton phase, red-green cycle). Stubs are NOT fine at commit time. If a function is called by production code, it must have a real implementation. If it's genuinely not needed yet, it should not exist.
+
+**Swallowing errors to avoid handling them:**
+```
+# BLOCKED: swallowed error
+try:
+    result = risky_operation()
+except Exception:
+    pass  # pretend nothing happened
+
+# BLOCKED: catch-and-ignore
+try { await fetchData(); } catch (e) { /* ignore */ }
+```
+Every catch block must either: (1) handle the error meaningfully, (2) re-raise/re-throw, (3) log with context and return a safe default, or (4) be explicitly annotated with *why* ignoring is correct (rare — e.g., cleanup code that must not throw).
+
+**Boolean parameters controlling behavior (flag arguments):**
+```
+# BLOCKED: boolean flag splits function into two functions
+def get_users(include_deleted=False):
+    if include_deleted:
+        return db.query("SELECT * FROM users")
+    else:
+        return db.query("SELECT * FROM users WHERE deleted = false")
+```
+If a boolean parameter causes the function to do fundamentally different things, split into two functions: `get_users()` and `get_all_users_including_deleted()`. A boolean that merely toggles a minor detail (e.g., `verbose=True`) is fine.
+
+**If triggered during implementation:** Fix immediately. Don't commit and plan to fix later.
+**If triggered during precommit:** Block the commit. Show the specific violation and the fix.
+**If triggered during evaluate:** Deduct from Code Quality dimension.
+**Template:** "BLOCKED (G-IMPL-6): [pattern] detected in [file:line]. This is a shortcut, not a solution. Fix: [specific fix]."
+
 ### /precommit
 
 #### G-PC-1: No Sloppy Tests
