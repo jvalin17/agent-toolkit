@@ -27,8 +27,8 @@ jobs:
           echo "## Link Check" > /tmp/audit-report.md
           echo "" >> /tmp/audit-report.md
           if [ -f skills/updater/scripts/check-links.py ]; then
-            python skills/updater/scripts/check-links.py >> /tmp/audit-report.md 2>&1
-            link_exit=$?
+            link_exit=0
+            python skills/updater/scripts/check-links.py >> /tmp/audit-report.md 2>&1 || link_exit=$?
           else
             echo "check-links.py not found at skills/updater/scripts/" >> /tmp/audit-report.md
             link_exit=1
