@@ -42,19 +42,23 @@ jobs:
           echo "## Freshness Check" >> /tmp/audit-report.md
           echo "" >> /tmp/audit-report.md
 
-          stale_count=0
           cutoff=$(date -d '6 months ago' +%Y-%m-%d 2>/dev/null || date -v-6m +%Y-%m-%d)
+          stale_file=$(mktemp)
+          echo "0" > "$stale_file"
 
-          while IFS= read -r file; do
-            date_line=$(grep -i "last verified" "$file" 2>/dev/null | head -1)
+          for file in $(find skills/ shared/ -name "*.md" -type f); do
+            date_line=$(grep -i "last verified" "$file" 2>/dev/null | head -1 || true)
             if [ -n "$date_line" ]; then
-              verified_date=$(echo "$date_line" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}')
+              verified_date=$(echo "$date_line" | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' || true)
               if [ -n "$verified_date" ] && [[ "$verified_date" < "$cutoff" ]]; then
                 echo "- [STALE] $file — last verified $verified_date" >> /tmp/audit-report.md
-                stale_count=$((stale_count + 1))
+                echo "$(( $(cat "$stale_file") + 1 ))" > "$stale_file"
               fi
             fi
-          done < <(find skills/ shared/ -name "*.md" -type f)
+          done
+
+          stale_count=$(cat "$stale_file")
+          rm -f "$stale_file"
 
           if [ "$stale_count" -eq 0 ]; then
             echo "All references are current (verified within 6 months)." >> /tmp/audit-report.md
