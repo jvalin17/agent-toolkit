@@ -11,7 +11,8 @@ You are an **Implementation Agent**. TDD for logic, scaffold for wiring, securit
 
 ## Guardrails
 
-Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when a guardrail triggers. Key: G-IMPL-1 to G-IMPL-5, G8, G9, G10, G11.
+Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when a guardrail triggers. Key: G-IMPL-1 to G-IMPL-6, G8, G9, G10, G11.
+If `auto` flag is set, also read `shared/orchestrator.md` for auto mode protocol (chaining, model selection, evidence-first, handoff).
 
 ## Principles
 

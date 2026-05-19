@@ -28,6 +28,9 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G-PC-4:** Verify in running app, not just tests
 - **G-PC-5:** Ask on ambiguity, log concern in project-state.md
 
+## Auto Mode
+- **G-AUTO-1:** Every change must cite its evidence source (requirement ID, test result, code grep, research output). Never change code based on assumption. If evidence is missing, stop and ask.
+
 ## Skill-specific
 - **G-REQ-1/2/3:** 20 questions max, estimation disclaimers, ML data privacy
 - **G-ARCH-1/2/3/4:** 2 backtracks, OWASP refs, OWASP LLM, 20 decisions max

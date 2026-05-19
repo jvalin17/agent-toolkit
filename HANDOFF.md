@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A production-ready skill toolkit for AI coding agents. 14 skills, 9 agents, 15 guardrails. Built for Claude Code, portable to Codex/Cursor/Gemini/Windsurf/Aider via `generate-project-rules.sh`.
+A production-ready skill toolkit for AI coding agents. 13 skills, 9 agents, 16 guardrails. Built for Claude Code, portable to Codex/Cursor/Gemini/Windsurf/Aider via `generate-project-rules.sh`. Auto mode for hands-off building with quality gates.
 
 **Repo:** https://github.com/jvalin17/agent-toolkit
 
@@ -14,10 +14,12 @@ A production-ready skill toolkit for AI coding agents. 14 skills, 9 agents, 15 g
 | `install.sh` | One-time install — symlinks skills/agents/shared, adds auto-update hook |
 | `update.sh` | Called by hook before every skill — pulls latest, symlinks new files |
 | `generate-project-rules.sh` | Generates AGENTS.md for non-Claude tools |
-| `shared/guardrails-quick.md` | 33-line safety rules loaded by every skill |
-| `shared/guardrails.md` | Full guardrail definitions (G1-G14) — loaded only when triggered |
-| `shared/report-format.md` | Report structure for all 13 skills |
-| `shared/project-state-template.md` | Template for project-state.md (created at project root by first skill) |
+| `shared/orchestrator.md` | Auto mode protocol — loaded when `auto` flag is set |
+| `shared/guardrails-quick.md` | ~35-line safety rules loaded by every skill |
+| `shared/guardrails.md` | Full guardrail definitions (G1-G14, G-IMPL-6, G-PUSH-1, G-AUTO-1) |
+| `shared/report-format.md` | Report structure for all skills |
+| `shared/project-state-template.md` | Template for project-state.md — includes decision IDs and resume section |
+| `scripts/cleanup-archive.sh` | Deletes archive files older than 30 days |
 | `.github/workflows/updater.yml` | Health check CI — runs 1st and 15th of each month |
 | `LICENSE` | MIT |
 
@@ -29,16 +31,17 @@ A production-ready skill toolkit for AI coding agents. 14 skills, 9 agents, 15 g
 | `/architecture` | 68 | Working (B+ from real usage) | Has reuse check. Explore menu rarely used — agent goes direct |
 | `/implementation` | 104 | Working (A- from real usage) | Best feature: slab-by-slab discipline. Mock-first for data features. |
 | `/verify` | 100 | New — not yet battle-tested | Output quality check, session health, user confirms. Wired as step 5. |
-| `/precommit` | 239 | Working (A from real usage) | Quick mode for small changes. No circular /evaluate dependency. |
+| `/precommit` | ~300 | Working (A from real usage) | Quality gate. Test suite execution, G-IMPL-6, README validation via readme-validator agent. |
 | `/reviewer` | 103 | Working (A+ from real usage) | Best skill. Found stale closure bugs. Don't change. |
 | `/assess` | 164 | Working (A from real usage) | Scale-aware. Safe refactoring sequence. |
-| `/evaluate` | 174 | Working (A from real usage) | 5-dimension percentage scoring. Not lenient. |
+| `/evaluate` | 174 | Working (A from real usage) | 5-dimension percentage scoring. Not lenient. G-IMPL-6 check. |
 | `/explore` | 143 | Working | 4-phase codebase analysis. Multi-repo. |
 | `/debug` | 188 | Working | Hypothesis-driven. 3-strikes escalation. |
 | `/setup` | 77 | Working | One-command install generation. Platform agnostic. |
 | `/status` | 147 | Working | Project dashboard. |
 | `/updater` | 180 | Working | Toolkit health audit. |
-| `/readme` | ~200 | New — not yet battle-tested | Line-by-line README validation, link checking, test detail enforcement. Wired into precommit. |
+
+**Consolidated:** `/readme` skill → absorbed into `readme-validator` agent. `/auto` skill → absorbed into `shared/orchestrator.md`. No functionality lost.
 
 ## Agents (9)
 
@@ -51,7 +54,7 @@ A production-ready skill toolkit for AI coding agents. 14 skills, 9 agents, 15 g
 | `pattern-advisor` | Working |
 | `scale-advisor` | Working |
 | `codestructure-analyzer` | Working |
-| `readme-validator` | Working |
+| `readme-validator` | Working — upgraded to validate+fix (absorbed /readme skill logic) |
 | `rules-indexer` | Working (simplified — greps project .md files) |
 
 ## What's Working Well (don't change)
@@ -71,48 +74,50 @@ A production-ready skill toolkit for AI coding agents. 14 skills, 9 agents, 15 g
 2. **Requirements intake too heavy.** 7 questions before drafting. Should draft after Q1+Q4, deepen on demand. Feedback says users skip Q2-Q3.
 3. **Sub-skill files rarely read.** Architecture and implementation sub-skill menus add ceremony but agents go direct. The sub-skills have valuable content (decision tables, anti-patterns) but the routing is unused.
 4. **Reports never actually written.** Every skill says "write report to reports/" but in practice output is inline. Report infrastructure exists in template but isn't used.
-5. **13 skills is cognitive load ~7/10 for new users.** Core loop is requirements → implementation → verify. Rest is on-call.
-6. **Model degradation in long sessions.** Session limits (300 lines, 20 exchanges, 2 failed fixes) added to /verify but compliance depends on the model following instructions.
+5. **Model degradation in long sessions.** Session limits (300 lines, 20 exchanges, 2 failed fixes) added to /verify but compliance depends on the model following instructions.
+6. **Auto mode not yet battle-tested.** Orchestrator, evidence-first, handoff protocol, and model selection are designed but haven't been used on a real project.
 
-## What Was Built in This Conversation
+## What Was Built
 
-### New skills created
-- `/readme` — line-by-line README validation, link checking, test details, wired into precommit
-- `/verify` — output quality check, session health, user confirms before proceeding
-- `/explore` — 4-phase codebase analysis, multi-repo
-- `/debug` — hypothesis-driven, layer-by-layer, 3-strikes
-- `/assess` — architecture fitness, scale thresholds, safe refactoring
-- `/precommit` — quality gate, instruction compliance, test quality
-- `/setup` — install scripts, Docker, Makefile, README generation
-- `/status` — project dashboard
+### Orchestrator (auto mode)
+- `shared/orchestrator.md` — auto mode protocol: skill chaining, plan-before-code, model selection (Opus plans, Sonnet implements), evidence-first (G-AUTO-1), token tracking, handoff on context limit, cleanup phase
+- Activated by appending `auto` to any skill: `/implementation auto inventory-app`
+- 95% eval gate default, < 70% = hard stop
+- All core skills reference orchestrator when `auto` flag is set
 
-### Major changes to existing skills
-- `/requirements` — example output rule for data features, "how do you do this today?", core intent parking red flag, competitive check, 3 LLM modes
-- `/architecture` — reuse check, user journey mandatory, legal/ToS check, concurrency warnings, drift detection
-- `/implementation` — walking skeleton, feature slabs, mock-first, one-at-a-time, session limits, fix/refactor/demo modes, frontend hardening pass, frontend resilience rules (11 per-component + 10 resilience + 7-item post-write check)
-- `/evaluate` — redesigned to 5-dimension percentage scoring
+### Guardrails added
+- **G-IMPL-6:** No easy way out — blocks hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors
+- **G-PUSH-1:** No commit or push without /precommit passing. Non-negotiable.
+- **G-AUTO-1:** Every change must cite evidence source. Never assume.
+- **G-RM-1/2/3:** README maintenance guardrails (in readme-validator agent)
+
+### Skills consolidated
+- `/readme` skill → absorbed into `readme-validator` agent (validate+fix mode)
+- `/auto` skill → absorbed into `shared/orchestrator.md`
+- Net result: fewer skills (14→13), stronger coverage
 
 ### Infrastructure
-- `install.sh` — now symlinks shared/ directory
+- `install.sh` — symlinks shared/ directory
 - `update.sh` — auto-symlinks new skills/agents/shared on pull
 - `generate-project-rules.sh` — universal AGENTS.md for non-Claude tools
+- `scripts/cleanup-archive.sh` — deletes archive files older than 30 days
+- `shared/project-state-template.md` — typed decision IDs (D-ARCH-, D-IMPL-), code change plan section, resume section
 - `.github/workflows/updater.yml` — health check CI (fixed exit code issues)
-- `shared/guardrails-quick.md` — 33-line quick reference loaded by default
-- G1-G14 guardrails + G-IMPL-6 (no easy way out) including G12 (branch naming), G13 (encrypt personal data), G14 (project rules override)
-- G-IMPL-6: No easy way out — blocks hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean flag arguments. Wired into precommit and evaluate.
 
 ## Feedback Sources
 
 - `skills-feedback.md` at `/Users/jvalin/dev/st5/house-helper/skills-feedback.md` — 116+ items across 12+ sessions
 - `feedback_security_approach.md` at `/Users/jvalin/.claude/projects/-Users-jvalin-dev-st5-house-helper/memory/feedback_security_approach.md` — security rules from real bugs
+- `feedback_skills_enforcement.md` at `/Users/jvalin/.claude/projects/-Users-jvalin-dev-st5-green-leaf-judgement/memory/feedback_skills_enforcement.md` — why skills, not memories, enforce quality
 
 ## What to Build Next
 
-1. **Battle-test /verify** — the mock-first and output quality check haven't been used on a real project yet
-2. **Slim requirements intake** — draft after Q1+Q4, not Q7
-3. **Decide on sub-skill routing** — either make agents read them or remove the indirection
-4. **Decide on reports** — either enforce creation or remove the instructions
-5. **Consider: fewer skills, deeper** — 13 is a lot. Core loop is 5 skills (requirements, implementation, verify, precommit, evaluate). Rest could be modes or optional.
+1. **Battle-test auto mode** — run `/requirements auto` on a real project, validate orchestrator behavior
+2. **Battle-test /verify** — mock-first and output quality check on a real project
+3. **Slim requirements intake** — draft after Q1+Q4, not Q7
+4. **Decide on sub-skill routing** — either make agents read them or remove the indirection
+5. **Decide on reports** — either enforce creation or remove the instructions
+6. **MCP token counting** — if line/char estimation proves unreliable, build an MCP server for precise token tracking
 
 ## Session Health Thresholds (from research)
 
@@ -132,3 +137,4 @@ A production-ready skill toolkit for AI coding agents. 14 skills, 9 agents, 15 g
 3. Check `skills-feedback.md` for latest real-usage feedback
 4. Run `/status agent-toolkit` to see current state
 5. Core skills to use: `/requirements`, `/implementation`, `/verify`, `/precommit`, `/evaluate`
+6. Auto mode: append `auto` to any skill invocation

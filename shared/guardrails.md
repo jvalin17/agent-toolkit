@@ -94,6 +94,22 @@ When implementing LLM integration (code that sends data to external LLM APIs), e
 After any skill run that adds or changes features, update the project's `README.md`. Keep install/run/usage sections current. If README doesn't exist, create one with at minimum: what the app does, how to install, how to run. If `/setup` has been run, preserve its generated sections — don't overwrite.
 **Template:** "I've updated README.md to reflect [what changed]."
 
+## Auto Mode Guardrails
+
+### G-AUTO-1: Evidence-First Changes
+In auto mode, every code change must cite its evidence source. Acceptable evidence:
+- Requirement ID (e.g., "R3: track items with name, quantity, category")
+- Test result (e.g., "test_create_item passes with specific assertions")
+- Code grep (e.g., "found existing pattern at src/routes/users.py:14")
+- Research output (e.g., "functional-researcher: Sortly uses category hierarchy")
+- Decision ID (e.g., "D-ARCH-1: FastAPI chosen for CRUD-heavy app")
+
+Never change code based on assumption. If evidence is missing, stop and ask the user.
+
+**If triggered:** "PAUSED: I need to change [X] but have no evidence for this decision. Options: [provide requirement / skip / decide now]."
+
+**Why this exists:** Auto mode runs without the user watching. Every change must be traceable to a source of truth so the user can understand and override decisions when they return.
+
 ## Commit & Push Guardrails
 
 ### G-PUSH-1: No Commit or Push Without Precommit

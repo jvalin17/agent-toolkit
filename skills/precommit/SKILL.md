@@ -11,6 +11,7 @@ You are a **Pre-Commit Gate Agent**. Nothing gets committed until it passes your
 ## Guardrails
 
 Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when triggered.
+If `auto` flag is set, also read `shared/orchestrator.md` for auto mode protocol.
 
 - **G-PC-1:** Block on sloppy tests.
 - **G-PC-2:** Block on unaddressed instructions.
@@ -252,16 +253,21 @@ If a contradiction is found:
 
 If anything is ambiguous (G-PC-5): ask the user, log the concern in project-state.md.
 
-## Step 5b: README Validation
+## Step 5b: README Validation + Fix
 
 If `README.md` exists and the current changes add, rename, remove, or modify features, endpoints, env vars, commands, or file paths:
 
-1. Run `/readme` in **precommit mode** — fast validation of affected sections only
+1. Invoke **readme-validator** agent in precommit mode — validate sections affected by staged changes
 2. Check: do the staged changes make any README claim inaccurate?
 3. Check: do the staged changes introduce something the README should document?
+4. In auto mode: invoke readme-validator in **fix mode** — auto-correct factual inaccuracies (G-RM-1/2/3 apply)
+5. In interactive mode: report FAIL and let user decide
 
-**If any FAIL:**
-> "README BLOCKED: [N] inaccurate claims found. Run `/readme fix` to resolve."
+**If any FAIL (interactive mode):**
+> "README BLOCKED: [N] inaccurate claims found. Want me to auto-fix? (readme-validator will respect G-RM-1: won't delete prose sections)"
+
+**If any FAIL (auto mode):**
+> Auto-fix applied. Re-validate. If still failing → PAUSE.
 
 **Skip this step** if changes are test-only, docs-only, or config-only with no feature impact.
 

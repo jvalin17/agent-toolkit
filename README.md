@@ -1,11 +1,11 @@
 # Agent Toolkit
 
-[![Skills: 14](https://img.shields.io/badge/Skills-14-blue?style=for-the-badge)](skills/)
+[![Skills: 13](https://img.shields.io/badge/Skills-13-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language. Defaults tuned for common web apps (React/TS, Python, Node); adaptable to any stack via G14 project overrides. 14 skills, 9 agents, 15 guardrails.
+Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language. Defaults tuned for common web apps (React/TS, Python, Node); adaptable to any stack via G14 project overrides. 13 skills, 9 agents, 16 guardrails. Auto mode for hands-off building with quality gates.
 
 Built for universal LLMs. Adapts best with Claude Code so far.
 
@@ -30,6 +30,7 @@ cd agent-toolkit
 Then in any project:
 - **Existing codebase?** → `/explore .` to understand it first
 - **Greenfield?** → `/requirements my-app` to start building ([see Flow 1](#flow-1-greenfield--plan-build-ship))
+- **Hands-off?** → `/requirements auto my-app` to build autonomously ([see Auto Mode](#auto-mode))
 
 For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGENTS.md` (works with Codex, Cursor, Gemini CLI, Windsurf, Aider).
 
@@ -49,7 +50,6 @@ For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGE
 | `/setup` | Install scripts, Docker, Makefile, README. One command, platform agnostic. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
 | `/status` | Project dashboard. What's done, what's next. | — |
 | `/evaluate` | 5-dimension quality score. Completeness, code quality, security, tests, efficiency. Percentage grade. | [Scoring](#flow-6-quality-scoring) |
-| `/readme` | Maintain reliable README. Line-by-line validation, link checking, test details. Wired into precommit. | — |
 | `/updater` | Toolkit health: links, freshness, standards, file sizes. | — |
 
 ## Flows
@@ -140,6 +140,27 @@ For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGE
 -> "To reach 96%: fix naming in api/users.py, use realistic test data in 3 tests."
 ```
 
+### Flow 7: Auto Mode — Hands-Off Building
+
+Append `auto` to any skill to chain the full pipeline automatically:
+
+```
+/requirements auto inventory-app
+
+-> [Opus] Requirements: auto-research via functional-researcher, draft early
+-> [Opus] Architecture: tech-stack-advisor, pattern-advisor, decisions logged as D-ARCH-1, D-ARCH-2
+-> [Opus] Code change plan: file-by-file, function-by-function, evidence-cited
+-> [Sonnet] Slab 1: skeleton (TDD, 4 tests) → precommit ✓ → eval 96% → auto-commit
+-> [Sonnet] Slab 2: CRUD (12 tests) → precommit ✓ → eval 95% → auto-commit
+-> ⚠️ Context limit → HANDOFF.md generated → new session resumes
+-> [Sonnet] Slab 3-4: remaining features → auto-commit each
+-> [Opus] Final quality: eval 95%, README verified line-by-line, guardrail audit
+-> Cleanup: archive artifacts, README = source of truth
+```
+
+**Pauses for:** ambiguity, repeated failures, eval < 70%, architectural decisions.
+**Never:** guesses, loops on failures, commits below 95% eval, pushes without auth.
+
 ### When to Run Which
 
 | Skill | When | Time |
@@ -165,17 +186,20 @@ skills/
   evaluate/          174 lines
   explore/          ~141 lines
   precommit/        ~239 lines
-  readme/           ~200 lines
   setup/             77-line orchestrator + 1 reference
   status/           ~147 lines
   updater/           180 lines
   verify/            100 lines
 
 shared/
-  guardrails-quick.md         ~30 lines (loaded by default)
+  orchestrator.md             ~150 lines (loaded when `auto` flag is set)
+  guardrails-quick.md         ~35 lines (loaded by default)
   guardrails.md               full rules (loaded only when triggered)
   report-format.md            progress report template
   project-state-template.md   created at project root by first skill run
+
+scripts/
+  cleanup-archive.sh          deletes archive files older than 30 days
 
 agents/                       9 sub-agents for parallel research
 ```
@@ -191,10 +215,10 @@ agents/                       9 sub-agents for parallel research
 | `pattern-advisor` | Design patterns for specific problems |
 | `scale-advisor` | What changes at each scale level |
 | `codestructure-analyzer` | Analyze existing codebase structure |
-| `readme-validator` | Verify every claim in README is true |
+| `readme-validator` | Validate + fix every README claim line-by-line (links, features, paths, env vars, tests) |
 | `rules-indexer` | Scan project docs for decisions and constraints |
 
-## Guardrails (G1-G14 + G-IMPL-6)
+## Guardrails (G1-G14 + G-IMPL-6 + G-PUSH-1 + G-AUTO-1)
 
 Safety limits on every skill. When hit: warns, records, continues.
 
@@ -204,7 +228,9 @@ Safety limits on every skill. When hit: warns, records, continues.
 - **G12:** Branch naming: `feature/`, `fix/`, `refactor/`, `chore/`. PR titles must be descriptive.
 - **G13:** Personal data and user preferences encrypted at rest. Never plaintext.
 - **G14:** Project rules override toolkit defaults. Your CLAUDE.md/AGENTS.md/DECISIONS.md wins over any skill's default.
-- **G-IMPL-6:** No easy way out — blocks hardcoded return values, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean flag arguments. Wired into precommit and evaluate.
+- **G-IMPL-6:** No easy way out — blocks hardcoded return values, magic numbers, copy-paste x3, shipped stubs, swallowed errors. Wired into precommit and evaluate.
+- **G-PUSH-1:** No commit or push without /precommit passing. Non-negotiable.
+- **G-AUTO-1:** In auto mode, every change must cite evidence (requirement ID, test result, code grep, research output). Never assume.
 - **G-PC-1-5:** No sloppy tests, all instructions addressed, no false "done", verify in running app, ask on ambiguity
 
 ## Portability

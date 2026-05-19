@@ -11,11 +11,16 @@
 - **Skill:** [which skill ran last]
 - **Date:** [when]
 - **Status:** [outcome summary]
+- **Mode:** [interactive / auto]
 
 ## Key Decisions
-<!-- Updated by each skill as decisions are made -->
-| Decision | Made By | Date |
-|----------|---------|------|
+<!-- Updated by each skill as decisions are made. Use typed IDs: D-REQ-, D-ARCH-, D-IMPL-, D-SEC-, D-AUTO- -->
+| ID | Decision | Evidence | Made By | Date |
+|----|----------|----------|---------|------|
+
+## Code Change Plan
+<!-- Written by orchestrator or /implementation before code is touched. Opus plans, Sonnet implements. -->
+<!-- Delete or archive after slab is committed. -->
 
 ## Parking Lot
 <!-- Items deferred by any skill. Flag if core intent is parked. -->
@@ -27,8 +32,8 @@
 
 ## Feature Status
 <!-- Updated by /implementation and /reviewer -->
-| Feature | Status | Last Verified |
-|---------|--------|--------------|
+| Feature | Status | Last Verified | Slab | Commit |
+|---------|--------|--------------|------|--------|
 
 ## Handoff Summaries
 <!-- Each skill writes a 3-line summary for the next skill -->
@@ -41,3 +46,10 @@
 
 ### /implementation -> /reviewer
 <!-- Built: X. Tests: Y. Known gaps: Z. -->
+
+## Resume (auto mode only)
+<!-- Filled by orchestrator when context limit is approaching. New session reads this to continue. -->
+- **Resume from:** [phase / slab number / step]
+- **Next slab plan:** [reference to code change plan above or HANDOFF.md]
+- **Tokens used:** [estimated]
+- **Command:** [exact skill invocation to continue, e.g., `/implementation auto slab-3`]
