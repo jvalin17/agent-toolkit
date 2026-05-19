@@ -167,7 +167,8 @@ Before fixing, confirm with a reproducing test:
 
 1. **Regression test:** The reproducing test from Phase 4 stays in the test suite permanently
 2. **Update project-state.md:** Record what was broken, root cause, fix applied
-3. **Warning if systemic:** If the root cause is a pattern that exists elsewhere (e.g., async/sync mismatch in other endpoints), flag all instances:
+3. **Run `/precommit`** (G-PUSH-1 — mandatory). No committing the fix without precommit passing.
+4. **Warning if systemic:** If the root cause is a pattern that exists elsewhere (e.g., async/sync mismatch in other endpoints), flag all instances:
    > "This same pattern exists in 3 other files: [list]. Want me to fix those too?"
 
 ## Output Format

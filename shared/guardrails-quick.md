@@ -18,6 +18,9 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G13:** Personal data and user preferences must be encrypted at rest. Never store plaintext passwords, tokens, or personal information in database or files.
 - **G14:** Project rules override toolkit defaults. If a project's CLAUDE.md, AGENTS.md, or DECISIONS.md specifies a convention that contradicts a skill's default, the project wins. The toolkit provides sensible defaults — not mandates.
 
+## Commit & Push
+- **G-PUSH-1:** Never run `git commit` or `git push` without `/precommit` passing first. No exceptions for "small changes" or "just docs." This is non-negotiable.
+
 ## Pre-commit (G-PC-1 to G-PC-5)
 - **G-PC-1:** No sloppy tests — require specific value assertions
 - **G-PC-2:** All user instructions addressed before commit

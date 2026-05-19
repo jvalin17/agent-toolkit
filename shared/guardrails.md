@@ -94,6 +94,17 @@ When implementing LLM integration (code that sends data to external LLM APIs), e
 After any skill run that adds or changes features, update the project's `README.md`. Keep install/run/usage sections current. If README doesn't exist, create one with at minimum: what the app does, how to install, how to run. If `/setup` has been run, preserve its generated sections — don't overwrite.
 **Template:** "I've updated README.md to reflect [what changed]."
 
+## Commit & Push Guardrails
+
+### G-PUSH-1: No Commit or Push Without Precommit
+Never run `git commit` or `git push` without `/precommit` passing first. This is non-negotiable — no exceptions for "small changes", "just docs", or "one-line fix."
+
+Every skill that writes code MUST invoke `/precommit` before committing. This is not a suggestion — it is a hard gate. If `/precommit` has not run and passed in the current session, `git commit` is BLOCKED.
+
+**If triggered:** "BLOCKED: Cannot commit without `/precommit` passing. Running `/precommit` now..."
+
+**Why this exists:** Behavioral reminders and memory entries do not prevent skipping checks under momentum. Only structural enforcement works. Every skill reads this guardrail at startup.
+
 ## Skill-Specific Guardrails
 
 ### /requirements

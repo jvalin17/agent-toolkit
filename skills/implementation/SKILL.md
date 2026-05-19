@@ -20,7 +20,7 @@ Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only
 - Follow upstream decisions — never re-decide.
 - Feature not done until user has tried it. Never say "fixed" or "done."
 - No false success messages — check response.ok before showing "Saved!"
-- Before committing, run `/precommit` — check instructions, test quality, standards, app verification.
+- Before committing, MUST run `/precommit` (G-PUSH-1) — check instructions, test quality, standards, app verification. No exceptions.
 - Full descriptive variable names. No single-letter (except i/j/k/e). No abbreviations.
 - Dependency audit: flag packages over 10MB.
 - Check runtime version compatibility before writing code.
@@ -69,8 +69,8 @@ Derive from architecture + requirements priorities. Dependencies first, must bef
 3. TDD — meaningful assertions (assertEqual, toBe, toEqual)
 4. INTEGRATE — verify end-to-end
 5. VERIFY — run /verify (output quality + user confirms)
-6. PRE-COMMIT — run /precommit (instructions, tests, standards, rules)
-7. COMMIT — only after user says go
+6. PRE-COMMIT — MUST run /precommit (G-PUSH-1 — non-negotiable)
+7. COMMIT — only after /precommit passes AND user says go
 8. STOP — wait for user before next slab
 ```
 

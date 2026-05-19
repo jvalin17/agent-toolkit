@@ -145,6 +145,36 @@ For each test added/modified:
 
 **If any test is sloppy:** Fix it before committing. Don't commit sloppy tests and plan to "fix later."
 
+## Step 2b: Run Test Suite (if it exists)
+
+Detect and run the project's test suite. **Only run if a test runner is detected — skip silently if no tests exist.**
+
+**Detection (check in order, use first match):**
+
+| File | Runner | Command |
+|------|--------|---------|
+| `package.json` with `scripts.test` | npm/yarn/pnpm | `npm test` / `yarn test` / `pnpm test` |
+| `vitest.config.*` or `vite.config.*` with test | vitest | `npx vitest run` |
+| `jest.config.*` or `package.json` with jest | jest | `npx jest` |
+| `pytest.ini` / `pyproject.toml` with `[tool.pytest]` / `conftest.py` | pytest | `pytest` |
+| `setup.py` with test suite | unittest | `python -m pytest` |
+| `go.mod` | go test | `go test ./...` |
+| `Cargo.toml` | cargo | `cargo test` |
+| `Makefile` with `test` target | make | `make test` |
+
+**If detected:**
+1. Run the test command
+2. If all tests pass: record count in report (`Tests: X passed`)
+3. If any test fails: **BLOCKED** — show failing test names and output
+   > "BLOCKED: [N] test(s) failing. Fix before commit: [test names]"
+
+**If no test runner detected:** Skip this step. Note in report: `Tests: no test runner detected — skipped`
+
+**Do NOT:**
+- Install test dependencies that don't exist
+- Create a test runner config
+- Skip failures with "known flaky" excuses
+
 ## Step 3: Code Standards + Principles Grade
 
 Check the changed files against engineering principles and coding conventions. This is self-contained — do not invoke /evaluate (that's a separate, deeper gate).
@@ -241,7 +271,8 @@ If `README.md` exists and the current changes add, rename, remove, or modify fea
 Pre-commit report:
 
 Instructions: [X]/[Y] addressed
-Tests: [N] total, [N] meaningful, [0] sloppy
+Test suite: [X passed / N failed / no runner detected — skipped]
+Test quality: [N] total, [N] meaningful, [0] sloppy
 Principles: SOLID [ok] DRY [ok] KISS [ok] YAGNI [ok]
 Standards: [X]/[Y] checks passed
 Rules compliance: [N] project rules checked, [0] violations
@@ -258,11 +289,12 @@ Ambiguities: [N] flagged to user
 
 If BLOCKED: fix all issues, re-run checks, present again, wait for user.
 
-## Integration with Other Skills
+## Integration with Other Skills (G-PUSH-1 — mandatory, not optional)
 
-- **/implementation** should self-invoke `/precommit` before any commit in the slab cycle
-- **/debug** should invoke `/precommit` after fixing a bug
-- **/reviewer** covers similar ground but is more thorough and runs independently — `/precommit` is the fast gate
+- **/implementation** MUST invoke `/precommit` before any commit in the slab cycle. No exceptions.
+- **/debug** MUST invoke `/precommit` after fixing a bug. No exceptions.
+- **/reviewer** covers similar ground but is more thorough and runs independently — `/precommit` is the fast gate.
+- **Any skill** that runs `git commit` or `git push` without `/precommit` passing first is violating G-PUSH-1.
 
 ## Reporting
 
