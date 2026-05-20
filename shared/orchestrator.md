@@ -18,13 +18,30 @@
 
 ## Core Principles
 
-1. **Plan before code.** No file is touched until a concrete code change plan exists and passes eval.
-2. **Evidence-first (G-AUTO-1).** Every change cites its source: requirement ID, test result, code grep, or research output. Never assume.
-3. **Minimum tokens.** Use the cheapest model that can do the job. Plan with Opus, implement with Sonnet/Haiku.
-4. **All gates still apply.** Auto mode removes user wait time between passing steps — it does NOT lower quality bars.
-5. **Stop on ambiguity.** If a decision isn't obvious from docs, pause and ask. Don't guess.
-6. **Stop on repeated failure.** Same step fails twice after auto-fix → pause and report.
+1. **Never stop to ask between skills.** Auto mode means AUTO. Chain skills without pausing for confirmation. Do not ask "Ready to continue?" or "Should I proceed?" — just proceed. The only reason to pause is ambiguity or failure, not ceremony.
+2. **Plan before code.** No file is touched until a concrete code change plan exists and passes eval.
+3. **Evidence-first (G-AUTO-1).** Every change cites its source: requirement ID, test result, code grep, or research output. Never assume.
+4. **Minimum tokens.** Use the cheapest model that can do the job. Plan with Opus, implement with Sonnet/Haiku.
+5. **All gates still apply.** Auto mode removes user wait time between passing steps — it does NOT lower quality bars.
+6. **Stop ONLY on:** ambiguity that can't be resolved from docs, same failure twice after auto-fix, eval < 70%. NOT on skill transitions.
 7. **Backward compatible.** Without `auto` flag, nothing changes. Every skill works exactly as before.
+
+## What "Auto" Means — No Stopping
+
+**CRITICAL:** When `auto` is set, the agent MUST NOT:
+- Ask "Ready to continue to /implementation?" — just run it
+- Ask "Should I proceed with the next slab?" — just build it
+- Ask "Want me to commit?" — if precommit passes, commit
+- Present a summary and wait — present and immediately continue
+- Ask for confirmation between any two skills in the pipeline
+
+**The ONLY acceptable pauses:**
+- A requirement is genuinely ambiguous (not just complex)
+- The same fix has failed twice
+- Eval score is below 70%
+- A decision affects cost, security, or external services
+
+Everything else: **keep going.**
 
 ## Model Selection
 
