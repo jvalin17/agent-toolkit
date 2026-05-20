@@ -121,32 +121,7 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 | **JWT** (CI issues, local hook verifies) | Short-lived token in `.gate/gate-token.jwt`, bound to `commit_sha` and your `gates.json` profile. `gate.sh` refuses `git commit` / `git push` without a valid token. |
 | **GitHub** (optional but strongest) | Workflow `agent-toolkit-gate` on push/PR. Branch protection can require that check — merge authority lives outside the agent’s filesystem. |
 
-Signing uses **HS256** (stdlib + PyJWT only — no `cryptography` wheel). CI reads GitHub Actions secret `AGENT_TOOLKIT_GATE_SECRET`.
-
-#### Multiple apps — one-time setup (recommended)
-
-You do **not** need a different GitHub secret per app if you use **shared signing**:
-
-```bash
-cd agent-toolkit
-chmod +x scripts/setup-shared-gate.sh
-
-# One key + one org secret for ALL repos in your GitHub org:
-./scripts/setup-shared-gate.sh --org YOUR_GITHUB_ORG
-
-# Or same secret copied to named repos (no org admin needed):
-./scripts/setup-shared-gate.sh --repos you/app1,you/app2,you/app3,you/app4,you/app5
-
-# Optional: bootstrap every git repo under a folder + set signing=shared
-./scripts/setup-shared-gate.sh --org YOUR_GITHUB_ORG --bootstrap ~/dev
-```
-
-Then in each app (or via `--bootstrap`): `gates.json` includes `"signing": "shared"`. Run `./install.sh` per app as usual — it skips creating a per-repo `.gate/signing.key`. Local and CI both use the same secret from `~/.config/agent-toolkit/gate/signing.key` / org secret.
-
-| Mode | `gates.json` | GitHub secret |
-|------|----------------|---------------|
-| **shared** (5 apps) | `"signing": "shared"` | **Once** at org (or one `--repos` command) |
-| **project** (default) | `"signing": "project"` | Once per repo (old behavior) |
+Signing uses **HS256** and a project secret in `.gate/signing.key` (stdlib + PyJWT only — no `cryptography` wheel). CI reads the same secret from GitHub Actions secret `AGENT_TOOLKIT_GATE_SECRET`.
 
 #### What `./install.sh` sets up in your repo
 
@@ -155,10 +130,10 @@ When you run `./install.sh` from inside a git checkout:
 - `.agent-toolkit/gate/` — gate scripts copied into the project (for CI and local verify)
 - `.agent-toolkit/config.json` — toolkit path and version
 - `gates.json` — if missing, template with `"gate_mode": "signed"` and profile **standard**
-- `.gate/signing.key` — per-repo only if `"signing": "project"` (skipped when `"signing": "shared"`)
+- `.gate/signing.key` — gitignored signing secret (created once)
 - `.github/workflows/agent-toolkit-gate.yml` — attest → issue token → verify
 - `.gitignore` entries for `.gate/signing.key`, `.gate/gate-token.jwt`, etc.
-- If `gh` is logged in and per-repo signing: uploads `AGENT_TOOLKIT_GATE_SECRET` to **this** repo only
+- If `gh` is logged in: uploads `AGENT_TOOLKIT_GATE_SECRET` to the repo
 
 #### If you use the skills (what you actually do)
 

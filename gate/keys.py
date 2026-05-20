@@ -8,21 +8,6 @@ from pathlib import Path
 
 DEFAULT_SIGNING_KEY = Path(".gate/signing.key")
 META_FILE = Path(".gate/signing.meta.json")
-USER_SIGNING_DIR = Path.home() / ".config" / "agent-toolkit" / "gate"
-USER_SIGNING_KEY = USER_SIGNING_DIR / "signing.key"
-USER_SIGNING_META = USER_SIGNING_DIR / "signing.meta.json"
-
-
-def user_signing_key_path() -> Path:
-    return USER_SIGNING_KEY
-
-
-def is_shared_signing(config: dict | None = None) -> bool:
-    if config and config.get("signing") == "shared":
-        return True
-    import os
-
-    return os.environ.get("AGENT_TOOLKIT_SIGNING", "").strip().lower() == "shared"
 
 
 def generate_signing_secret(signing_key_path: Path | None = None, meta_path: Path | None = None) -> Path:
@@ -55,23 +40,7 @@ def load_signing_secret(
         return legacy
 
     root = project_root or Path.cwd()
-    config = {}
-    gates_file = root / "gates.json"
-    if gates_file.is_file():
-        try:
-            config = json.loads(gates_file.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            config = {}
-
-    paths: list[Path | None] = [
-        signing_key_path,
-        root / ".gate/signing.key",
-        root / ".gate/private.pem",
-    ]
-    if is_shared_signing(config) or USER_SIGNING_KEY.is_file():
-        paths.append(USER_SIGNING_KEY)
-
-    for name in paths:
+    for name in (signing_key_path, root / ".gate/signing.key", root / ".gate/private.pem"):
         if name is None:
             continue
         path = name if name.is_absolute() else root / name
@@ -80,6 +49,6 @@ def load_signing_secret(
             if text and not text.startswith("-----"):
                 return text
     raise FileNotFoundError(
-        "missing signing key — run scripts/setup-shared-gate.sh once (all repos), "
-        "or ./install.sh in project root for per-repo .gate/signing.key"
+        "missing .gate/signing.key — run ./install.sh in project root "
+        "or set AGENT_TOOLKIT_GATE_SECRET"
     )

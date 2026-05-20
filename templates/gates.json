@@ -1,6 +1,5 @@
 {
   "gate_mode": "signed",
-  "signing": "project",
   "profile": "standard",
   "eval_threshold": 95,
   "commit_requires": ["precommit"],
