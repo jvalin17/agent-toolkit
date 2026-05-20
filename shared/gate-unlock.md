@@ -4,6 +4,8 @@ Check `gates.json` → `gate_mode` (default: **`legacy`** for daily work; **`sig
 
 **`enforcement`:** default **`warn`** — hook adds **GATE WARNING** context but does **not** stop the shell (works with Cursor and other LLM tools). Use **`block`** only when you want a hard stop.
 
+**`AGENT_TOOLKIT_GATE_SECRET`:** not required. CI and local issue/verify can use `.gate/signing.key`. Set the GitHub secret only if you want one stable key everywhere.
+
 ## Signed mode
 
 Skills produce **reports** under `reports/<skill>/`. They do **not** unlock git by writing `.gates/` files.

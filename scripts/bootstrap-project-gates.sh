@@ -1,6 +1,6 @@
 #!/bin/bash
-# bootstrap-project-gates.sh — Configure signed gates in the current git project.
-# Called automatically from install.sh. Idempotent.
+# bootstrap-project-gates.sh — Gate layout for the current git project (legacy default).
+# Called automatically from install.sh. Idempotent. No GitHub secret required.
 
 set -e
 
@@ -24,7 +24,7 @@ PROJECT_ROOT="$(cd "$PROJECT_ROOT" && pwd)"
 TOOLKIT_VERSION="$(git -C "$TOOLKIT_DIR" rev-parse --short HEAD 2>/dev/null || echo "unknown")"
 
 echo ""
-echo "Configuring signed gates in: $PROJECT_ROOT"
+echo "Configuring project gates in: $PROJECT_ROOT"
 
 AGENT_DIR="$PROJECT_ROOT/.agent-toolkit"
 GATE_DIR="$AGENT_DIR/gate"
@@ -41,7 +41,7 @@ cat > "$AGENT_DIR/config.json" << EOF
 {
   "toolkit_path": "$TOOLKIT_DIR",
   "toolkit_version": "$TOOLKIT_VERSION",
-  "gate_mode": "signed",
+  "gate_mode": "legacy",
   "installed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 EOF
@@ -50,7 +50,7 @@ echo "  [installed] .agent-toolkit/config.json"
 # gates.json
 if [ ! -f "$PROJECT_ROOT/gates.json" ]; then
   cp "$TOOLKIT_DIR/templates/gates.json" "$PROJECT_ROOT/gates.json"
-  echo "  [installed] gates.json (profile: standard, mode: signed)"
+  echo "  [installed] gates.json (from template: legacy, warn, minimal — set gate_mode signed if needed)"
 else
   echo "  [skip] gates.json (already exists)"
 fi
@@ -103,17 +103,17 @@ append_ignore ".gate/gate-token.jwt"
 append_ignore ".gate/attestation.json"
 append_ignore ".gates/"
 
-# Upload private key to GitHub Actions (zero extra step when gh CLI is available)
-if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-  if gh secret set AGENT_TOOLKIT_GATE_SECRET < "$GATE_LOCAL/signing.key" 2>/dev/null; then
-    echo "  [installed] GitHub secret AGENT_TOOLKIT_GATE_SECRET"
+# Optional: upload signing key to GitHub (only when explicitly requested)
+if [ "${AGENT_TOOLKIT_UPLOAD_GATE_SECRET:-}" = "1" ]; then
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    if gh secret set AGENT_TOOLKIT_GATE_SECRET < "$GATE_LOCAL/signing.key" 2>/dev/null; then
+      echo "  [optional] GitHub secret AGENT_TOOLKIT_GATE_SECRET set"
+    else
+      echo "  [optional] could not set GitHub secret — paste .gate/signing.key manually if needed"
+    fi
   else
-    echo "  [warn] could not set GitHub secret — add manually from .gate/signing.key"
+    echo "  [optional] gh not available — skip AGENT_TOOLKIT_GATE_SECRET upload"
   fi
-else
-  echo "  [note] Install 'gh auth login' to auto-upload signing key to GitHub Secrets"
-  echo "         Or set secret AGENT_TOOLKIT_GATE_SECRET from .gate/signing.key"
 fi
 
-echo "  Signed gates ready. CI will issue gate-token.jwt on push/PR."
-echo "  Enable branch protection: require status check 'agent-toolkit-gate'."
+echo "  Gate layout ready (default: legacy + warn). Signed mode and GitHub secret are optional."

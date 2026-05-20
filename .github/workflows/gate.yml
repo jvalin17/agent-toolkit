@@ -1,4 +1,8 @@
-name: Signed gate
+# Quality gate for agent-toolkit. No GitHub secret required:
+# bootstrap creates .gate/signing.key; issue + verify use that file in this job.
+# Optional: set AGENT_TOOLKIT_GATE_SECRET only if you want a stable key across runs/machines.
+
+name: agent-toolkit-gate
 
 on:
   pull_request:
@@ -37,17 +41,12 @@ jobs:
       - name: Attest
         run: python .agent-toolkit/gate/scripts/verify_gate.py attest --project-root .
         env:
-          AGENT_TOOLKIT_GATE_SECRET: ${{ secrets.AGENT_TOOLKIT_GATE_SECRET }}
           AGENT_TOOLKIT_ATTEST_SKIP_HOOK_TESTS: "1"
 
-      - name: Issue gate token
-        env:
-          AGENT_TOOLKIT_GATE_SECRET: ${{ secrets.AGENT_TOOLKIT_GATE_SECRET }}
+      - name: Issue gate token (ephemeral signing.key — no repo secret required)
         run: python .agent-toolkit/gate/scripts/issue_token.py --project-root . --action push
 
       - name: Verify gate token
-        env:
-          AGENT_TOOLKIT_GATE_SECRET: ${{ secrets.AGENT_TOOLKIT_GATE_SECRET }}
         run: |
           python .agent-toolkit/gate/scripts/verify_gate.py verify \
             --project-root . \

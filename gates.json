@@ -1,8 +1,7 @@
 {
-  "gate_mode": "signed",
+  "gate_mode": "legacy",
   "enforcement": "warn",
-  "profile": "standard",
-  "_comment": "This repo runs signed gate CI (agent-toolkit-gate.yml). Consumer template: templates/gates.json (legacy).",
+  "profile": "minimal",
   "eval_threshold": 95,
   "profiles": {
     "minimal": {

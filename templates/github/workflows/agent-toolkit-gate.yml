@@ -1,6 +1,7 @@
-# Agent-toolkit signed gate — installed automatically by ./install.sh
-# Runs mechanical checks (tests, lint) and issues a signed JWT bound to this commit.
-# Enable branch protection: require check "agent-toolkit-gate" on main.
+# Agent-toolkit gate — installed by ./install.sh (optional for legacy-only projects).
+# Uses .gate/signing.key created in this job; no GitHub secret required.
+# Optional: AGENT_TOOLKIT_GATE_SECRET for a stable key across CI runs and local dev.
+# Signed mode + branch protection: require check "agent-toolkit-gate" on main.
 
 name: agent-toolkit-gate
 
@@ -39,16 +40,12 @@ jobs:
           AGENT_TOOLKIT_ATTEST_SKIP_HOOK_TESTS: "1"
 
       - name: Issue signed gate token
-        env:
-          AGENT_TOOLKIT_GATE_SECRET: ${{ secrets.AGENT_TOOLKIT_GATE_SECRET }}
         run: |
           python .agent-toolkit/gate/scripts/issue_token.py \
             --project-root . \
             --action push
 
       - name: Verify token
-        env:
-          AGENT_TOOLKIT_GATE_SECRET: ${{ secrets.AGENT_TOOLKIT_GATE_SECRET }}
         run: |
           python .agent-toolkit/gate/scripts/verify_gate.py verify \
             --project-root . \

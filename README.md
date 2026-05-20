@@ -35,7 +35,7 @@ Then in any project:
 
 Re-run `./install.sh` after first install to get harness hooks. Auto-updates after that.
 
-Inside a **git project**, `./install.sh` also configures **signed gates** (see below) — no separate bootstrap step.
+Inside a **git project**, `./install.sh` also bootstraps **gate layout** (`.agent-toolkit/`, `gates.json`, optional signing key + CI workflow) — no separate step. New projects get **legacy + warn** from the template; signed mode is opt-in (see below).
 
 ## How It Works
 
@@ -59,7 +59,7 @@ Evidence-first in auto mode (G-AUTO-1). No commit without /precommit (G-PUSH-1).
 Session start:  scans .md files, loads rules, verifies hook integrity, routes intent
 Every prompt:   detects "fix bug" → /debug, "build X" → /implementation
 Every tool use: session monitor tracks exchanges + time, hard stops at limit
-Commit/push:    blocked unless required skills pass (configurable gate profiles)
+Commit/push:    gate hook warns or blocks per `enforcement` (default: warn; profiles in gates.json)
 ```
 
 ### When to use what
@@ -118,15 +118,15 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 | Mode | Setup | Best for |
 |------|--------|----------|
 | **legacy** (recommended default) | `"gate_mode": "legacy"` in `gates.json` | Solo dev, sessions &lt; 30–60 min, prototypes |
-| **signed** (optional) | `./install.sh` + `AGENT_TOOLKIT_GATE_SECRET` on **your app repo** | Sessions 2+ hours, HANDOFF/compaction, team `main`, regulated work |
+| **signed** (optional) | `"gate_mode": "signed"` in `gates.json` | Sessions 2+ hours, HANDOFF/compaction, team `main`, regulated work |
 
-**Using the toolkit does not require any secret on the agent-toolkit GitHub repo.** Consumers only set `AGENT_TOOLKIT_GATE_SECRET` on **their own** project repo if they enable signed mode. Maintainers set it on agent-toolkit only for this repo’s own CI.
+**`AGENT_TOOLKIT_GATE_SECRET` is completely optional.** You do not need it for legacy mode, for this toolkit repo, or for CI in a single workflow run (CI uses `.gate/signing.key` created at bootstrap). Set it only if you later want signed mode with the **same** key on GitHub and your laptop (or branch protection with stable tokens).
 
 #### When to turn on signed gates (usual timeline)
 
 | Session / situation | Suggested mode | Why |
 |---------------------|----------------|-----|
-| **&lt; 30 min**, single goal, you stay in the loop | **legacy** + standard profile | Low bypass risk; hooks + skills are sufficient |
+| **&lt; 30 min**, single goal, you stay in the loop | **legacy** + **minimal** profile + `enforcement: warn` | Low friction for Cursor/LLMs; skills carry quality |
 | **30–90 min**, one feature, no handoff | **legacy** | Same; refresh `.gates/` or re-run skills before commit |
 | **2+ hours**, `/compact`, or **HANDOFF.md** resume | Consider **signed** on that repo | Stale flags and skipped skills are more likely |
 | **Multi-day** or **async agent** (walk away, come back) | **signed** + CI check on `main` | Merge authority outside the agent filesystem |
@@ -162,7 +162,7 @@ Run skills before commit; on pass they write `.gates/precommit-passed` (must con
 | **JWT** (CI issues, local hook verifies) | Short-lived token in `.gate/gate-token.jwt`, bound to `commit_sha` and your `gates.json` profile. `gate.sh` refuses `git commit` / `git push` without a valid token. |
 | **GitHub** (optional but strongest) | Workflow `agent-toolkit-gate` on push/PR. Branch protection can require that check — merge authority lives outside the agent’s filesystem. |
 
-Signing uses **HS256** and a project secret in `.gate/signing.key` (stdlib + PyJWT only — no `cryptography` wheel). CI reads the same secret from GitHub Actions secret `AGENT_TOOLKIT_GATE_SECRET`.
+Signing uses **HS256** and `.gate/signing.key` (stdlib + PyJWT only — no `cryptography` wheel). CI can use that file per run with **no** GitHub secret. Optionally set `AGENT_TOOLKIT_GATE_SECRET` to the same value for cross-machine or cross-run stability.
 
 #### What `./install.sh` sets up in your repo
 
@@ -170,11 +170,11 @@ When you run `./install.sh` from inside a git checkout:
 
 - `.agent-toolkit/gate/` — gate scripts copied into the project (for CI and local verify)
 - `.agent-toolkit/config.json` — toolkit path and version
-- `gates.json` — if missing, template is installed (set `"gate_mode": "legacy"` for daily use; template may use `signed`)
+- `gates.json` — if missing, template is installed (`gate_mode: legacy`, `enforcement: warn`, `profile: minimal`)
 - `.gate/signing.key` — gitignored signing secret (created once)
 - `.github/workflows/agent-toolkit-gate.yml` — attest → issue token → verify
 - `.gitignore` entries for `.gate/signing.key`, `.gate/gate-token.jwt`, etc.
-- If `gh` is logged in and mode is **signed**: uploads `AGENT_TOOLKIT_GATE_SECRET` to **this app repo** (skip for legacy)
+- `.gate/signing.key` — created locally; never required to copy to GitHub unless you opt in (`AGENT_TOOLKIT_UPLOAD_GATE_SECRET=1 ./install.sh` or manual secret)
 
 #### If you use signed mode (optional — long sessions / teams)
 
@@ -192,9 +192,9 @@ Skills are unchanged in intent — still run them for quality. In signed mode th
      ```
      Token must match `git rev-parse HEAD`. Re-issue after each new commit.
 
-3. **Commit or push** — `gate.sh` calls `verify_gate.py verify`. Wrong/missing token → blocked with a message to run skills and refresh the token.
+3. **Commit or push** — `gate.sh` calls `verify_gate.py verify`. Wrong/missing token → **GATE WARNING** (default `enforcement: warn`) or **blocked** (`enforcement: block`).
 
-4. **GitHub (team / production)** — In repo settings → branch protection, require status check **`agent-toolkit-gate`**. Ensure secret `AGENT_TOOLKIT_GATE_SECRET` exists (install tries via `gh`; otherwise paste contents of `.gate/signing.key`).
+4. **GitHub (team / production)** — Optional branch protection requiring **`agent-toolkit-gate`**. Optional secret `AGENT_TOOLKIT_GATE_SECRET` only if you need tokens to match between CI and local machines.
 
 5. **Who can mint tokens?** Anyone with `.gate/signing.key` (or the GitHub secret) can issue a local JWT. That stops casual `echo` into `.gates/`, but **branch protection on `agent-toolkit-gate`** is the real merge authority for teams.
 
@@ -204,8 +204,8 @@ Skill gate details: `shared/gate-unlock.md`.
 
 | Profile | Commit needs | Push needs | Best for |
 |---------|-------------|------------|----------|
-| **minimal** | `/precommit` (mechanical) | `/precommit` | Prototypes |
-| **standard** | `/precommit` | `/precommit` + `/evaluate` (score ≥ threshold) | Default |
+| **minimal** | `/precommit` (mechanical) | `/precommit` | **Default template** — prototypes, Cursor/short sessions |
+| **standard** | `/precommit` | `/precommit` + `/evaluate` (score ≥ threshold) | Balanced |
 | **strict** | `/precommit` + `/evaluate` | + `/reviewer` | Team / production |
 | **paranoid** | `/precommit` + `/evaluate` | + `/reviewer` + `/assess` | High-stakes |
 
@@ -218,34 +218,32 @@ Skill gate details: `shared/gate-unlock.md`.
 }
 ```
 
-Set `"enforcement": "block"` when you want `gate.sh` to return exit 2 and stop the tool. For signed mode, use `"gate_mode": "signed"` and set `AGENT_TOOLKIT_GATE_SECRET` on the app repo (see above). Attestation requires mechanical checks plus valid skill reports under `reports/` (SHA-256 bound). See `gate/reports.py`.
+Set `"enforcement": "block"` when you want `gate.sh` to return exit 2 and stop the tool. For signed mode, use `"gate_mode": "signed"` (secret optional — see above). Attestation requires mechanical checks plus valid skill reports under `reports/` (SHA-256 bound). See `gate/reports.py`.
 
 ### Examples
 
-**Signed gates from scratch:**
+**Default (legacy + warn — most users):**
 ```bash
-./install.sh                    # global skills + hooks; if cwd is a git repo, also bootstraps signed gates
-cd my-project                   # your app repo
-./path/to/agent-toolkit/install.sh
-# → gates.json, .agent-toolkit/, workflow, signing.key
-# Enable branch protection: require check "agent-toolkit-gate"
+cd my-project
+/path/to/agent-toolkit/install.sh
+# → gates.json (legacy, warn, minimal), .agent-toolkit/, optional .gate/ + workflow
 ```
+```json
+{ "gate_mode": "legacy", "enforcement": "warn", "profile": "minimal" }
+```
+Hook injects **GATE WARNING** if flags are missing; `git commit` / `git push` still run. Skills write `.gates/precommit-passed` (`READY`), etc.
 
-**Gates kick in mid-session (signed mode):**
+**Signed mode (optional — teams / long sessions):**
+```json
+{ "gate_mode": "signed", "enforcement": "block", "profile": "standard" }
+```
 ```
 You: "commit this"
-Claude: git commit -m "Add user auth"
-  → BLOCKED: missing .gate/gate-token.jwt
-Claude: runs /precommit, /evaluate (skills + reports)
-Claude: attest + issue_token (or user pushes; CI issues token)
-Claude: git commit → ALLOWED (token matches HEAD)
+  → BLOCKED (or warned): missing .gate/gate-token.jwt
+  → /precommit, /evaluate → attest + issue_token (or CI on push)
+  → git commit allowed when token matches HEAD
 ```
-
-**Legacy mode (no JWT):**
-```json
-{ "gate_mode": "legacy", "profile": "standard" }
-```
-Skills write `.gates/precommit-passed` (must contain `READY`) and `.gates/evaluate-passed` (`PASSED` + score). Same profiles as before.
+Enable branch protection: require check **`agent-toolkit-gate`**.
 
 ### Skill routing in action
 
@@ -314,21 +312,18 @@ Updated by `/implementation` after each slab. New sessions read this first.
 ### Starting midway (existing project)
 
 ```bash
-# 1. Install toolkit (once)
+# 1. Install toolkit in the project (skills, hooks, gates.json if missing)
 /path/to/agent-toolkit/install.sh
 
-# 2. Install toolkit (configures signed gates + gates.json if missing)
-/path/to/agent-toolkit/install.sh
-
-# 3. Understand the codebase
+# 2. Understand the codebase
 /explore .
 # → creates project-state.md with architecture, conventions, features
 
-# 4. Start working — all hooks active immediately
+# 3. Start working — hooks active immediately
 "add search feature"
 # → route-to-skill.sh routes to /implementation
 # → tdd-enforce.sh reminds about test-first on every edit
-# → gate.sh blocks commit without valid gate-token.jwt (or /precommit in legacy mode)
+# → gate.sh warns (default) or blocks if skills/flags/token not satisfied
 ```
 
 ### Clean development with skills
@@ -475,7 +470,7 @@ hooks/                           harness enforcement (Claude Code only)
   session-init.sh                scans .md files, loads rules, verifies integrity
   session-monitor.sh             tracks exchanges/time, hard stops at limit, protects .session/
   route-to-skill.sh              detects intent, routes to skill workflow
-  gate.sh                        signed JWT verify or legacy .gates/ check
+  gate.sh                        legacy .gates/ or signed JWT; warn (default) or block
   skill-passed.sh                reports gate status after skills
   tdd-enforce.sh                 TDD reminder before source file edits (no test? write first)
   gate-cleanup.sh                clears legacy flags + gate token after commit
