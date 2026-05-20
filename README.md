@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. 13 skills, 9 agents, 16 guardrails, 6 harness hooks. Plan, build, test, debug, and ship — any repo, any language.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 16 guardrails, 7 harness hooks. Plan, build, test, debug, and ship — any repo, any language.
 
 Built for Claude Code (full harness enforcement). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (prompt-level skills only).
 

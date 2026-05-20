@@ -92,7 +92,7 @@ else
   fail "empty precommit flag should be blocked" "got exit $EXIT_CODE"
 fi
 
-# Test 7: evaluate flag with low score → BLOCKED (for push)
+# Test 7: evaluate flag with 40% score → BLOCKED (for push)
 rm -rf .gates && mkdir -p .gates
 echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 40% 2026-05-20" > .gates/evaluate-passed
@@ -103,6 +103,67 @@ if [ "$EXIT_CODE" -eq 2 ]; then
 else
   fail "low eval score should block push" "got exit $EXIT_CODE"
 fi
+
+# Test 7b: evaluate flag with 94% → BLOCKED (below 95% default threshold)
+rm -rf .gates && mkdir -p .gates
+echo "READY 2026-05-20" > .gates/precommit-passed
+echo "PASSED 94% 2026-05-20" > .gates/evaluate-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "evaluate at 94% blocked (below 95% threshold)"
+else
+  fail "94% should be blocked (threshold is 95%)" "got exit $EXIT_CODE"
+fi
+
+# Test 7c: evaluate flag with 95% → ALLOWED
+rm -rf .gates && mkdir -p .gates
+echo "READY 2026-05-20" > .gates/precommit-passed
+echo "PASSED 95% 2026-05-20" > .gates/evaluate-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ]; then
+  pass "evaluate at 95% allowed (meets threshold)"
+else
+  fail "95% should be allowed" "got exit $EXIT_CODE"
+fi
+
+# Test 7d: reviewer flag without PASSED marker → BLOCKED
+cat > gates.json << 'EOF'
+{
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate", "reviewer"]
+}
+EOF
+rm -rf .gates && mkdir -p .gates
+echo "READY 2026-05-20" > .gates/precommit-passed
+echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
+touch .gates/reviewer-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "reviewer flag without PASSED marker blocked"
+else
+  fail "empty reviewer flag should be blocked" "got exit $EXIT_CODE"
+fi
+
+# Test 7e: reviewer flag with PASSED marker → ALLOWED
+echo "PASSED 2026-05-20" > .gates/reviewer-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ]; then
+  pass "reviewer flag with PASSED marker allowed"
+else
+  fail "reviewer with PASSED should be allowed" "got exit $EXIT_CODE"
+fi
+
+# Restore default gates.json
+cat > gates.json << 'EOF'
+{
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate"]
+}
+EOF
 
 # Test 8: profile-based gates
 cat > gates.json << 'EOF'

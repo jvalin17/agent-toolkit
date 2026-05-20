@@ -163,6 +163,6 @@ For each approved change, follow this sequence:
 
 Write to `reports/assess/assess_<slug>_<uuid>.md`. Include findings, thresholds checked, and refactoring progress if applicable.
 
-**If no critical anti-patterns found (or all resolved):** Set the gate flag: `mkdir -p .gates && touch .gates/assess-passed` — this unlocks `git push` if gates require assess.
+**If no critical anti-patterns found (or all resolved):** Set the gate flag with marker: `mkdir -p .gates && echo "PASSED $(date +%Y-%m-%d-%H%M)" > .gates/assess-passed` — the gate hook validates the flag contains "PASSED", not just that the file exists.
 
 **If critical anti-patterns remain:** Do NOT set the flag. Gate remains locked.

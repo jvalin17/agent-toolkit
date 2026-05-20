@@ -37,18 +37,20 @@ elif [ -f "$SCRIPT_DIR/gates.json" ]; then
   GATES_CONFIG="$SCRIPT_DIR/gates.json"
 fi
 
-# If no config or no jq, fallback to precommit-only check
+# If no config or no jq, fallback to precommit-only check with content validation
 if [ -z "$GATES_CONFIG" ] || ! command -v jq &> /dev/null; then
-  if [ "$ACTION" = "commit" ] && [ ! -f ".gates/precommit-passed" ]; then
-    cat <<FALLBACK_EOF
+  if [ "$ACTION" = "commit" ]; then
+    if [ ! -f ".gates/precommit-passed" ] || ! grep -q "READY" ".gates/precommit-passed" 2>/dev/null; then
+      cat <<FALLBACK_EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
-    "additionalContext": "BLOCKED: git commit requires /precommit to pass first. Run /precommit now."
+    "additionalContext": "BLOCKED: git commit requires /precommit to pass first (with READY marker). Run /precommit now."
   }
 }
 FALLBACK_EOF
-    exit 2
+      exit 2
+    fi
   fi
   exit 0
 fi
@@ -85,14 +87,35 @@ for SKILL in $REQUIRED; do
       fi
       ;;
     evaluate)
-      # Flag must contain score >= threshold (written by evaluate skill)
-      SCORE=$(grep -oE '[0-9]+' "$FLAG" 2>/dev/null | head -1)
-      if [ -z "$SCORE" ] || [ "$SCORE" -lt 70 ]; then
-        MISSING="${MISSING} /${SKILL}(flag exists but score ${SCORE:-missing} < threshold — re-run)"
+      # Flag must contain PASSED + score >= 95 (default threshold from orchestrator)
+      # Read threshold from gates.json if available, otherwise default 95
+      EVAL_THRESHOLD=95
+      if [ -n "$GATES_CONFIG" ] && command -v jq &> /dev/null; then
+        CUSTOM_THRESHOLD=$(jq -r '.eval_threshold // empty' "$GATES_CONFIG" 2>/dev/null)
+        if [ -n "$CUSTOM_THRESHOLD" ]; then
+          EVAL_THRESHOLD="$CUSTOM_THRESHOLD"
+        fi
+      fi
+      if ! grep -q "PASSED" "$FLAG" 2>/dev/null; then
+        MISSING="${MISSING} /${SKILL}(flag exists but no PASSED marker — re-run)"
+      else
+        SCORE=$(grep -oE '[0-9]+' "$FLAG" 2>/dev/null | head -1)
+        if [ -z "$SCORE" ] || [ "$SCORE" -lt "$EVAL_THRESHOLD" ]; then
+          MISSING="${MISSING} /${SKILL}(score ${SCORE:-?}% < ${EVAL_THRESHOLD}% threshold — re-run)"
+        fi
       fi
       ;;
-    *)
-      # reviewer, assess — flag existence is sufficient (skill sets on pass)
+    reviewer)
+      # Flag must contain PASSED (written by reviewer when no high-severity findings)
+      if ! grep -q "PASSED" "$FLAG" 2>/dev/null; then
+        MISSING="${MISSING} /${SKILL}(flag exists but no PASSED marker — high-severity findings remain)"
+      fi
+      ;;
+    assess)
+      # Flag must contain PASSED (written by assess when no critical anti-patterns)
+      if ! grep -q "PASSED" "$FLAG" 2>/dev/null; then
+        MISSING="${MISSING} /${SKILL}(flag exists but no PASSED marker — critical issues remain)"
+      fi
       ;;
   esac
 done
