@@ -1,0 +1,55 @@
+# Agent-toolkit signed gate — installed automatically by ./install.sh
+# Runs mechanical checks (tests, lint) and issues a signed JWT bound to this commit.
+# Enable branch protection: require check "agent-toolkit-gate" on main.
+
+name: agent-toolkit-gate
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: agent-toolkit-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install gate dependencies
+        run: |
+          pip install -r .agent-toolkit/gate/requirements.txt
+
+      - name: Run attestation (tests + mechanical checks)
+        run: |
+          python .agent-toolkit/gate/scripts/verify_gate.py attest --project-root .
+
+      - name: Issue signed gate token
+        env:
+          AGENT_TOOLKIT_GATE_SECRET: ${{ secrets.AGENT_TOOLKIT_GATE_SECRET }}
+        run: |
+          python .agent-toolkit/gate/scripts/issue_token.py \
+            --project-root . \
+            --action push
+
+      - name: Verify token
+        run: |
+          python .agent-toolkit/gate/scripts/verify_gate.py verify \
+            --project-root . \
+            --action push \
+            --commit "${{ github.sha }}"
+
+      - name: Upload gate token artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-token
+          path: .gate/gate-token.jwt
+          retention-days: 14

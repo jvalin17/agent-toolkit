@@ -1,0 +1,25 @@
+{
+  "gate_mode": "signed",
+  "profile": "standard",
+  "eval_threshold": 95,
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate"],
+  "profiles": {
+    "minimal": {
+      "commit_requires": ["precommit"],
+      "push_requires": ["precommit"]
+    },
+    "standard": {
+      "commit_requires": ["precommit"],
+      "push_requires": ["precommit", "evaluate"]
+    },
+    "strict": {
+      "commit_requires": ["precommit", "evaluate"],
+      "push_requires": ["precommit", "evaluate", "reviewer"]
+    },
+    "paranoid": {
+      "commit_requires": ["precommit", "evaluate"],
+      "push_requires": ["precommit", "evaluate", "reviewer", "assess"]
+    }
+  }
+}

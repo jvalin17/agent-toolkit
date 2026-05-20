@@ -34,6 +34,8 @@ Then in any project:
 
 Re-run `./install.sh` after first install to get harness hooks. Auto-updates after that.
 
+Inside a **git project**, `./install.sh` also configures **signed gates** (see below) — no separate bootstrap step.
+
 ## How It Works
 
 Three layers — skills define workflows, guardrails set rules, harness makes them unbypassable:
@@ -98,54 +100,106 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 |------|------|------|
 | `session-init.sh` | Session start + after `/compact` | Scans all project `.md` files, tells Claude to read them FIRST. Loads toolkit rules. |
 | `route-to-skill.sh` | Every user prompt | Detects intent → injects skill routing. Agent follows workflows automatically. |
-| `gate.sh` | Before `git commit` / `git push` | Blocks unless required skills have passed. |
-| `skill-passed.sh` | After skill completes | **Reports** gate status — does NOT set flags. Skills set their own `.gates/<skill>-passed` only on actual pass (READY TO COMMIT, eval ≥ threshold, no high-severity findings). |
+| `gate.sh` | Before `git commit` / `git push` | **Signed mode (default):** verifies `.gate/gate-token.jwt` (JWT bound to commit SHA + profile). **Legacy mode:** reads `.gates/*-passed` files. |
+| `skill-passed.sh` | After skill completes | **Reports** gate status — does not issue tokens. In legacy mode, skills may write `.gates/<skill>-passed` on pass. |
 | `tdd-enforce.sh` | Before every file edit | TDD reminder — if no test file exists, injects "write test first." Covers features AND bug fixes. |
 | `gate-cleanup.sh` | After successful commit | Clears all flags. Next commit needs fresh passes. |
 | `update.sh` | Before every skill | Auto-pulls latest toolkit. |
 
-### Gate profiles
+### Signed gates (default)
 
-Copy `hooks/gates.json` to your project root. Set the profile you want:
+**Problem:** In legacy mode, an agent could write `.gates/precommit-passed` with `echo` and bypass the harness. Flags were honor-system.
+
+**Approach:** Split **workflow** (skills) from **authority** (CI + signed token).
+
+| Layer | Role |
+|-------|------|
+| **Skills** (`/precommit`, `/evaluate`, …) | Run the real workflows. Write human-readable reports under `reports/`. You (or the agent) still run these before shipping. |
+| **Attestation** (CI or local script) | Runs **mechanical** checks only: tests, lint, toolkit hook tests. Writes `.gate/attestation.json` — facts, not prose. |
+| **JWT** (CI issues, local hook verifies) | Short-lived token in `.gate/gate-token.jwt`, bound to `commit_sha` and your `gates.json` profile. `gate.sh` refuses `git commit` / `git push` without a valid token. |
+| **GitHub** (optional but strongest) | Workflow `agent-toolkit-gate` on push/PR. Branch protection can require that check — merge authority lives outside the agent’s filesystem. |
+
+Signing uses **HS256** and a project secret in `.gate/signing.key` (stdlib + PyJWT only — no `cryptography` wheel). CI reads the same secret from GitHub Actions secret `AGENT_TOOLKIT_GATE_SECRET`.
+
+#### What `./install.sh` sets up in your repo
+
+When you run `./install.sh` from inside a git checkout:
+
+- `.agent-toolkit/gate/` — gate scripts copied into the project (for CI and local verify)
+- `.agent-toolkit/config.json` — toolkit path and version
+- `gates.json` — if missing, template with `"gate_mode": "signed"` and profile **standard**
+- `.gate/signing.key` — gitignored signing secret (created once)
+- `.github/workflows/agent-toolkit-gate.yml` — attest → issue token → verify
+- `.gitignore` entries for `.gate/signing.key`, `.gate/gate-token.jwt`, etc.
+- If `gh` is logged in: uploads `AGENT_TOOLKIT_GATE_SECRET` to the repo
+
+#### If you use the skills (what you actually do)
+
+Skills are unchanged in intent — still run them for quality. The harness no longer trusts hand-written flag files in signed mode.
+
+1. **Work as usual** — `/precommit`, `/evaluate`, `/reviewer`, `/assess` when your profile requires them. Fix what they find; reports live under `reports/`.
+
+2. **Before `git commit` or `git push`** you need a valid **gate token** for the current `HEAD`:
+   - **After push/PR:** GitHub Actions runs mechanical attestation and issues `gate-token.jwt`. Download the **gate-token** workflow artifact into `.gate/gate-token.jwt`, or rely on branch protection so merge only happens when CI passed (you may not need a local token if you only push from CI).
+   - **Local (same machine, dev loop):**
+     ```bash
+     pip install -r .agent-toolkit/gate/requirements.txt   # once
+     python .agent-toolkit/gate/scripts/verify_gate.py attest --project-root .
+     python .agent-toolkit/gate/scripts/issue_token.py --project-root . --action push
+     ```
+     Token must match `git rev-parse HEAD`. Re-issue after each new commit.
+
+3. **Commit or push** — `gate.sh` calls `verify_gate.py verify`. Wrong/missing token → blocked with a message to run skills and refresh the token.
+
+4. **GitHub (team / production)** — In repo settings → branch protection, require status check **`agent-toolkit-gate`**. Ensure secret `AGENT_TOOLKIT_GATE_SECRET` exists (install tries via `gh`; otherwise paste contents of `.gate/signing.key`).
+
+5. **Legacy local-only** — Set `"gate_mode": "legacy"` in `gates.json` to restore `.gates/*-passed` behavior (weaker; useful for solo hacking without CI).
+
+#### Gate profiles (`gates.json`)
 
 | Profile | Commit needs | Push needs | Best for |
 |---------|-------------|------------|----------|
-| **minimal** | `/precommit` | `/precommit` | Prototypes, solo hacking |
-| **standard** | `/precommit` | `/precommit` + `/evaluate` | Most projects (default) |
-| **strict** | `/precommit` + `/evaluate` | + `/reviewer` | Team projects, production |
-| **paranoid** | `/precommit` + `/evaluate` | + `/reviewer` + `/assess` | Regulated, high-stakes |
+| **minimal** | `/precommit` (mechanical) | `/precommit` | Prototypes |
+| **standard** | `/precommit` | `/precommit` + `/evaluate` (score ≥ threshold) | Default |
+| **strict** | `/precommit` + `/evaluate` | + `/reviewer` | Team / production |
+| **paranoid** | `/precommit` + `/evaluate` | + `/reviewer` + `/assess` | High-stakes |
 
 ```json
-// gates.json in your project root
-{ "profile": "strict" }
+{
+  "gate_mode": "signed",
+  "profile": "standard",
+  "eval_threshold": 95
+}
 ```
+
+Mechanical attestation maps profile skills to test/lint/hook results today; skill reports are for humans and future stricter attestation.
 
 ### Examples
 
-**Using gates from scratch:**
-```
-./install.sh                          # installs hooks globally
-cd my-project
-cp /path/to/agent-toolkit/hooks/gates.json .   # copy config
-# edit gates.json: "profile": "strict"
-# start coding — gates are active immediately
+**Signed gates from scratch:**
+```bash
+./install.sh                    # global skills + hooks; if cwd is a git repo, also bootstraps signed gates
+cd my-project                   # your app repo
+./path/to/agent-toolkit/install.sh
+# → gates.json, .agent-toolkit/, workflow, signing.key
+# Enable branch protection: require check "agent-toolkit-gate"
 ```
 
-**Gates kick in mid-session:**
+**Gates kick in mid-session (signed mode):**
 ```
 You: "commit this"
 Claude: git commit -m "Add user auth"
-  → BLOCKED: commit requires /precommit + /evaluate
-Claude: runs /precommit → passes → runs /evaluate → 96%
-Claude: git commit → ALLOWED → flags cleared
+  → BLOCKED: missing .gate/gate-token.jwt
+Claude: runs /precommit, /evaluate (skills + reports)
+Claude: attest + issue_token (or user pushes; CI issues token)
+Claude: git commit → ALLOWED (token matches HEAD)
 ```
 
-**Changing gates mid-project:**
+**Legacy mode (no JWT):**
+```json
+{ "gate_mode": "legacy", "profile": "standard" }
 ```
-# Started with minimal, project grew, switch to strict:
-echo '{"profile": "strict"}' > gates.json
-# Next commit now requires /precommit + /evaluate
-```
+Skills write `.gates/precommit-passed` (must contain `READY`) and `.gates/evaluate-passed` (`PASSED` + score). Same profiles as before.
 
 ### Skill routing in action
 
@@ -196,9 +250,8 @@ Updated by `/implementation` after each slab. New sessions read this first.
 # 1. Install toolkit (once)
 /path/to/agent-toolkit/install.sh
 
-# 2. Configure gates
-cp /path/to/agent-toolkit/hooks/gates.json .
-echo '{"profile": "standard"}' > gates.json
+# 2. Install toolkit (configures signed gates + gates.json if missing)
+/path/to/agent-toolkit/install.sh
 
 # 3. Understand the codebase
 /explore .
@@ -208,7 +261,7 @@ echo '{"profile": "standard"}' > gates.json
 "add search feature"
 # → route-to-skill.sh routes to /implementation
 # → tdd-enforce.sh reminds about test-first on every edit
-# → gate.sh blocks commit without /precommit
+# → gate.sh blocks commit without valid gate-token.jwt (or /precommit in legacy mode)
 ```
 
 ### Clean development with skills
@@ -353,14 +406,25 @@ shared/                          loaded by skills on demand
 hooks/                           harness enforcement (Claude Code only)
   session-init.sh                scans .md files, loads rules at session start
   route-to-skill.sh              detects intent, routes to skill workflow
-  gate.sh                        blocks commit/push without required skills
-  skill-passed.sh                reports gate status (skills set own flags on pass)
+  gate.sh                        signed JWT verify or legacy .gates/ check
+  skill-passed.sh                reports gate status after skills
   tdd-enforce.sh                 TDD reminder before source file edits (no test? write first)
-  gate-cleanup.sh                clears flags after commit
-  gates.json                     gate profiles (minimal/standard/strict/paranoid)
+  gate-cleanup.sh                clears legacy flags + gate token after commit
+  gates.json                     reference profile template (copy to project root)
+
+gate/                            signed gate module (also copied to .agent-toolkit/gate/)
+  attest.py                      mechanical checks → attestation.json
+  core.py                        JWT issue/verify (HS256)
+  scripts/verify_gate.py         attest | verify CLI
+  scripts/issue_token.py         issue JWT (CI or local; needs signing secret)
 
 scripts/
+  bootstrap-project-gates.sh     project setup (called from install.sh)
   cleanup-archive.sh             deletes archive files older than 30 days
+
+templates/
+  gates.json                     default signed gates.json for new projects
+  github/workflows/              agent-toolkit-gate.yml for consumer repos
 
 agents/                          9 sub-agents for parallel research
 ```

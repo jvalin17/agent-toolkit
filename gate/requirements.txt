@@ -1,0 +1,2 @@
+# Gate JWT — HS256 uses stdlib hmac via PyJWT only (no cryptography wheel).
+PyJWT>=2.8.0

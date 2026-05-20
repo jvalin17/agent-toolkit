@@ -16,6 +16,7 @@ fi
 case "$COMMAND" in
   git\ commit*)
     rm -rf .gates 2>/dev/null
+    rm -f .gate/gate-token.jwt .gate/attestation.json 2>/dev/null
     ;;
 esac
 

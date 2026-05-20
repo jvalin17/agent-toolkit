@@ -1,0 +1,47 @@
+name: Signed gate
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+permissions:
+  contents: read
+
+jobs:
+  gate:
+    name: agent-toolkit-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r gate/requirements.txt pytest
+
+      - name: Unit tests (gate + hooks)
+        run: |
+          python -m pytest tests/test_gate.py -q
+          bash tests/test-hooks.sh
+
+      - name: Bootstrap gate layout (idempotent)
+        run: bash scripts/bootstrap-project-gates.sh "$(pwd)" "$(pwd)"
+
+      - name: Attest
+        run: python .agent-toolkit/gate/scripts/verify_gate.py attest --project-root .
+
+      - name: Issue gate token
+        env:
+          AGENT_TOOLKIT_GATE_SECRET: ${{ secrets.AGENT_TOOLKIT_GATE_SECRET }}
+        run: python .agent-toolkit/gate/scripts/issue_token.py --project-root . --action push
+
+      - name: Verify gate token
+        run: |
+          python .agent-toolkit/gate/scripts/verify_gate.py verify \
+            --project-root . \
+            --action push \
+            --commit "${{ github.sha }}"
