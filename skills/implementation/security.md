@@ -30,6 +30,7 @@ Read from upstream docs:
 5. **Ownership checks.** Every data query in multi-user apps must filter by user: `WHERE user_id = ?`. No endpoint should return another user's data.
 6. **Encrypt credentials at rest.** API keys, tokens, passwords — encrypt with Fernet/AES or hash with bcrypt. Never plaintext in DB.
 7. **Lightweight security.** Validation must be sub-millisecond. Don't add heavyweight deps. The bottleneck is LLM calls (1-5s), not input checks.
+8. **Auth middleware must whitelist ALL pre-login routes.** After writing auth middleware, trace every unauthenticated user flow (login, registration, password reset) end-to-end and whitelist BOTH page routes AND their API routes. A missing public path causes silent failures — middleware redirects API calls to login, returning HTML instead of JSON. Test every pre-login API call manually.
 
 ## TDD Pattern: Threat Model, Attack Tests, Defenses
 

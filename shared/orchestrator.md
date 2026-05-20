@@ -86,19 +86,27 @@ Also read `project-state.md` if it exists — check decisions, feature status, w
 
 ## Step 2: Auto-Research
 
-Trigger research agents based on signals in the user's request:
+**CRITICAL: When user input is sparse (one-liner like "build inventory app"), research is MANDATORY before building.** Don't assume what the app needs — investigate what every app in that category has. The one-line input defines the domain. Research fills in the details.
+
+Ask: "What does every app in this category have?" — not "What did the user literally say?"
+
+**Why this rule exists:** The orchestrator once assumed a basic CRUD app for "inventory app", missed barcode scanning (core to any real inventory workflow), missed pricing/sales tracking, and built a non-interactive dashboard. All table-stakes features that 5 minutes of research would have caught.
+
+Trigger research agents:
 
 | Signal | Agent | Scope |
 |--------|-------|-------|
-| New domain / unfamiliar product type | functional-researcher | Top 2-3 products, extract patterns |
-| Tech choice needed (no existing CLAUDE.md/architecture) | tech-stack-advisor | Options with trade-offs, don't decide |
+| **Sparse input / new domain** | functional-researcher | **ALWAYS for one-liners.** Top 2-3 products, extract table-stakes features, common workflows, domain-specific patterns |
+| Tech choice needed | tech-stack-advisor | Options with trade-offs, don't decide |
 | Design pattern question | pattern-advisor | 2-3 patterns with when-to-use |
 | Scale mentioned | scale-estimator | Back-of-envelope numbers |
 
 **Rules:**
+- Sparse input = functional-researcher is MANDATORY, not optional
 - Research output becomes evidence for decisions (cited as `[functional-researcher]`, `[tech-stack-advisor]`)
 - Research stays scoped — don't exhaustively survey, get enough to decide
 - If requirements/architecture docs already exist and are sufficient, skip research
+- After research, draft requirements that include domain table-stakes — not just what the user said
 
 ## Step 3: Code Change Plan
 

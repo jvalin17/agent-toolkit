@@ -18,10 +18,13 @@ Read from upstream docs (requirements, architecture, testing architecture). Foll
 7. **Live integration tests with separate marker.** Every external API integration needs at least 1 live test (e.g., `@pytest.mark.live`) that hits the real API. Don't mix with unit tests — run separately.
 8. **Never expose raw exceptions to clients.** Log full error details server-side. Return generic error message to user. Stack traces are a security leak.
 
+9. **ORM schema changes are atomic: migrate → generate → restart.** After any schema change (Prisma `db push`/`migrate`, Django `makemigrations`/`migrate`, SQLAlchemy `alembic upgrade`), always regenerate the client/types AND restart the dev server. `db push` updates the database but NOT the TypeScript/Python client — queries fail at runtime with "Unknown argument" errors for new fields.
+
 ## Checklist Per Block
 
 - [ ] No async/sync mixing in endpoints
 - [ ] .env.example updated with any new env vars
+- [ ] Schema changes: migrate → generate → restart (all three, every time)
 - [ ] Follows project's established patterns
 
 For language-specific coding standards, see `references/coding-standards-index.md`. For TDD patterns and test framework conventions, see `references/tdd-patterns.md` and `references/testing-frameworks.md`.
