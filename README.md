@@ -198,7 +198,14 @@ shared/
   report-format.md            progress report template
   project-state-template.md   created at project root by first skill run
 
-hooks/                        6 Claude Code hooks for structural enforcement
+hooks/
+  session-init.sh             loads rules + scans project .md files at session start
+  route-to-skill.sh           detects intent, routes to correct skill workflow
+  gate.sh                     blocks commit/push without required skills passing
+  skill-passed.sh             sets gate flags when skills complete
+  gate-cleanup.sh             clears flags after commit
+  gates.json                  configurable profiles (minimal/standard/strict/paranoid)
+
 scripts/
   cleanup-archive.sh          deletes archive files older than 30 days
 
