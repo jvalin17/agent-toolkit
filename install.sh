@@ -198,6 +198,30 @@ install_hooks() {
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$monitor_cmd",
+            "timeout": 5,
+            "statusMessage": "Session monitor (post-tool)..."
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$monitor_cmd",
+            "timeout": 5,
+            "statusMessage": "Session monitor (compact)..."
+          }
+        ]
       }
     ]
   }
@@ -291,7 +315,7 @@ HOOKEOF
     fi
 
     # Add session-monitor hook (PreToolUse on Bash|Write|Edit|Skill + UserPromptSubmit)
-    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("session-monitor"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("session_monitor"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$monitor_cmd" '
             .hooks.PreToolUse += [{"matcher": "Bash|Write|Edit|Skill", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Session monitor..."}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
@@ -305,8 +329,30 @@ HOOKEOF
         echo "  [skip] session monitor hook (already installed)"
     fi
 
+    # Add session-monitor PostToolUse hook (byte tracking)
+    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("session_monitor"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$monitor_cmd" '
+            .hooks //= {} | .hooks.PostToolUse //= [] |
+            .hooks.PostToolUse += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Session monitor (post-tool)..."}]}]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] session monitor PostToolUse hook (byte tracking)"
+    else
+        echo "  [skip] session monitor PostToolUse hook (already installed)"
+    fi
+
+    # Add session-monitor PostCompact hook (compaction detection)
+    if ! jq -e '.hooks.PostCompact[]? | select(.hooks[]? | .command | contains("session_monitor"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$monitor_cmd" '
+            .hooks //= {} | .hooks.PostCompact //= [] |
+            .hooks.PostCompact += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Session monitor (compact)..."}]}]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] session monitor PostCompact hook (compaction detection)"
+    else
+        echo "  [skip] session monitor PostCompact hook (already installed)"
+    fi
+
     # Add session-init hook (SessionStart — startup + compact)
-    if ! jq -e '.hooks.SessionStart[]? | select(.hooks[]? | .command | contains("session-init"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    if ! jq -e '.hooks.SessionStart[]? | select(.hooks[]? | .command | contains("session_init"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$session_init_cmd" '
             .hooks //= {} | .hooks.SessionStart //= [] |
             .hooks.SessionStart += [{"matcher": "startup", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}, {"matcher": "compact", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]
@@ -330,6 +376,37 @@ if command -v python3 &> /dev/null; then
 else
     echo ""
     echo "  [skip] project gates bootstrap (python3 required)"
+fi
+
+# --- claude-auto entry point ---
+echo ""
+echo "Setting up claude-auto..."
+CLAUDE_AUTO_SRC="$SCRIPT_DIR/scripts/claude-auto"
+LOCAL_BIN="$HOME/.local/bin"
+
+if [ -x "$CLAUDE_AUTO_SRC" ]; then
+    if [ -d "$LOCAL_BIN" ] || mkdir -p "$LOCAL_BIN" 2>/dev/null; then
+        if [ -L "$LOCAL_BIN/claude-auto" ]; then
+            current="$(readlink "$LOCAL_BIN/claude-auto")"
+            if [ "$current" = "$CLAUDE_AUTO_SRC" ]; then
+                echo "  [skip] claude-auto (already linked in $LOCAL_BIN)"
+            else
+                ln -sf "$CLAUDE_AUTO_SRC" "$LOCAL_BIN/claude-auto"
+                echo "  [updated] claude-auto → $LOCAL_BIN/claude-auto"
+            fi
+        else
+            ln -s "$CLAUDE_AUTO_SRC" "$LOCAL_BIN/claude-auto"
+            echo "  [installed] claude-auto → $LOCAL_BIN/claude-auto"
+        fi
+        if ! echo "$PATH" | grep -q "$LOCAL_BIN"; then
+            echo "  [note] Add $LOCAL_BIN to your PATH to use 'claude-auto' directly"
+        fi
+    else
+        echo "  [skip] claude-auto symlink (could not create $LOCAL_BIN)"
+        echo "  Run directly: python3 $CLAUDE_AUTO_SRC"
+    fi
+else
+    echo "  [skip] claude-auto (script not found)"
 fi
 
 # --- Summary ---

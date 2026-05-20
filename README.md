@@ -50,7 +50,7 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 | Refactor | `/implementation refactor auth` |
 | Before release | `/reviewer` + `/evaluate` |
 | Architecture review | `/assess` |
-| Long task, walk away | `python scripts/auto_continue.py --headless "goal"` |
+| Long task, walk away | `claude-auto --headless "goal"` |
 
 ## Skills
 
@@ -79,7 +79,7 @@ Guardrails and skills are prompts — the model can ignore them. **Structural ho
 | `session-init.sh` | Session start + after `/compact` | Loads project `.md` rules, init counters, clears stale `.gates/`. |
 | `session_init.py` | Session start (Python replacement) | Same as above + HANDOFF.md continuation context injection. |
 | `session-monitor.sh` | Every tool use + prompt | Warn **15 exchanges / 40 min**; hard stop **20 / 50 min** + grace for HANDOFF. Blocks writes to `.session/` (G-SESSION-1). |
-| `session_monitor.py` | Every tool use + prompt (Python replacement) | Context-pressure limits: cumulative output bytes, PostCompact detection, raised fallback thresholds (30 exchanges / 75 min). |
+| `session_monitor.py` | PreToolUse + PostToolUse + UserPromptSubmit + PostCompact | Context-pressure limits: cumulative output bytes, PostCompact detection, raised fallback thresholds (30 exchanges / 75 min). |
 | `route-to-skill.sh` | Every prompt | Intent → skill injection ("fix bug" → `/debug`, "build X" → `/implementation`). |
 | `gate.sh` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: warn`. |
 | `skill-passed.sh` | After skill completes | Reports gate status (does not issue tokens). |
@@ -181,13 +181,16 @@ Sessions that hit context limits automatically hand off and relaunch. The wrappe
 
 ```bash
 # Headless — fire-and-forget until goal is done
-python scripts/auto_continue.py --headless "Build auth system with token refresh"
+claude-auto --headless "Build auth system with token refresh"
 
 # With budget cap
-python scripts/auto_continue.py --headless --max-budget-usd 5.00 "Build auth system"
+claude-auto --headless --max-budget-usd 5.00 "Build auth system"
 
 # Resume (reads goal from existing HANDOFF.md)
-python scripts/auto_continue.py --headless
+claude-auto --headless
+
+# Or run directly without the symlink
+python3 scripts/auto_continue.py --headless "Build auth system"
 ```
 
 **How it works:** `auto_continue.py` launches Claude Code sessions in a loop. Each session runs with `session_monitor.py` tracking context pressure (cumulative output bytes + PostCompact events). When a threshold is hit, the agent writes HANDOFF.md and exits. The wrapper detects the handoff, cleans `.session/`, and relaunches. The new session reads HANDOFF.md via `session_init.py` and continues where the previous one left off.
@@ -209,7 +212,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 | Debug | `/debug …` or natural language — hypothesis → test → fix |
 | Mid-project install | `./install.sh` → `/explore .` → work (hooks active immediately) |
 | Cleanup pass | `/reviewer` → `/assess` → `/evaluate` → fix findings → `/precommit` |
-| Fire-and-forget | `python scripts/auto_continue.py --headless "Build X"` — auto-relaunches on context exhaustion |
+| Fire-and-forget | `claude-auto --headless "Build X"` — auto-relaunches on context exhaustion |
 
 ## Guardrails
 
@@ -235,7 +238,7 @@ shared/          guardrails, orchestrator, gate-unlock, report-format, templates
 hooks/           7 bash + 2 Python structural hook scripts (+ gates.json reference copy)
 update.sh        10th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
-scripts/         auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …
+scripts/         claude-auto, auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …
 templates/       gates.json, signed example, GitHub workflow template
 ```
 
