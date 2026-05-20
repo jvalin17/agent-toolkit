@@ -2,6 +2,7 @@
 
 [![Skills: 13](https://img.shields.io/badge/Skills-13-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
+[![Hooks: 8](https://img.shields.io/badge/Hooks-8-purple?style=for-the-badge)](hooks/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
@@ -102,7 +103,7 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 | `session-init.sh` | Session start + after `/compact` | Scans project `.md` files, loads rules, initializes session counters, verifies hook integrity, clears stale gates. |
 | `session-monitor.sh` | Every tool use + every prompt | Tracks exchanges, tool calls, wall-clock time. Warns at 15 exchanges/40 min. Hard stops at 20 exchanges/50 min with grace period for HANDOFF.md. Blocks agent writes to `.session/`. |
 | `route-to-skill.sh` | Every user prompt | Detects intent → injects skill routing. Agent follows workflows automatically. |
-| `gate.sh` | Before `git commit` / `git push` | **Signed mode (default):** verifies `.gate/gate-token.jwt` (JWT bound to commit SHA + profile). **Legacy mode:** reads `.gates/*-passed` files. |
+| `gate.sh` | Before `git commit` / `git push` | **Legacy mode (default):** reads `.gates/*-passed` files. **Signed mode (optional):** verifies `.gate/gate-token.jwt` (JWT bound to commit SHA + profile). |
 | `skill-passed.sh` | After skill completes | **Reports** gate status — does not issue tokens. In legacy mode, skills may write `.gates/<skill>-passed` on pass. |
 | `tdd-enforce.sh` | Before every file edit | TDD reminder — if no test file exists, injects "write test first." Covers features AND bug fixes. |
 | `gate-cleanup.sh` | After successful commit | Clears all flags. Next commit needs fresh passes. |
@@ -453,7 +454,7 @@ skills/                          13 skill workflows
   debug/                         ~190 lines
   evaluate/                      ~176 lines
   explore/                       ~143 lines
-  precommit/                     ~309 lines
+  precommit/                     ~118 lines + references
   setup/                         77 lines + 1 reference
   status/                        ~147 lines
   updater/                       180 lines
@@ -487,7 +488,7 @@ scripts/
   cleanup-archive.sh             deletes archive files older than 30 days
 
 templates/
-  gates.json                     default signed gates.json for new projects
+  gates.json                     default legacy gates.json for new projects
   github/workflows/              agent-toolkit-gate.yml for consumer repos
 
 agents/                          9 sub-agents for parallel research

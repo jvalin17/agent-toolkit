@@ -192,6 +192,11 @@ def test_bootstrap_and_signed_roundtrip(tmp_path: Path):
     assert proc.returncode == 0, proc.stderr + proc.stdout
     assert (tmp_path / ".agent-toolkit/gate/scripts/verify_gate.py").is_file()
     assert (tmp_path / ".gate/signing.key").is_file()
+    # Template defaults to legacy; this test exercises signed JWT roundtrip
+    gates_path = tmp_path / "gates.json"
+    gates = json.loads(gates_path.read_text(encoding="utf-8"))
+    gates["gate_mode"] = "signed"
+    gates_path.write_text(json.dumps(gates, indent=2) + "\n", encoding="utf-8")
     fixtures = ROOT / "tests/fixtures/gate-reports"
     for skill in ("precommit", "evaluate"):
         (tmp_path / "reports" / skill).mkdir(parents=True, exist_ok=True)
