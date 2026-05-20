@@ -2,20 +2,20 @@
 
 [![Skills: 13](https://img.shields.io/badge/Skills-13-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
-[![Hooks: 8](https://img.shields.io/badge/Hooks-8-purple?style=for-the-badge)](hooks/)
+[![Structural hooks: 8](https://img.shields.io/badge/Structural_hooks-8-purple?style=for-the-badge)](hooks/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. 13 skills, 9 agents, 19 guardrail groups, 8 harness hooks. Plan, build, test, debug, and ship — any repo, any language.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 19 guardrail groups, 8 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
 
-Built for **Claude Code** (full harness). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (skills + guardrails via `AGENTS.md`; no hooks).
+Built for **Claude Code** (structural hooks + gates). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (skills + guardrails via `AGENTS.md`; no structural hooks).
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/jvalin17/agent-toolkit.git
 cd agent-toolkit
-./install.sh    # symlinks skills + agents + shared; installs harness hooks
+./install.sh    # symlinks skills + agents + shared; installs structural hooks
 ```
 
 In any project:
@@ -37,7 +37,7 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 |-------|------|
 | **Skills (13)** | Workflows — `/implementation`, `/debug`, `/precommit`, … Interactive or `auto` (chains until ambiguity or failure). |
 | **Guardrails (19 groups)** | Rules every skill follows — see [Guardrails](#guardrails) and [`shared/guardrails.md`](shared/guardrails.md). |
-| **Harness (8 hooks)** | Structural enforcement — routing, TDD reminders, session limits, commit/push gates. |
+| **Structural hooks (8)** | Runtime enforcement the model cannot bypass — routing, TDD reminders, session limits, commit/push gates. |
 
 ### When to use what
 
@@ -46,7 +46,7 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 | Quick prototype | `/requirements auto my-app` |
 | Production / careful build | `/requirements` → `/architecture` → `/implementation` |
 | Existing codebase | `/explore .` → `/implementation` for new work |
-| Fix a bug | Say "fix the login bug" — harness routes to `/debug` |
+| Fix a bug | Say "fix the login bug" — `route-to-skill.sh` routes to `/debug` |
 | Refactor | `/implementation refactor auth` |
 | Before release | `/reviewer` + `/evaluate` |
 | Architecture review | `/assess` |
@@ -69,9 +69,9 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 | `/status` | Project dashboard. What's done, what's next. |
 | `/updater` | Toolkit health: links, freshness, standards. |
 
-## Harness
+## Structural hooks
 
-Guardrails are prompts — the model can ignore them. Hooks are structural — **the model cannot bypass them**.
+Guardrails and skills are prompts — the model can ignore them. **Structural hooks** (Claude Code `PreToolUse` / `SessionStart` scripts) inject context and block tool use — **the model cannot bypass them**. This is not MCP; hooks are shell commands in `~/.claude/settings.json` via `./install.sh`.
 
 | Hook | When | What |
 |------|------|------|
@@ -170,7 +170,7 @@ git push             # → allowed when JWT matches HEAD
 | **Manual signed** | Copy `templates/gates.signed.example.json` → `gates.json` after install |
 | **Secret upload only on install** | `AGENT_TOOLKIT_UPLOAD_GATE_SECRET=1 ./install.sh` (does not enable signed by itself) |
 
-**Session recovery:** `session-init.sh` prioritizes `HANDOFF.md`, `project-state.md`, requirements/architecture docs. Feature tracker lives in `project-state.md` (see `shared/project-state-template.md`).
+**Session recovery:** `session-init.sh` prioritizes `HANDOFF.md`, `project-state.md` (local per project — copy from `shared/project-state-template.md`), and requirements/architecture docs.
 
 ## Auto Mode
 
@@ -188,7 +188,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 
 ## Guardrails
 
-**19 rule groups** (universal + harness + precommit). Per-skill rules (G-REQ, G-ARCH, G-IMPL, G-EVAL, G-UPD) in [`shared/guardrails.md`](shared/guardrails.md). When hit: warn, record, continue.
+**19 rule groups** (universal + session hooks + precommit). Per-skill rules (G-REQ, G-ARCH, G-IMPL, G-EVAL, G-UPD) in [`shared/guardrails.md`](shared/guardrails.md). When hit: warn, record, continue.
 
 | Group | IDs | What |
 |-------|-----|------|
@@ -197,7 +197,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 | Implementation quality | **G-IMPL-6** | No shortcuts — hardcoded returns, magic numbers, swallowed errors, boolean-flag APIs |
 | Commit gate | **G-PUSH-1** | No commit/push without `/precommit` |
 | Auto mode | **G-AUTO-1** | Every change cites evidence |
-| Session harness | **G-SESSION-1** | Never modify `.session/` (hook blocks) |
+| Session hooks | **G-SESSION-1** | Never modify `.session/` (structural hook blocks) |
 | Precommit | **G-PC-1–5** | Meaningful tests, all instructions addressed, verify in app, ask on ambiguity |
 | Per-skill | **G-REQ**, **G-ARCH**, **G-EVAL**, **G-UPD** | See `guardrails.md` |
 
@@ -207,7 +207,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 skills/          13 workflows (+ sub-skills & references per skill)
 agents/          9 research sub-agents
 shared/          guardrails, orchestrator, gate-unlock, report-format, templates
-hooks/           7 harness scripts (+ gates.json reference copy)
+hooks/           7 structural hook scripts (+ gates.json reference copy)
 update.sh        8th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
 scripts/         bootstrap, set-gate-mode, setup-signed-gates, seed reports, …
@@ -233,7 +233,7 @@ templates/       gates.json, signed example, GitHub workflow template
 | Skills | Slash commands | In `AGENTS.md` |
 | Guardrails | `shared/*.md` | In `AGENTS.md` |
 | Agents | Native sub-agents | Inlined in `AGENTS.md` |
-| Harness | Full hooks | Not available |
+| Structural hooks | Full enforcement via `hooks/` | Not available (prompt-only) |
 
 ```bash
 ./generate-project-rules.sh              # AGENTS.md
