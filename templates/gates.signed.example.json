@@ -1,0 +1,25 @@
+{
+  "_comment": "Copy to gates.json or run: scripts/setup-signed-gates.sh",
+  "gate_mode": "signed",
+  "enforcement": "block",
+  "profile": "standard",
+  "eval_threshold": 95,
+  "profiles": {
+    "minimal": {
+      "commit_requires": ["precommit"],
+      "push_requires": ["precommit"]
+    },
+    "standard": {
+      "commit_requires": ["precommit"],
+      "push_requires": ["precommit", "evaluate"]
+    },
+    "strict": {
+      "commit_requires": ["precommit", "evaluate"],
+      "push_requires": ["precommit", "evaluate", "reviewer"]
+    },
+    "paranoid": {
+      "commit_requires": ["precommit", "evaluate"],
+      "push_requires": ["precommit", "evaluate", "reviewer", "assess"]
+    }
+  }
+}

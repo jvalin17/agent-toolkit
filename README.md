@@ -171,12 +171,43 @@ When you run `./install.sh` from inside a git checkout:
 - `.agent-toolkit/gate/` — gate scripts copied into the project (for CI and local verify)
 - `.agent-toolkit/config.json` — toolkit path and version
 - `gates.json` — if missing, template is installed (`gate_mode: legacy`, `enforcement: warn`, `profile: minimal`)
-- `.gate/signing.key` — gitignored signing secret (created once)
-- `.github/workflows/agent-toolkit-gate.yml` — attest → issue token → verify
+- `.gate/signing.key` — gitignored signing secret (created once; optional GitHub secret only if you want the same key in CI and locally)
+- `.github/workflows/agent-toolkit-gate.yml` — attest → issue token → verify (works without any GitHub secret in a single CI job)
 - `.gitignore` entries for `.gate/signing.key`, `.gate/gate-token.jwt`, etc.
-- `.gate/signing.key` — created locally; never required to copy to GitHub unless you opt in (`AGENT_TOOLKIT_UPLOAD_GATE_SECRET=1 ./install.sh` or manual secret)
 
-#### If you use signed mode (optional — long sessions / teams)
+#### Optional: enable signed gates (~5 minutes)
+
+**One command** (from your app repo):
+
+```bash
+/path/to/agent-toolkit/scripts/setup-signed-gates.sh
+```
+
+That script bootstraps layout, sets `gate_mode: signed` in `gates.json`, ensures `.gate/signing.key`, runs a local attest → issue → verify smoke test, and prints next steps.
+
+| Flag | When to use |
+|------|-------------|
+| `--upload-github-secret` | Same signing key on GitHub Actions and your laptop (team / branch protection) |
+| `--warn` | Keep `enforcement: warn` instead of `block` |
+| `--profile strict` | Stricter skill requirements (see profiles table below) |
+
+**Manual checklist** (if you prefer not to use the script):
+
+1. `./install.sh` in the project (creates `.agent-toolkit/`, workflow, signing key).
+2. Edit `gates.json`: `"gate_mode": "signed"`, pick `profile` (`standard` is a good default).
+3. `(optional)` Repo → Settings → Secrets → Actions → `AGENT_TOOLKIT_GATE_SECRET` = contents of `.gate/signing.key`.
+4. `(optional)` Branch protection on `main`: require check **`agent-toolkit-gate`**.
+5. Local smoke test:
+   ```bash
+   pip install -r .agent-toolkit/gate/requirements.txt
+   python .agent-toolkit/gate/scripts/verify_gate.py attest --project-root .
+   python .agent-toolkit/gate/scripts/issue_token.py --project-root . --action push
+   python .agent-toolkit/gate/scripts/verify_gate.py verify --project-root . --action push
+   ```
+
+Details: `shared/gate-unlock.md` and `scripts/setup-signed-gates.sh --help`.
+
+#### Signed mode day-to-day
 
 Skills are unchanged in intent — still run them for quality. In signed mode the harness does not trust hand-written `.gates/` files.
 
@@ -234,9 +265,12 @@ cd my-project
 Hook injects **GATE WARNING** if flags are missing; `git commit` / `git push` still run. Skills write `.gates/precommit-passed` (`READY`), etc.
 
 **Signed mode (optional — teams / long sessions):**
-```json
-{ "gate_mode": "signed", "enforcement": "block", "profile": "standard" }
+
+```bash
+/path/to/agent-toolkit/scripts/setup-signed-gates.sh
 ```
+
+Or by hand: `{ "gate_mode": "signed", "enforcement": "block", "profile": "standard" }` — see `templates/gates.signed.example.json`.
 ```
 You: "commit this"
   → BLOCKED (or warned): missing .gate/gate-token.jwt
@@ -483,7 +517,8 @@ gate/                            signed gate module (also copied to .agent-toolk
   scripts/issue_token.py         issue JWT (CI or local; needs signing secret)
 
 scripts/
-  bootstrap-project-gates.sh     project setup (called from install.sh)
+  bootstrap-project-gates.sh     project gate layout (called from install.sh)
+  setup-signed-gates.sh          optional one-command signed mode setup
   cleanup-archive.sh             deletes archive files older than 30 days
 
 templates/
