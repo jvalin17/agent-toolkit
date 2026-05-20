@@ -155,4 +155,4 @@ if [ "$UPLOAD_SECRET" -eq 0 ]; then
   echo "  • Same key on CI + laptop: $0 --upload-github-secret"
 fi
 echo ""
-echo "Revert to legacy anytime: set \"gate_mode\": \"legacy\" in gates.json"
+echo "Revert to legacy: scripts/set-gate-mode.sh legacy"
