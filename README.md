@@ -239,12 +239,36 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — t
 
 `install.sh` sets up these hooks automatically:
 
-| Hook | Type | What it does |
-|------|------|-------------|
+| Hook | Event | What it does |
+|------|-------|-------------|
+| `session-init.sh` | SessionStart | **Loads toolkit rules** at session start. Persists after `/compact`. Agent always knows about skills. |
+| `route-to-skill.sh` | UserPromptSubmit | **Detects intent** from user prompt and injects skill routing. "fix bug" → `/debug` workflow. "build X" → `/implementation`. |
 | `gate.sh` | PreToolUse (Bash) | **Blocks `git commit`/`git push`** unless required skills have passed. Configurable. |
 | `skill-passed.sh` | PostToolUse (Skill) | Creates `.gates/<skill>-passed` flag when a gated skill completes. |
 | `gate-cleanup.sh` | PostToolUse (Bash) | Clears all gate flags after commit. Next commit needs fresh passes. |
 | `update.sh` | PreToolUse (Skill) | Auto-pulls latest toolkit before every skill invocation. |
+
+### Skill Routing (entry enforcement)
+
+The agent can't ignore skills anymore. When a user types a prompt:
+
+```
+User: "fix the login bug"
+  → route-to-skill.sh detects "fix" + "bug" → injects context:
+    "Follow /debug workflow. Read skills/debug/SKILL.md.
+     Hypothesis-driven. Write failing test BEFORE fixing."
+  → Claude reads the skill file and follows the workflow
+
+User: "build an inventory app"
+  → route-to-skill.sh detects "build" → injects context:
+    "Follow /implementation workflow. Read skills/implementation/SKILL.md.
+     If no requirements exist, run /requirements first.
+     Create code change plan BEFORE writing code. TDD."
+  → Claude follows the skill flow instead of just dumping code
+
+User: "/debug login bug"
+  → route-to-skill.sh sees "/" prefix → no injection (user invoked skill directly)
+```
 
 ### Gate Profiles
 
