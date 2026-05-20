@@ -54,7 +54,8 @@ def main() -> int:
 
     secret = signing_secret_from_env()
     signing_path = args.signing_key
-    if secret and not signing_path.is_file():
+    if secret:
+        # Sync gitignored key file to CI secret (bootstrap may have generated a different local key)
         signing_path.parent.mkdir(parents=True, exist_ok=True)
         signing_path.write_text(secret.strip() + "\n", encoding="utf-8")
         signing_path.chmod(0o600)
