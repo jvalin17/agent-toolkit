@@ -74,6 +74,45 @@ else
   fail "git push should be allowed (exit 0)" "got exit $EXIT_CODE"
 fi
 
+# Test 4b: git commit && git push — must enforce push gates (not commit-only)
+rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "commit && push blocked without evaluate (push gates enforced)"
+else
+  fail "commit && push should be blocked without evaluate" "got exit $EXIT_CODE"
+fi
+
+# Test 4c: git -C subdir push — still enforces push gates
+rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git -C /tmp/repo push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "git -C dir push blocked without evaluate"
+else
+  fail "git -C push should be blocked without evaluate" "got exit $EXIT_CODE"
+fi
+
+# Test 4d: commit; push (semicolon) — push gates
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"x\"; git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "commit; push blocked without evaluate"
+else
+  fail "commit; push should be blocked" "got exit $EXIT_CODE"
+fi
+
+# Test 4e: commit && push allowed when all flags present
+echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ]; then
+  pass "commit && push allowed with all flags"
+else
+  fail "commit && push should be allowed" "got exit $EXIT_CODE"
+fi
+
 # Test 5: non-git command → ALLOWED (exit 0)
 EXIT_CODE=0
 echo '{"tool_input":{"command":"ls -la"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?

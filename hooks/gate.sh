@@ -15,12 +15,26 @@ else
   COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 fi
 
-ACTION=""
-case "$COMMAND" in
-  git\ commit*)  ACTION="commit" ;;
-  git\ push*)    ACTION="push" ;;
-  *)             exit 0 ;;
-esac
+# Detect git commit/push anywhere in agent-composed commands (not under user control).
+# Handles: git commit && git push | git commit; git push | git -C dir push | etc.
+HAS_COMMIT=false
+HAS_PUSH=false
+if echo "$COMMAND" | grep -qE 'git[[:space:]].*commit'; then
+  HAS_COMMIT=true
+fi
+if echo "$COMMAND" | grep -qE 'git[[:space:]].*push'; then
+  HAS_PUSH=true
+fi
+
+if [ "$HAS_COMMIT" = false ] && [ "$HAS_PUSH" = false ]; then
+  exit 0
+fi
+
+# Push requirements are a superset of commit in every profile — use push when both appear
+ACTION="commit"
+if [ "$HAS_PUSH" = true ]; then
+  ACTION="push"
+fi
 
 # Signed verify only when project was bootstrapped (not toolkit path alone)
 VERIFY_SCRIPT=""
