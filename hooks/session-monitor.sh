@@ -17,8 +17,6 @@
 # --- Configuration (thresholds) ---
 WARN_EXCHANGES=15
 STOP_EXCHANGES=20
-WARN_MINUTES=40
-STOP_MINUTES=50
 GRACE_TOOL_CALLS=10  # tool calls allowed after stop triggers (finish current work)
 
 # --- State file ---
@@ -89,7 +87,7 @@ STATEEOF2
 {
   "hookSpecificOutput": {
     "hookEventName": "UserPromptSubmit",
-    "additionalContext": "SESSION WARNING: $EXCHANGES/$STOP_EXCHANGES exchanges used, ${ELAPSED_MINUTES}/${STOP_MINUTES} minutes elapsed. Context degradation approaching. Start preparing HANDOFF.md NOW. Commit current work, pre-compute next steps, and write the handoff file. Format: see shared/project-state-template.md Resume section."
+    "additionalContext": "SESSION WARNING: $EXCHANGES/$STOP_EXCHANGES exchanges used. Context degradation approaching. Start preparing HANDOFF.md NOW. Commit current work, pre-compute next steps, and write the handoff file. Format: see shared/project-state-template.md Resume section."
   }
 }
 WARNEOF
@@ -155,11 +153,6 @@ STOP_REASON=""
 if [ "${EXCHANGES:-0}" -ge "$STOP_EXCHANGES" ]; then
   THRESHOLD_HIT=true
   STOP_REASON="Exchange limit reached (${EXCHANGES}/${STOP_EXCHANGES})"
-fi
-
-if [ "$ELAPSED_MINUTES" -ge "$STOP_MINUTES" ]; then
-  THRESHOLD_HIT=true
-  STOP_REASON="${STOP_REASON:+$STOP_REASON + }Time limit reached (${ELAPSED_MINUTES}/${STOP_MINUTES} min)"
 fi
 
 if [ "$THRESHOLD_HIT" = true ]; then
@@ -250,7 +243,7 @@ fi
 # --- Check warn thresholds (if not already warned) ---
 SHOULD_WARN=false
 if [ "${WARNED:-0}" -eq 0 ]; then
-  if [ "${EXCHANGES:-0}" -ge "$WARN_EXCHANGES" ] || [ "$ELAPSED_MINUTES" -ge "$WARN_MINUTES" ]; then
+  if [ "${EXCHANGES:-0}" -ge "$WARN_EXCHANGES" ]; then
     SHOULD_WARN=true
   fi
 fi
@@ -280,7 +273,7 @@ WARNSTATE
 {
   "hookSpecificOutput": {
     "hookEventName": "PreToolUse",
-    "additionalContext": "SESSION WARNING: ${EXCHANGES:-0}/${STOP_EXCHANGES} exchanges, ${ELAPSED_MINUTES}/${STOP_MINUTES} minutes. You are approaching the hard stop. Finish current work, commit, and prepare HANDOFF.md. Do not start new slabs or features."
+    "additionalContext": "SESSION WARNING: ${EXCHANGES:-0}/${STOP_EXCHANGES} exchanges. You are approaching the hard stop. Finish current work, commit, and prepare HANDOFF.md. Do not start new slabs or features."
   }
 }
 WARNMSG

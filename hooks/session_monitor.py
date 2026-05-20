@@ -26,7 +26,6 @@ from pathlib import Path
 WARN_THRESHOLD_BYTES = 500_000  # ~70% of 200K token window → warning
 HARD_THRESHOLD_BYTES = 700_000  # ~85% → handoff trigger
 FALLBACK_MAX_EXCHANGES = 30  # Raised from 20
-FALLBACK_MAX_MINUTES = 75  # Raised from 50
 GRACE_TOOL_CALLS = 10  # Tool calls allowed after stop triggers
 
 SESSION_DIR = ".session"
@@ -91,16 +90,11 @@ def make_hook_response(event_name: str, context: str) -> str:
     )
 
 
-def elapsed_minutes(state: SessionState) -> int:
-    """Minutes elapsed since session start."""
-    return (int(time.time()) - state.session_start) // 60
-
-
 def check_thresholds(state: SessionState) -> tuple:
     """Check if any hard-stop threshold is met.
 
     Returns (triggered: bool, reason: str).
-    Priority: compaction > bytes > exchanges > time.
+    Priority: compaction > bytes > exchanges.
     """
     if state.compactions >= 1:
         return True, (
@@ -120,13 +114,6 @@ def check_thresholds(state: SessionState) -> tuple:
             f"({state.exchanges}/{FALLBACK_MAX_EXCHANGES})"
         )
 
-    minutes = elapsed_minutes(state)
-    if minutes >= FALLBACK_MAX_MINUTES:
-        return True, (
-            f"Time limit reached "
-            f"({minutes}/{FALLBACK_MAX_MINUTES} minutes)"
-        )
-
     return False, ""
 
 
@@ -138,9 +125,6 @@ def should_warn(state: SessionState) -> bool:
         return True
     # Warn at ~75% of fallback exchange limit
     if state.exchanges >= int(FALLBACK_MAX_EXCHANGES * 0.75):
-        return True
-    # Warn at ~75% of fallback time limit
-    if elapsed_minutes(state) >= int(FALLBACK_MAX_MINUTES * 0.75):
         return True
     return False
 
@@ -208,10 +192,8 @@ def handle_user_prompt(state: SessionState) -> tuple:
     response = None
     if should_warn(state):
         state.warned = True
-        minutes = elapsed_minutes(state)
         response = (
             f"SESSION WARNING: {state.exchanges}/{FALLBACK_MAX_EXCHANGES} exchanges, "
-            f"{minutes}/{FALLBACK_MAX_MINUTES} minutes, "
             f"{state.cumulative_output_bytes:,}/{HARD_THRESHOLD_BYTES:,} bytes. "
             f"Context pressure building. Finish current work, commit, "
             f"and prepare HANDOFF.md. Do not start new slabs or features."
@@ -306,10 +288,8 @@ def handle_pre_tool_use(
     # Check warn thresholds (not triggered yet, but approaching)
     if should_warn(state) and not state.warned:
         state.warned = True
-        minutes = elapsed_minutes(state)
         response = (
             f"SESSION WARNING: {state.exchanges}/{FALLBACK_MAX_EXCHANGES} exchanges, "
-            f"{minutes}/{FALLBACK_MAX_MINUTES} minutes, "
             f"{state.cumulative_output_bytes:,}/{HARD_THRESHOLD_BYTES:,} bytes. "
             f"You are approaching the hard stop. Finish current work, commit, "
             f"and prepare HANDOFF.md. Do not start new slabs or features."

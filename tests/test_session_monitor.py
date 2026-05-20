@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
 
 from session_monitor import (
     FALLBACK_MAX_EXCHANGES,
-    FALLBACK_MAX_MINUTES,
     GRACE_TOOL_CALLS,
     HARD_THRESHOLD_BYTES,
     WARN_THRESHOLD_BYTES,
@@ -147,14 +146,6 @@ class TestThresholds:
         triggered, reason = check_thresholds(fresh_state)
         assert triggered is True
         assert "exchange" in reason.lower()
-
-    def test_time_fallback_triggers(self):
-        old_state = SessionState(
-            session_start=int(time.time()) - (FALLBACK_MAX_MINUTES * 60 + 1)
-        )
-        triggered, reason = check_thresholds(old_state)
-        assert triggered is True
-        assert "time" in reason.lower() or "minute" in reason.lower()
 
     def test_warn_check_at_70_percent(self, fresh_state):
         """Should warn when bytes exceed warn threshold."""
