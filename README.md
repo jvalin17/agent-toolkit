@@ -138,7 +138,7 @@ Everything below is in this README — use whichever fits (you, or ask your agen
 
 **Optional `AGENT_TOOLKIT_GATE_SECRET`:** not required for legacy or for CI within one job. Only for the same signing key on GitHub and your laptop — use `--upload-github-secret` or paste `.gate/signing.key` into repo Secrets.
 
-**More detail:** [Switching modes](#switching-modes-you-or-your-agent--human-reviews-gatesjson) · [Enable signed (~5 min)](#optional-enable-signed-gates-5-minutes) · [Profiles](#gate-profiles-gatesjson) · [`shared/gate-unlock.md`](shared/gate-unlock.md)
+**More detail:** [Switching modes](#switching-modes-you-or-your-agent--human-reviews-gatesjson) · [Enable signed (~5 min)](#optional-enable-signed-gates-5-minutes) · [Signed day-to-day](#signed-mode-day-to-day) · [Profiles](#gate-profiles-gatesjson) · [`shared/gate-unlock.md`](shared/gate-unlock.md)
 
 ---
 
@@ -522,8 +522,8 @@ skills/                          13 skill workflows
   requirements/                  ~79 lines + 4 sub-skills + 7 references
   architecture/                  ~69 lines + 8 sub-skills + 4 references
   implementation/                ~105 lines + 7 sub-skills + 7 references
-  reviewer/                      103 lines + 6 sub-skills
-  assess/                        164 lines + 2 references
+  reviewer/                      107 lines + 6 sub-skills
+  assess/                        168 lines + 2 references
   debug/                         ~190 lines
   evaluate/                      ~176 lines
   explore/                       ~143 lines
@@ -535,8 +535,9 @@ skills/                          13 skill workflows
 
 shared/                          loaded by skills on demand
   orchestrator.md                auto mode protocol (~267 lines)
-  guardrails-quick.md            one-line rule summaries (~40 lines)
+  guardrails-quick.md            one-line rule summaries (~43 lines)
   guardrails.md                  full guardrail definitions
+  gate-unlock.md                 how skills unlock gates (signed vs legacy)
   report-format.md               report template
   project-state-template.md      project state + feature tracker template
 
@@ -553,6 +554,8 @@ hooks/                           harness enforcement (Claude Code only)
 gate/                            signed gate module (also copied to .agent-toolkit/gate/)
   attest.py                      mechanical checks → attestation.json
   core.py                        JWT issue/verify (HS256)
+  keys.py                        signing key generation and management
+  reports.py                     skill report validation (SHA-256 bound)
   scripts/verify_gate.py         attest | verify CLI
   scripts/issue_token.py         issue JWT (CI or local; needs signing secret)
 
@@ -560,6 +563,7 @@ scripts/
   bootstrap-project-gates.sh     project gate layout (called from install.sh)
   setup-signed-gates.sh          optional one-command signed mode setup
   set-gate-mode.sh               switch legacy ↔ signed (or status); agent-safe
+  seed-gate-reports.sh           generate fixture reports for testing
   cleanup-archive.sh             deletes archive files older than 30 days
 
 templates/
