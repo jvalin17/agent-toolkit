@@ -2,6 +2,8 @@
 
 Check `gates.json` → `gate_mode` (default: `signed` after `./install.sh`).
 
+**Multiple apps?** Use one key for everything: run `scripts/setup-shared-gate.sh --org YOUR_ORG` once, set `"signing": "shared"` in each app's `gates.json`. No per-repo GitHub secret.
+
 ## Signed mode (default)
 
 Skills produce **reports** under `reports/<skill>/`. They do **not** unlock git by writing `.gates/` files.

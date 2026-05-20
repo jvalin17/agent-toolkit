@@ -55,17 +55,28 @@ else
   echo "  [skip] gates.json (already exists)"
 fi
 
-# Signing keys (gitignored)
+# Signing keys (gitignored) — per-project OR shared (~/.config/agent-toolkit/gate/)
 GATE_LOCAL="$PROJECT_ROOT/.gate"
 mkdir -p "$GATE_LOCAL"
-if [ ! -f "$GATE_LOCAL/signing.key" ]; then
+SHARED_KEY="$HOME/.config/agent-toolkit/gate/signing.key"
+USE_SHARED=""
+if [ -f "$PROJECT_ROOT/gates.json" ] && command -v jq &> /dev/null; then
+  USE_SHARED=$(jq -r '.signing // "project"' "$PROJECT_ROOT/gates.json" 2>/dev/null)
+fi
+if [ "$USE_SHARED" = "shared" ] || [ -f "$SHARED_KEY" ]; then
+  if [ -f "$SHARED_KEY" ]; then
+    echo "  [skip] .gate/signing.key — using shared key ($SHARED_KEY)"
+  else
+    echo "  [note] gates.json signing=shared but no shared key — run: scripts/setup-shared-gate.sh --org YOUR_ORG"
+  fi
+elif [ ! -f "$GATE_LOCAL/signing.key" ]; then
   python3 -c "
 import sys
 from pathlib import Path
 sys.path.insert(0, '$AGENT_DIR')
 from gate.keys import generate_signing_secret
 generate_signing_secret(Path('$GATE_LOCAL/signing.key'))
-print('  [installed] .gate/signing.key (HS256, stdlib only)')
+print('  [installed] .gate/signing.key (HS256, per-repo)')
 "
 else
   echo "  [skip] .gate/signing.key (already exists)"
@@ -102,16 +113,17 @@ append_ignore ".gate/gate-token.jwt"
 append_ignore ".gate/attestation.json"
 append_ignore ".gates/"
 
-# Upload private key to GitHub Actions (zero extra step when gh CLI is available)
-if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+# Upload signing secret to GitHub (per-repo key only; shared uses setup-shared-gate.sh once)
+if [ "$USE_SHARED" = "shared" ] && [ -f "$SHARED_KEY" ]; then
+  echo "  [skip] GitHub secret — use org/repo secret from setup-shared-gate.sh (one time for all apps)"
+elif command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1 && [ -f "$GATE_LOCAL/signing.key" ]; then
   if gh secret set AGENT_TOOLKIT_GATE_SECRET < "$GATE_LOCAL/signing.key" 2>/dev/null; then
-    echo "  [installed] GitHub secret AGENT_TOOLKIT_GATE_SECRET"
+    echo "  [installed] GitHub secret AGENT_TOOLKIT_GATE_SECRET (this repo only)"
   else
-    echo "  [warn] could not set GitHub secret — add manually from .gate/signing.key"
+    echo "  [warn] could not set GitHub secret — add manually or use setup-shared-gate.sh"
   fi
 else
-  echo "  [note] Install 'gh auth login' to auto-upload signing key to GitHub Secrets"
-  echo "         Or set secret AGENT_TOOLKIT_GATE_SECRET from .gate/signing.key"
+  echo "  [note] For all apps at once: scripts/setup-shared-gate.sh --org YOUR_ORG"
 fi
 
 echo "  Signed gates ready. CI will issue gate-token.jwt on push/PR."
