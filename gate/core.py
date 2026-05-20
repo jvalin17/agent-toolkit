@@ -127,6 +127,11 @@ def issue_token(
     return jwt.encode(payload, secret, algorithm=ALGORITHM, headers=headers)
 
 
+def _looks_like_jwt(token: str) -> bool:
+    parts = token.strip().split(".")
+    return len(parts) == 3 and all(parts)
+
+
 def verify_token(
     token: str,
     project_root: Path,
@@ -135,9 +140,22 @@ def verify_token(
     signing_key_path: Path | None = None,
 ) -> tuple[bool, str]:
     config = load_gates_config(project_root)
-    if config.get("gate_mode", "signed") == "legacy":
+    mode = config.get("gate_mode", "legacy")
+    # CI and local issue_token always pass a JWT; legacy mode still uses .gates/ flags only
+    # when there is no JWT (e.g. hook-less checks). Do not ignore a valid gate-token.jwt.
+    if mode == "legacy" and not _looks_like_jwt(token):
         return _verify_legacy(project_root, action, config)
+    return _verify_jwt(token, project_root, action, config, commit_sha, signing_key_path)
 
+
+def _verify_jwt(
+    token: str,
+    project_root: Path,
+    action: str,
+    config: dict[str, Any],
+    commit_sha: str | None,
+    signing_key_path: Path | None,
+) -> tuple[bool, str]:
     try:
         secret = load_signing_secret(project_root, signing_key_path)
     except FileNotFoundError as exc:

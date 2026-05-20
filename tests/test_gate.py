@@ -179,6 +179,43 @@ def test_attest_with_fixture_reports(tmp_path: Path, monkeypatch):
     assert att.results["evaluate"]["overall_score"] == 96
 
 
+def test_legacy_mode_still_verifies_jwt_when_token_present(gate_env: Path, monkeypatch):
+    """CI issues gate-token.jwt; verify must not require .gates/ when a JWT is supplied."""
+    (gate_env / "gates.json").write_text(
+        json.dumps(
+            {
+                "gate_mode": "legacy",
+                "profile": "standard",
+                "eval_threshold": 95,
+                "profiles": {
+                    "standard": {
+                        "commit_requires": ["precommit"],
+                        "push_requires": ["precommit", "evaluate"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    att = _attestation_all_passed()
+    config = load_gates_config(gate_env)
+    token = issue_token(att, config, "push", gate_env)
+    ok, msg = verify_token(token, gate_env, "push", commit_sha="abc123")
+    assert ok, msg
+    assert not (gate_env / ".gates/precommit-passed").exists()
+
+
+def test_legacy_mode_without_jwt_checks_flags(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "gates.json").write_text(
+        json.dumps({"gate_mode": "legacy", "commit_requires": ["precommit"]}),
+        encoding="utf-8",
+    )
+    ok, msg = verify_token("", tmp_path, "commit")
+    assert not ok
+    assert "legacy gates missing" in msg
+
+
 def test_generate_signing_secret_meta_beside_key(tmp_path: Path, monkeypatch):
     """Meta file must live next to signing.key, not cwd-relative .gate/."""
     other_cwd = tmp_path / "other"
