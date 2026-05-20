@@ -35,11 +35,18 @@ def find_md_files(root_dir):
 
 
 def extract_urls(filepath):
-    """Extract all URLs from a markdown file."""
+    """Extract all URLs from a markdown file, skipping fenced code blocks."""
     url_pattern = re.compile(r'https?://[^\s\)>\]"\']+')
+    fence_pattern = re.compile(r'^```')
     urls = []
+    in_code_block = False
     with open(filepath, 'r', encoding='utf-8') as f:
         for line_num, line in enumerate(f, 1):
+            if fence_pattern.match(line):
+                in_code_block = not in_code_block
+                continue
+            if in_code_block:
+                continue
             for match in url_pattern.finditer(line):
                 url = match.group().rstrip('.,;:)')
                 urls.append((url, filepath, line_num))

@@ -2,16 +2,16 @@
 # Score: **88%** (B+)
 
 **Evaluated:** 2026-05-20  
-**Commit:** `103f6d3`  
-**Full report:** `eval_agent-toolkit_103f6d3.md`
+**Commit:** `bb6ca53`  
+**Full report:** `eval_repo_bb6ca53.md`
 
 | Dimension | Score | Weight | Weighted |
 |-----------|-------|--------|----------|
-| Completeness | 80% | 30% | 24.0 |
-| Code Quality | 85% | 25% | 21.3 |
+| Completeness | 85% | 30% | 25.5 |
+| Code Quality | 88% | 25% | 22.0 |
 | Security | 95% | 20% | 19.0 |
-| Test Quality | 91% | 15% | 13.7 |
-| Efficiency | 92% | 10% | 9.2 |
+| Test Quality | 81% | 15% | 12.2 |
+| Efficiency | 95% | 10% | 9.5 |
 | **Overall** | | | **88%** |
 
 ## Grade: B+ (85–89%)
@@ -20,7 +20,7 @@
 
 ## Executive summary
 
-Independent re-evaluation at `103f6d3`: core product claims hold (13 skills, 9 agents, 8 hooks, legacy-default gates, green **16/16** pytest + **55/55** hook tests, CI `agent-toolkit-gate` success). Score **below 95%** due to README guardrail count inconsistency (19 vs 17), **G-SESSION-1** missing from `shared/guardrails.md`, stale **`project-state.md`**, and **`hooks/gates.json`** schema drift vs template.
+Re-evaluation at `bb6ca53`: bash session hooks removed, Python hooks canonical, **8 structural hooks**, **116/116** local pytest + **38/38** hook tests, **CI green** on main. Score **88%** (+1 from prior). Still below 95% due to CI running only gate pytest, stale `project-state.md`, and minor test/code quality gaps.
 
 **Do not unlock evaluate gate for 95% push threshold on this score alone.**
 
@@ -28,9 +28,10 @@ Independent re-evaluation at `103f6d3`: core product claims hold (13 skills, 9 a
 
 ## Top fixes for 95%
 
-1. Unify README guardrail counts (`README.md:9` vs `:51`).
-2. Add G-SESSION-1 section to `shared/guardrails.md`.
-3. Update `project-state.md` post–eval follow-ups.
-4. Align `hooks/gates.json` with `templates/gates.json`.
+1. Run full `pytest tests/` in `.github/workflows/gate.yml`.
+2. Update `project-state.md` (hook count, recent commits).
+3. Fix weak timestamp assertion in `tests/test_auto_continue.py:196`.
+4. Remove silent except in `scripts/auto_continue.py:161-162`.
+5. Refresh `architecture/auto-continuation.md` migration section.
 
-**Tests:** `python3 -m pytest tests/test_gate.py -q` → 16 passed; `bash tests/test-hooks.sh` → 55 passed.
+**Tests:** `python3 -m pytest tests/ -q` → 116 passed; `bash tests/test-hooks.sh` → 38 passed; CI `agent-toolkit-gate` → success @ `bb6ca53`.

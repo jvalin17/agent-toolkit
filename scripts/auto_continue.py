@@ -19,7 +19,6 @@ import re
 import shutil
 import subprocess
 import sys
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -159,7 +158,7 @@ class AutoContinue:
                 if state.get("stopped", 0) >= 1:
                     return "context_exhaustion"
             except (json.JSONDecodeError, OSError):
-                pass
+                pass  # Corrupt/unreadable state — fall through to HANDOFF.md check
 
         if self.handoff_file.is_file():
             return "context_exhaustion"

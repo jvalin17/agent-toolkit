@@ -327,30 +327,20 @@ Budget used: $1.23 (of $5.00)
 | D-ARCH-7 | Fresh session + HANDOFF.md for context exhaustion; `--continue` for crash recovery | (A) Always fresh (B) Always continue (C) Context-aware | `--continue` resumes into full context (defeats purpose). Fresh session gets clean window. But crash recovery benefits from `--continue`. |
 | D-ARCH-8 | Claude Code only — not portable to Codex/Cursor | N/A | Hooks + CLI subprocess = Claude Code specific. Same as existing structural hooks. |
 
-## Migration Strategy
+## Migration Status (complete)
 
-**Phase 1: Python hooks alongside bash (low risk)**
-```
-settings.json:
-  PreToolUse → session-monitor.sh (existing, unchanged)
-  PostToolUse → session_monitor.py (new, byte tracking only)
-  PostCompact → session_monitor.py (new, compaction tracking)
-```
-State lives in two places: `.session/state` (bash) and `.session/state.json` (Python). Bash remains source of truth for enforcement. Python only tracks bytes + compactions.
+All three phases shipped. Bash session hooks (`session-init.sh`, `session-monitor.sh`) removed in `bb6ca53`. Python hooks are canonical.
 
-**Phase 2: Python takes over enforcement**
+**Current hook wiring (settings.json via install.sh):**
 ```
-settings.json:
-  PreToolUse → python3 hooks/session_monitor.py
-  PostToolUse → python3 hooks/session_monitor.py
-  UserPromptSubmit → python3 hooks/session_monitor.py
-  PostCompact → python3 hooks/session_monitor.py
-  SessionStart → python3 hooks/session_init.py
+PreToolUse      → python3 hooks/session_monitor.py
+PostToolUse     → python3 hooks/session_monitor.py
+UserPromptSubmit → python3 hooks/session_monitor.py
+PostCompact     → python3 hooks/session_monitor.py
+SessionStart    → python3 hooks/session_init.py
 ```
-Bash hooks removed from settings.json. Kept in repo for reference.
 
-**Phase 3: auto_continue.py ships**
-Wrapper added. install.sh updated to mention it. README updated.
+State: `.session/state.json` only (no bash `.session/state`). `auto_continue.py` + `claude-auto` shim shipped in `dd66ee8`.
 
 ## Testing Strategy
 

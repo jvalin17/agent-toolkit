@@ -29,7 +29,7 @@ jobs:
 
       - name: Unit tests (gate + hooks)
         run: |
-          python -m pytest tests/test_gate.py -q
+          python -m pytest tests/ -q
           bash tests/test-hooks.sh
 
       - name: Bootstrap gate layout (idempotent)

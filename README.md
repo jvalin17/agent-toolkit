@@ -6,7 +6,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. 13 skills, 9 agents, 19 guardrail groups, 8 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 20 guardrail groups, 8 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
 
 Built for **Claude Code** (structural hooks + gates). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (skills + guardrails via `AGENTS.md`; no structural hooks).
 
@@ -214,7 +214,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 
 ## Guardrails
 
-**19 rule groups** (universal + session hooks + precommit). Per-skill rules (G-REQ, G-ARCH, G-IMPL, G-EVAL, G-UPD) in [`shared/guardrails.md`](shared/guardrails.md). When hit: warn, record, continue.
+**20 rule groups** (universal + session hooks + precommit). Per-skill rules (G-REQ, G-ARCH, G-IMPL, G-EVAL, G-UPD) in [`shared/guardrails.md`](shared/guardrails.md). When hit: warn, record, continue.
 
 | Group | IDs | What |
 |-------|-----|------|

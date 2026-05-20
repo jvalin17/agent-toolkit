@@ -6,8 +6,8 @@ history logging, session dir cleanup, exit reason detection, CLI parsing.
 
 import json
 import os
+import re
 import shutil
-import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
@@ -192,8 +192,8 @@ class TestLogHistory:
         runner.session_count = 1
         runner._log_history("HANDOFF")
         content = runner.history_log.read_text()
-        # Should have ISO-like timestamp
-        assert "202" in content  # year prefix
+        # ISO 8601 timestamp: [YYYY-MM-DDTHH:MM:SSZ]
+        assert re.search(r"\[\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z\]", content)
 
 
 # --- Launch session ---
