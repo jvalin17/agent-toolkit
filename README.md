@@ -35,7 +35,7 @@ Then in any project:
 
 Re-run `./install.sh` after first install to get harness hooks. Auto-updates after that.
 
-Inside a **git project**, `./install.sh` also bootstraps **gate layout** (`.agent-toolkit/`, `gates.json`, optional signing key + CI workflow) — no separate step. New projects get **legacy + warn** from the template; signed mode is opt-in (see below).
+Inside a **git project**, `./install.sh` also bootstraps **gate layout** (`.agent-toolkit/`, `gates.json`, optional signing key + CI workflow) — no separate step. New projects get **legacy + warn** from the template; signed mode is opt-in. **All setup paths:** [Gate setup reference](#gate-setup-reference-all-paths).
 
 ## How It Works
 
@@ -111,6 +111,37 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 
 ### Gate modes — legacy (usual) vs signed (optional)
 
+#### Gate setup reference (all paths)
+
+Everything below is in this README — use whichever fits (you, or ask your agent to run the **Command** column).
+
+| What you want | Command or action | Result in `gates.json` |
+|---------------|-------------------|-------------------------|
+| **Default — do nothing** | `./install.sh` only | `legacy`, `warn`, `minimal` (from `templates/gates.json`) |
+| **Check current mode** | `scripts/set-gate-mode.sh status` | (prints `gate_mode`, `enforcement`, `profile`) |
+| **Enable signed** (recommended) | `scripts/set-gate-mode.sh signed` or `scripts/setup-signed-gates.sh` | `signed` + bootstrap + smoke test |
+| **Back to legacy** | `scripts/set-gate-mode.sh legacy` | `legacy`, `warn`, `minimal` |
+| **Signed + GitHub secret** | `setup-signed-gates.sh --upload-github-secret` | same + sets `AGENT_TOOLKIT_GATE_SECRET` via `gh` |
+| **Signed but non-blocking hooks** | `setup-signed-gates.sh --warn` or `set-gate-mode.sh signed --warn` | `signed`, `enforcement: warn` |
+| **Stricter profile** | `setup-signed-gates.sh --profile strict` | `signed`, `profile: strict` |
+| **Manual signed** | Edit `gates.json` or copy `templates/gates.signed.example.json` | you set fields by hand |
+| **Manual legacy** | Edit `gates.json`: `"gate_mode": "legacy"` | you set fields by hand |
+| **Upload secret on install** | `AGENT_TOOLKIT_UPLOAD_GATE_SECRET=1 ./install.sh` | only uploads secret; does not enable signed |
+
+**Ask your agent** (copy-paste):
+
+- *“Run `agent-toolkit/scripts/set-gate-mode.sh status` and tell me our gate mode.”*
+- *“Enable signed gates: run `scripts/setup-signed-gates.sh` in this repo and show me `gates.json`.”*
+- *“Switch to legacy gates: run `scripts/set-gate-mode.sh legacy`.”*
+
+**Human in the loop:** Review `gates.json` and script output after any switch. You still approve merges; signed mode needs skills + token refresh before push (see [day-to-day](#signed-mode-day-to-day)).
+
+**Optional `AGENT_TOOLKIT_GATE_SECRET`:** not required for legacy or for CI within one job. Only for the same signing key on GitHub and your laptop — use `--upload-github-secret` or paste `.gate/signing.key` into repo Secrets.
+
+**More detail:** [Switching modes](#switching-modes-you-or-your-agent--human-reviews-gatesjson) · [Enable signed (~5 min)](#optional-enable-signed-gates-5-minutes) · [Profiles](#gate-profiles-gatesjson) · [`shared/gate-unlock.md`](shared/gate-unlock.md)
+
+---
+
 **Most people should use legacy mode** — skills, hooks, and reports are enough, especially for short sessions (under ~30 minutes). No GitHub secrets, no per-repo token setup, no JWT workflow.
 
 **Signed gates** are an **optional extra security layer** for long-running sessions, handoffs, team repos, or production merges — when you want CI and branch protection to hold authority, not filesystem flags the agent could forge.
@@ -136,21 +167,7 @@ There is no fixed rule — if you cap sessions at 30 minutes (as many do), you m
 
 #### Switching modes (you or your agent — human reviews `gates.json`)
 
-No hidden toggle. Mode is only `gates.json` → `gate_mode`. Use the scripts below (safe for agents: non-interactive, prints status).
-
-| Goal | Command (from your project repo) |
-|------|----------------------------------|
-| **See current mode** | `path/to/agent-toolkit/scripts/set-gate-mode.sh status` |
-| **Enable signed** (full setup + smoke test) | `path/to/agent-toolkit/scripts/set-gate-mode.sh signed` |
-| **Back to legacy** (default) | `path/to/agent-toolkit/scripts/set-gate-mode.sh legacy` |
-
-**Ask your agent** (copy-paste):
-
-- *“Run `agent-toolkit/scripts/set-gate-mode.sh status` and tell me our gate mode.”*
-- *“Enable signed gates: run `agent-toolkit/scripts/setup-signed-gates.sh` in this repo, then show me `gates.json`.”*
-- *“Switch this project to legacy gates: run `set-gate-mode.sh legacy`, then confirm `gate_mode` is legacy.”*
-
-**Human in the loop:** After the agent runs a command, glance at `gates.json` (and the script output). Signed mode still needs you to run skills and refresh tokens before ship — the agent can run attest/issue steps, but you decide when to merge.
+Same commands as the [reference table](#gate-setup-reference-all-paths). `set-gate-mode.sh signed` and `setup-signed-gates.sh` both enable signed mode (the latter is what `signed` runs under the hood).
 
 | Mode | After switch, before `git push` |
 |------|--------------------------------|
@@ -547,6 +564,7 @@ scripts/
 
 templates/
   gates.json                     default legacy gates.json for new projects
+  gates.signed.example.json      copy/reference for manual signed setup
   github/workflows/              agent-toolkit-gate.yml for consumer repos
 
 agents/                          9 sub-agents for parallel research
