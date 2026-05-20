@@ -233,6 +233,34 @@ Safety limits on every skill. When hit: warns, records, continues.
 - **G-AUTO-1:** In auto mode, every change must cite evidence (requirement ID, test result, code grep, research output). Never assume.
 - **G-PC-1-5:** No sloppy tests, all instructions addressed, no false "done", verify in running app, ask on ambiguity
 
+## Harness Engineering (structural enforcement)
+
+Guardrails are prompts — the model can ignore them. Hooks are structural — the model **cannot bypass them**.
+
+`install.sh` sets up these hooks automatically:
+
+| Hook | Type | What it does |
+|------|------|-------------|
+| `precommit-gate.sh` | PreToolUse (Bash) | **Blocks `git commit`/`git push`** unless `/precommit` has passed. Exit code 2 = blocked. |
+| `precommit-passed.sh` | PostToolUse (Skill) | Creates `.precommit-passed` flag when `/precommit` completes. Only way to unlock commit. |
+| `post-commit-cleanup.sh` | PostToolUse (Bash) | Clears `.precommit-passed` after commit. Next commit needs fresh `/precommit`. |
+| `update.sh` | PreToolUse (Skill) | Auto-pulls latest toolkit before every skill invocation. |
+
+**How it works:**
+```
+User: "commit this"
+Claude: git commit -m "..."
+  → precommit-gate.sh runs → no .precommit-passed → BLOCKED
+  → Claude sees: "BLOCKED. Run /precommit first."
+  → Claude runs /precommit → all checks pass → .precommit-passed created
+  → Claude: git commit -m "..."
+  → precommit-gate.sh runs → .precommit-passed exists → ALLOWED
+  → post-commit-cleanup.sh runs → .precommit-passed deleted
+  → Next commit requires fresh /precommit
+```
+
+The model literally cannot commit without precommit passing. No amount of "momentum" bypasses this.
+
 ## Portability
 
 Built for universal LLMs. Claude Code adapts best so far; other tools need minor wiring.

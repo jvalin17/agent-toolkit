@@ -291,6 +291,8 @@ Ambiguities: [N] flagged to user
 [ ] BLOCKED — [reason]
 ```
 
+**If READY TO COMMIT:** Create the flag file: `touch .precommit-passed` — this unlocks `git commit` (the precommit-gate hook blocks commits without this flag).
+
 **Do NOT commit automatically.** Present the report and wait for user to say "commit" or "go ahead." Never assume permission. The user decides when to commit, not the agent.
 
 If BLOCKED: fix all issues, re-run checks, present again, wait for user.

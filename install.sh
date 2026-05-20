@@ -111,18 +111,19 @@ if [ -L "$OLD_COMMANDS_DEST/requirements.md" ]; then
     fi
 fi
 
-# --- Install auto-update hook ---
+# --- Install hooks ---
 echo ""
-echo "Setting up auto-update hook..."
+echo "Setting up hooks..."
 
 SETTINGS_FILE="$HOME/.claude/settings.json"
+HOOKS_SRC="$SCRIPT_DIR/hooks"
 
-install_hook() {
+install_hooks() {
     local toolkit_path="$SCRIPT_DIR"
-    local hook_command="$toolkit_path/update.sh 2>/dev/null || true"
+    local update_command="$toolkit_path/update.sh 2>/dev/null || true"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
-        # Create settings file with just the hook
+        # Create settings file with all hooks
         cat > "$SETTINGS_FILE" << HOOKEOF
 {
   "hooks": {
@@ -132,9 +133,42 @@ install_hook() {
         "hooks": [
           {
             "type": "command",
-            "command": "$hook_command",
+            "command": "$update_command",
             "timeout": 10,
             "statusMessage": "Checking for toolkit updates..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$toolkit_path/hooks/precommit-gate.sh",
+            "timeout": 5,
+            "statusMessage": "Checking precommit gate..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$toolkit_path/hooks/post-commit-cleanup.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$toolkit_path/hooks/precommit-passed.sh",
+            "timeout": 5
           }
         ]
       }
@@ -142,48 +176,77 @@ install_hook() {
   }
 }
 HOOKEOF
-        echo "  [installed] auto-update hook (created $SETTINGS_FILE)"
+        echo "  [installed] all hooks (created $SETTINGS_FILE)"
         return
     fi
 
-    # Check if hook already exists
-    if jq -e '.hooks.PreToolUse[]? | select(.matcher == "Skill") | .hooks[]? | select(.command | contains("agent-toolkit"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
-        # Update the path in case toolkit moved
-        local tmp_file=$(mktemp)
-        jq --arg cmd "$hook_command" '
-            .hooks.PreToolUse = [.hooks.PreToolUse[]? | if .matcher == "Skill" then .hooks = [.hooks[]? | if (.command | contains("agent-toolkit")) then .command = $cmd else . end] else . end]
+    # Merge hooks into existing settings
+    local tmp_file=$(mktemp)
+
+    # Add/update auto-update hook
+    if jq -e '.hooks.PreToolUse[]? | select(.matcher == "Skill") | .hooks[]? | select(.command | contains("update.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$update_command" '
+            .hooks.PreToolUse = [.hooks.PreToolUse[]? | if .matcher == "Skill" then .hooks = [.hooks[]? | if (.command | contains("update.sh")) then .command = $cmd else . end] else . end]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
         echo "  [updated] auto-update hook (path refreshed)"
-        return
+    else
+        jq --arg cmd "$update_command" '
+            .hooks //= {} |
+            .hooks.PreToolUse //= [] |
+            .hooks.PreToolUse += [{
+                "matcher": "Skill",
+                "hooks": [{"type": "command", "command": $cmd, "timeout": 10, "statusMessage": "Checking for toolkit updates..."}]
+            }]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] auto-update hook"
     fi
 
-    # Add hook to existing settings, merging with existing hooks
-    local tmp_file=$(mktemp)
-    jq --arg cmd "$hook_command" '
-        .hooks //= {} |
-        .hooks.PreToolUse //= [] |
-        .hooks.PreToolUse += [
-            {
+    # Add precommit-gate hook (PreToolUse on Bash)
+    if jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("precommit-gate"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$toolkit_path/hooks/precommit-gate.sh" '
+            .hooks.PreToolUse = [.hooks.PreToolUse[]? | if (.hooks[]? | .command | contains("precommit-gate")) then .hooks = [.hooks[]? | if (.command | contains("precommit-gate")) then .command = $cmd else . end] else . end]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [updated] precommit-gate hook (path refreshed)"
+    else
+        jq --arg cmd "$toolkit_path/hooks/precommit-gate.sh" '
+            .hooks.PreToolUse += [{
+                "matcher": "Bash",
+                "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Checking precommit gate..."}]
+            }]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] precommit-gate hook"
+    fi
+
+    # Add post-commit cleanup hook (PostToolUse on Bash)
+    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("post-commit-cleanup"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$toolkit_path/hooks/post-commit-cleanup.sh" '
+            .hooks //= {} |
+            .hooks.PostToolUse //= [] |
+            .hooks.PostToolUse += [{
+                "matcher": "Bash",
+                "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]
+            }]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] post-commit-cleanup hook"
+    fi
+
+    # Add precommit-passed hook (PostToolUse on Skill)
+    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("precommit-passed"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$toolkit_path/hooks/precommit-passed.sh" '
+            .hooks.PostToolUse += [{
                 "matcher": "Skill",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": $cmd,
-                        "timeout": 10,
-                        "statusMessage": "Checking for toolkit updates..."
-                    }
-                ]
-            }
-        ]
-    ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
-    echo "  [installed] auto-update hook"
+                "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]
+            }]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] precommit-passed hook"
+    fi
 }
 
 # Only install if jq is available (needed for safe JSON merging)
 if command -v jq &> /dev/null; then
-    install_hook
+    install_hooks
 else
-    echo "  [skip] auto-update hook (jq not installed — install jq for auto-updates)"
+    echo "  [skip] hooks (jq not installed — install jq for hook enforcement)"
 fi
 
 # --- Summary ---
