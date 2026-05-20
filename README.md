@@ -20,7 +20,7 @@ Built for universal LLMs. Adapts best with Claude Code so far.
 ```bash
 git clone https://github.com/jvalin17/agent-toolkit.git
 cd agent-toolkit
-./install.sh    # symlinks skills + agents + shared, adds auto-update hook
+./install.sh    # symlinks skills + agents + shared, installs hooks for quality enforcement
 ```
 
 **Auto-updates:** After install, the toolkit updates itself before every skill invocation — pulls latest changes AND symlinks any new skills/agents/shared files automatically. You never need to re-run `install.sh` unless you move the repo.
@@ -30,7 +30,7 @@ cd agent-toolkit
 Then in any project:
 - **Existing codebase?** → `/explore .` to understand it first
 - **Greenfield?** → `/requirements my-app` to start building ([see Flow 1](#flow-1-greenfield--plan-build-ship))
-- **Hands-off?** → `/requirements auto my-app` to build autonomously ([see Auto Mode](#auto-mode))
+- **Hands-off?** → `/requirements auto my-app` to build autonomously ([see Auto Mode](#flow-7-auto-mode--hands-off-building))
 
 For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGENTS.md` (works with Codex, Cursor, Gemini CLI, Windsurf, Aider).
 
@@ -173,31 +173,32 @@ Append `auto` to any skill to chain the full pipeline automatically:
 
 ## Architecture
 
-Token-optimized. Lean orchestrators load sub-skills on demand. All files under 250 lines.
+Token-optimized. Lean orchestrators load sub-skills on demand. Skill files target under 250 lines (precommit is 309 due to gate enforcement).
 
 ```
 skills/
-  requirements/     ~78-line orchestrator + 4 sub-skills + 7 references
-  architecture/     ~68-line orchestrator + 8 sub-skills + 4 references
-  implementation/   ~104-line orchestrator + 7 sub-skills + 7 references
+  requirements/     ~79-line orchestrator + 4 sub-skills + 7 references
+  architecture/     ~69-line orchestrator + 8 sub-skills + 4 references
+  implementation/   ~105-line orchestrator + 7 sub-skills + 7 references
   reviewer/         103-line orchestrator + 6 sub-skills
   assess/           164-line orchestrator + 2 references
-  debug/            ~188 lines
-  evaluate/          174 lines
-  explore/          ~141 lines
-  precommit/        ~239 lines
+  debug/            ~190 lines
+  evaluate/         ~176 lines
+  explore/          ~143 lines
+  precommit/        ~309 lines (quality gate — intentionally thorough)
   setup/             77-line orchestrator + 1 reference
   status/           ~147 lines
   updater/           180 lines
-  verify/            100 lines
+  verify/           ~101 lines
 
 shared/
-  orchestrator.md             ~150 lines (loaded when `auto` flag is set)
-  guardrails-quick.md         ~35 lines (loaded by default)
+  orchestrator.md             ~267 lines (loaded when `auto` flag is set)
+  guardrails-quick.md         ~40 lines (loaded by default)
   guardrails.md               full rules (loaded only when triggered)
   report-format.md            progress report template
   project-state-template.md   created at project root by first skill run
 
+hooks/                        6 Claude Code hooks for structural enforcement
 scripts/
   cleanup-archive.sh          deletes archive files older than 30 days
 
@@ -302,14 +303,20 @@ The model literally cannot commit or push without the required skills passing. N
 
 ## Portability
 
-Built for universal LLMs. Claude Code adapts best so far; other tools need minor wiring.
+Built for universal LLMs. Claude Code gets full harness enforcement. Other tools get skills + guardrails (prompt-level only).
 
-| Piece | Claude Code | Other agents |
-|-------|------------|--------------|
-| Install | `./install.sh` — symlinks into `~/.claude/` | `generate-project-rules.sh` → AGENTS.md |
-| Auto-update | PreToolUse hook runs `git pull` | Cron, Makefile target, or CI |
-| Skills | First-class slash commands | Custom commands, saved prompts, rule files |
-| Sub-agents | Invoked natively | Auto-included in generated AGENTS.md — no manual pasting |
+| Layer | Claude Code | Codex / Cursor / Gemini / Windsurf / Aider |
+|-------|------------|---------------------------------------------|
+| **Skills** (prompt) | Slash commands — `/implementation`, `/debug` | Flattened into AGENTS.md, read as rules |
+| **Guardrails** (prompt) | Loaded from shared/*.md | Included in generated AGENTS.md |
+| **Agents** (prompt) | Native sub-agents via Agent tool | Inlined in AGENTS.md |
+| **Harness hooks** (structural) | Full enforcement — gate, routing, session init | **Not available** — no hook system |
+| **Auto-update** | PreToolUse hook runs `git pull` | Cron, Makefile target, or CI |
+| **Install** | `./install.sh` — symlinks + hooks | `generate-project-rules.sh` → AGENTS.md |
+
+**What other LLMs get:** Skills and guardrails work as prompt-level guidance. The agent reads AGENTS.md and follows the workflow. But there's no structural enforcement — no hook can block `git commit`, no hook can route "fix bug" to the debug workflow. The agent follows rules because the prompt says to, not because it's blocked from doing otherwise.
+
+**What only Claude Code gets:** Harness hooks that make enforcement unbypassable. The model literally cannot `git commit` without `/precommit` passing. The model sees skill routing context before it responds. Session rules persist after `/compact`.
 
 ### Universal Project Rules (one script, every tool)
 
