@@ -12,9 +12,9 @@ META_FILE = Path(".gate/signing.meta.json")
 
 def generate_signing_secret(signing_key_path: Path | None = None, meta_path: Path | None = None) -> Path:
     """Create a random signing secret. Uses only stdlib (no cryptography package)."""
-    key_path = signing_key_path or DEFAULT_SIGNING_KEY
-    meta = meta_path or META_FILE
+    key_path = Path(signing_key_path or DEFAULT_SIGNING_KEY)
     key_path.parent.mkdir(parents=True, exist_ok=True)
+    meta = Path(meta_path) if meta_path else key_path.parent / "signing.meta.json"
     secret = secrets.token_urlsafe(48)
     key_path.write_text(secret + "\n", encoding="utf-8")
     key_path.chmod(0o600)

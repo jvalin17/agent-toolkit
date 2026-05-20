@@ -15,14 +15,14 @@ else
   COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 fi
 
-# Detect git commit/push anywhere in agent-composed commands (not under user control).
-# Handles: git commit && git push | git commit; git push | git -C dir push | etc.
+# Detect git commit/push in agent-composed commands (ignore "git push" inside quotes).
+STRIPPED=$(printf '%s' "$COMMAND" | sed "s/'[^']*'//g; s/\"[^\"]*\"//g")
 HAS_COMMIT=false
 HAS_PUSH=false
-if echo "$COMMAND" | grep -qE 'git[[:space:]].*commit'; then
+if echo "$STRIPPED" | grep -qE 'git[[:space:]].*commit'; then
   HAS_COMMIT=true
 fi
-if echo "$COMMAND" | grep -qE 'git[[:space:]].*push'; then
+if echo "$STRIPPED" | grep -qE 'git[[:space:]].*push'; then
   HAS_PUSH=true
 fi
 
