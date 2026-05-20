@@ -173,4 +173,8 @@ Overall = (Completeness * 0.30) + (Code Quality * 0.25) + (Security * 0.20)
 
 If user specified a quality target: list exactly what needs to change to reach it.
 
+**If overall score ≥ 95% (or user's threshold):** Set the gate flag with score: `mkdir -p .gates && echo "PASSED <score>% $(date +%Y-%m-%d-%H%M)" > .gates/evaluate-passed` — the gate hook validates the score in the flag file, not just file existence.
+
+**If score < threshold:** Do NOT set the flag. Gate remains locked.
+
 Write to `reports/evaluate/eval_<slug>_<uuid>.md`.

@@ -101,3 +101,7 @@ Report structure per area:
 ```
 
 Final summary includes: areas reviewed, total findings by severity, bugs discovered, tests written, action items.
+
+**If no high-severity findings remain:** Set the gate flag: `mkdir -p .gates && touch .gates/reviewer-passed` — this unlocks `git push` if gates require reviewer.
+
+**If high-severity findings exist:** Do NOT set the flag. Gate remains locked until findings are resolved and reviewer re-run.

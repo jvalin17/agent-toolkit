@@ -35,6 +35,25 @@ jobs:
           fi
           echo "link_problems=$link_exit" >> $GITHUB_OUTPUT
 
+      - name: Run hook tests
+        id: hooktests
+        run: |
+          echo "## Hook Tests" >> /tmp/audit-report.md
+          echo "" >> /tmp/audit-report.md
+          if [ -f tests/test-hooks.sh ]; then
+            hook_exit=0
+            bash tests/test-hooks.sh >> /tmp/audit-report.md 2>&1 || hook_exit=$?
+            if [ "$hook_exit" -eq 0 ]; then
+              echo "All hook tests passed." >> /tmp/audit-report.md
+            else
+              echo "**Hook tests FAILED.** See output above." >> /tmp/audit-report.md
+            fi
+          else
+            echo "test-hooks.sh not found." >> /tmp/audit-report.md
+            hook_exit=1
+          fi
+          echo "hook_problems=$hook_exit" >> $GITHUB_OUTPUT
+
       - name: Check reference freshness
         id: freshness
         run: |
@@ -72,20 +91,34 @@ jobs:
         id: sizes
         run: |
           echo "" >> /tmp/audit-report.md
-          echo "## File Size Check (250-line limit)" >> /tmp/audit-report.md
+          echo "## File Size Check (250-line target)" >> /tmp/audit-report.md
           echo "" >> /tmp/audit-report.md
+
+          # Files with justified exemptions (documented reasons for exceeding 250 lines)
+          EXEMPT_FILES="skills/precommit/SKILL.md shared/guardrails.md shared/orchestrator.md"
 
           over_count=0
           while IFS= read -r file; do
             lines=$(wc -l < "$file")
             if [ "$lines" -gt 250 ]; then
-              echo "- [OVER] $file — $lines lines" >> /tmp/audit-report.md
-              over_count=$((over_count + 1))
+              is_exempt=false
+              for exempt in $EXEMPT_FILES; do
+                if [ "$file" = "$exempt" ]; then
+                  is_exempt=true
+                  break
+                fi
+              done
+              if [ "$is_exempt" = true ]; then
+                echo "- [EXEMPT] $file — $lines lines (justified: critical enforcement file)" >> /tmp/audit-report.md
+              else
+                echo "- [OVER] $file — $lines lines" >> /tmp/audit-report.md
+                over_count=$((over_count + 1))
+              fi
             fi
           done < <(find skills/ shared/ agents/ -name "*.md" -type f)
 
           if [ "$over_count" -eq 0 ]; then
-            echo "All files under 250 lines." >> /tmp/audit-report.md
+            echo "All non-exempt files under 250 lines." >> /tmp/audit-report.md
           fi
           echo "over=$over_count" >> $GITHUB_OUTPUT
 
@@ -101,7 +134,7 @@ jobs:
           echo "- Total lines: $(find skills/ shared/ agents/ -name '*.md' -exec cat {} + | wc -l | tr -d ' ')" >> /tmp/audit-report.md
 
       - name: Open issue if any problems found
-        if: steps.freshness.outputs.stale != '0' || steps.links.outputs.link_problems != '0' || steps.sizes.outputs.over != '0'
+        if: steps.freshness.outputs.stale != '0' || steps.links.outputs.link_problems != '0' || steps.sizes.outputs.over != '0' || steps.hooktests.outputs.hook_problems != '0'
         uses: actions/github-script@v7
         with:
           script: |

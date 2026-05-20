@@ -126,6 +126,7 @@ install_hooks() {
     local gate_cleanup_cmd="$toolkit_path/hooks/gate-cleanup.sh"
     local route_cmd="$toolkit_path/hooks/route-to-skill.sh"
     local session_init_cmd="$toolkit_path/hooks/session-init.sh"
+    local tdd_cmd="$toolkit_path/hooks/tdd-enforce.sh"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
         cat > "$SETTINGS_FILE" << HOOKEOF
@@ -151,6 +152,16 @@ install_hooks() {
             "command": "$gate_cmd",
             "timeout": 5,
             "statusMessage": "Checking quality gates..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$tdd_cmd",
+            "timeout": 5
           }
         ]
       }
@@ -183,10 +194,11 @@ HOOKEOF
         echo "  [installed] all hooks (created $SETTINGS_FILE)"
 
         # Add UserPromptSubmit and SessionStart hooks
+        local tmp_file_fresh=$(mktemp)
         jq --arg route "$route_cmd" --arg init "$session_init_cmd" '
             .hooks.UserPromptSubmit = [{"matcher": "", "hooks": [{"type": "command", "command": $route, "timeout": 5}]}] |
             .hooks.SessionStart = [{"matcher": "startup", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}, {"matcher": "compact", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}]
-        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        ' "$SETTINGS_FILE" > "$tmp_file_fresh" && mv "$tmp_file_fresh" "$SETTINGS_FILE"
         echo "  [installed] skill routing + session init hooks"
         return
     fi
@@ -243,6 +255,16 @@ HOOKEOF
         echo "  [installed] gate-cleanup hook (resets gates after commit)"
     else
         echo "  [skip] gate-cleanup hook (already installed)"
+    fi
+
+    # Add tdd-enforce hook (PreToolUse on Edit/Write)
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("tdd-enforce"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$tdd_cmd" '
+            .hooks.PreToolUse += [{"matcher": "Edit|Write", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] TDD enforcement hook (reminds about test-first on source edits)"
+    else
+        echo "  [skip] TDD enforcement hook (already installed)"
     fi
 
     # Add route-to-skill hook (UserPromptSubmit)

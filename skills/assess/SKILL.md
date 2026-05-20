@@ -162,3 +162,7 @@ For each approved change, follow this sequence:
 ## Reporting
 
 Write to `reports/assess/assess_<slug>_<uuid>.md`. Include findings, thresholds checked, and refactoring progress if applicable.
+
+**If no critical anti-patterns found (or all resolved):** Set the gate flag: `mkdir -p .gates && touch .gates/assess-passed` — this unlocks `git push` if gates require assess.
+
+**If critical anti-patterns remain:** Do NOT set the flag. Gate remains locked.

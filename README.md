@@ -2,217 +2,368 @@
 
 [![Skills: 13](https://img.shields.io/badge/Skills-13-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. Plan, build, test, debug, and ship software projects — any repo, any language. Defaults tuned for common web apps (React/TS, Python, Node); adaptable to any stack via G14 project overrides. 13 skills, 9 agents, 16 guardrails. Auto mode for hands-off building with quality gates.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 16 guardrails, 6 harness hooks. Plan, build, test, debug, and ship — any repo, any language.
 
-Built for universal LLMs. Adapts best with Claude Code so far.
-
-## Who This Is For
-
-- **Solo developers** using AI agents to build full-stack apps
-- **Teams** wanting a repeatable AI-assisted development workflow
-- **Anyone tired of** sloppy AI-generated code, ignored instructions, tests that prove nothing, and "it works on my machine"
+Built for Claude Code (full harness enforcement). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (prompt-level skills only).
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/jvalin17/agent-toolkit.git
 cd agent-toolkit
-./install.sh    # symlinks skills + agents + shared, installs hooks for quality enforcement
+./install.sh    # symlinks skills + agents + shared, installs harness hooks
 ```
 
-**Auto-updates:** After install, the toolkit updates itself before every skill invocation — pulls latest changes AND symlinks any new skills/agents/shared files automatically. You never need to re-run `install.sh` unless you move the repo.
-
-**Already installed an older version?** Re-run `./install.sh` once to get the improved auto-update hook. After that, updates are automatic.
-
 Then in any project:
-- **Existing codebase?** → `/explore .` to understand it first
-- **Greenfield?** → `/requirements my-app` to start building ([see Flow 1](#flow-1-greenfield--plan-build-ship))
-- **Hands-off?** → `/requirements auto my-app` to build autonomously ([see Auto Mode](#flow-7-auto-mode--hands-off-building))
+```bash
+# Quick prototype — auto mode builds everything, you walk away
+/requirements auto my-app
 
-For non-Claude tools: `./generate-project-rules.sh` in your project creates `AGENTS.md` (works with Codex, Cursor, Gemini CLI, Windsurf, Aider).
+# Hands-on — you guide each step
+/requirements my-app
+
+# Existing codebase — understand it first
+/explore .
+
+# Non-Claude tools — generates AGENTS.md with all rules flattened
+./generate-project-rules.sh
+```
+
+Re-run `./install.sh` after first install to get harness hooks. Auto-updates after that.
+
+## How It Works
+
+Three layers — skills define workflows, guardrails set rules, harness makes them unbypassable:
+
+**1. Skills (13)** — workflows for every development task
+```
+Interactive:  /implementation my-app       → you guide each step
+Auto:         /implementation auto my-app  → skills chain automatically
+              Pauses only on ambiguity or failure. 95% eval gate.
+```
+
+**2. Guardrails (16)** — rules every skill follows
+```
+No hardcoded shortcuts (G-IMPL-6). No sloppy tests (G-PC-1).
+Evidence-first in auto mode (G-AUTO-1). No commit without /precommit (G-PUSH-1).
+```
+
+**3. Harness (7 hooks)** — structural enforcement the model cannot bypass
+```
+Session start:  scans .md files, loads rules, routes intent to skills
+Every prompt:   detects "fix bug" → /debug, "build X" → /implementation
+Commit/push:    blocked unless required skills pass (configurable gate profiles)
+```
+
+### When to use what
+
+| Situation | Recommended approach |
+|-----------|---------------------|
+| **Quick prototype / small app** | `/requirements auto my-app` — auto mode handles everything |
+| **Production app / careful build** | Interactive — `/requirements` → `/architecture` → `/implementation`, you approve each step |
+| **Joining existing project midway** | `/explore .` → then `/implementation` for new features |
+| **Fix a bug** | Just say "fix the login bug" — harness routes to `/debug` automatically |
+| **One-off refactor** | `/implementation refactor auth` — tests pass → refactor → tests still pass |
+| **Quality check before release** | `/reviewer` + `/evaluate` — deep audit + percentage score |
+| **Architecture review** | `/assess` — scale-aware, only suggests changes thresholds justify |
 
 ## Skills
 
-| Skill | What It Does | Example |
-|-------|-------------|---------|
-| `/explore` | Understand any codebase (or multiple repos). 4-phase: recon, architecture, conventions, issues. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
-| `/requirements` | Gather requirements. Draft early, explore on demand. "How do you do this today?" prevents wrong product. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
-| `/architecture` | Design with trade-offs. User journey mandatory. Legal/ToS checks. Reuse check before new components. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
-| `/implementation` | TDD. Walking skeleton, then one slab at a time. Fix, refactor, demo modes. Hardening pass. | [Greenfield](#flow-1-greenfield--plan-build-ship), [Fix/Refactor](#flow-4-fix-refactor-demo) |
-| `/debug` | Hypothesis-driven diagnosis. Layer-by-layer. Reproduce with test, then fix. 3-strikes escalation. | [Debug](#flow-3-debug) |
-| `/assess` | Architecture fitness. Scale-aware — only suggests when thresholds justify. Safe refactoring. | [Assessment](#flow-5-architecture-assessment) |
-| `/verify` | Check output is actually useful, not just technically correct. Session health. User confirms. Offers automation. |
-| `/precommit` | Quality gate. Instructions addressed? Tests meaningful? SOLID/DRY? Verified in app? | [Greenfield](#flow-1-greenfield--plan-build-ship) |
-| `/reviewer` | Code quality + tests + smoke test + a11y + dependencies + UI validation. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
-| `/setup` | Install scripts, Docker, Makefile, README. One command, platform agnostic. | [Greenfield](#flow-1-greenfield--plan-build-ship) |
-| `/status` | Project dashboard. What's done, what's next. | — |
-| `/evaluate` | 5-dimension quality score. Completeness, code quality, security, tests, efficiency. Percentage grade. | [Scoring](#flow-6-quality-scoring) |
-| `/updater` | Toolkit health: links, freshness, standards, file sizes. | — |
+| Skill | What It Does |
+|-------|-------------|
+| `/explore` | Understand any codebase. 4-phase: recon, architecture, conventions, issues. |
+| `/requirements` | Gather requirements. Draft early after Q1+Q4, deepen on demand. |
+| `/architecture` | Design with trade-offs. Reuse check. User journey mandatory. |
+| `/implementation` | TDD. Walking skeleton → feature slabs. Fix, refactor, demo modes. |
+| `/debug` | Hypothesis-driven. Layer-by-layer. Reproduce with test, then fix. |
+| `/assess` | Architecture fitness. Scale-aware thresholds. Safe refactoring. |
+| `/verify` | Is the output useful, not just correct? Session health. User confirms. |
+| `/precommit` | Quality gate. Instructions, tests, standards, app verification, README. |
+| `/reviewer` | Deep audit: code + tests + a11y + dependencies + UI. |
+| `/evaluate` | 5-dimension percentage score. Not lenient. |
+| `/setup` | Install scripts, Docker, Makefile, README. One command. |
+| `/status` | Project dashboard. What's done, what's next. |
+| `/updater` | Toolkit health: links, freshness, standards. |
 
-## Flows
+## Harness Engineering
 
-### Flow 1: Greenfield — Plan, Build, Ship
+Guardrails are prompts — the model can ignore them. Hooks are structural — **the model cannot bypass them**.
 
-```
-/requirements recipe-finder
--> "What are you building?" -> "Find recipes by ingredients"
--> "How do you do this today?" -> "Google each combo manually"
--> Draft saved. Explore: UI/UX, ML, LLM, Testing on demand.
+### What the harness does
 
-/architecture recipe-finder
--> Quick arch: Python + React + SQLite + REST
--> Reuse check: what existing code can we leverage?
--> Go deeper: frontend, LLM integration, security
+| Hook | When | What |
+|------|------|------|
+| `session-init.sh` | Session start + after `/compact` | Scans all project `.md` files, tells Claude to read them FIRST. Loads toolkit rules. |
+| `route-to-skill.sh` | Every user prompt | Detects intent → injects skill routing. Agent follows workflows automatically. |
+| `gate.sh` | Before `git commit` / `git push` | Blocks unless required skills have passed. |
+| `skill-passed.sh` | After skill completes | **Reports** gate status — does NOT set flags. Skills set their own `.gates/<skill>-passed` only on actual pass (READY TO COMMIT, eval ≥ threshold, no high-severity findings). |
+| `tdd-enforce.sh` | Before every file edit | TDD reminder — if no test file exists, injects "write test first." Covers features AND bug fixes. |
+| `gate-cleanup.sh` | After successful commit | Clears all flags. Next commit needs fresh passes. |
+| `update.sh` | Before every skill | Auto-pulls latest toolkit. |
 
-/implementation recipe-finder
--> Skeleton: 1 table + 1 endpoint + 1 page + ErrorBoundary + api client
--> Slab 1: Recipe CRUD (TDD, 12 tests) -> /verify -> /precommit -> commit
--> Slab 2: AI matching (mock output first, TDD) -> /verify -> /precommit -> commit
--> Slab 3: Search UI (TDD, 6 tests) -> /verify -> /precommit -> commit
--> Frontend hardening pass (crash/stuck-state/silent-lie prevention)
+### Gate profiles
 
-/reviewer recipe-finder -> code + tests + a11y + deps + UI checks
-/setup recipe-finder    -> setup.sh + Docker + Makefile + README
-/evaluate recipe-finder -> "Score: 94% (A). To reach 96%: add rate limiting."
-```
+Copy `hooks/gates.json` to your project root. Set the profile you want:
 
-### Flow 2: Add Feature to Existing App
+| Profile | Commit needs | Push needs | Best for |
+|---------|-------------|------------|----------|
+| **minimal** | `/precommit` | `/precommit` | Prototypes, solo hacking |
+| **standard** | `/precommit` | `/precommit` + `/evaluate` | Most projects (default) |
+| **strict** | `/precommit` + `/evaluate` | + `/reviewer` | Team projects, production |
+| **paranoid** | `/precommit` + `/evaluate` | + `/reviewer` + `/assess` | Regulated, high-stakes |
 
-```
-/requirements add-search
--> Scans codebase ONCE, builds Codebase Index
--> Asks only about what's NEW (skips what exists)
-
-/architecture add-search
--> Reads Codebase Index (no re-scan)
--> Reuse check: found existing scorer.py, matcher.py — reuse 80%
--> Designs how feature fits: integration points, new components, migrations
-
-/implementation add-search
--> Skips skeleton (existing app IS the skeleton)
--> One feature slab with TDD, following existing conventions
--> /precommit -> commit on branch feature/add-search
+```json
+// gates.json in your project root
+{ "profile": "strict" }
 ```
 
-### Flow 3: Debug
+### Examples
 
+**Using gates from scratch:**
 ```
-/debug search returns 0 results
--> [H1] API key missing from .env (high confidence)
--> [H2] Async/sync mismatch in endpoint (medium)
--> Investigation: [H1] CONFIRMED — .env has wrong key name
--> Failing test written -> fixed -> regression test added
--> "Change ready. Please verify: search for 'chicken'."
-```
-
-### Flow 4: Fix, Refactor, Demo
-
-```
-/implementation fix login-bug       -> failing test -> fix -> verify in app
-/implementation refactor auth       -> tests pass -> refactor -> tests still pass
-/implementation demo auto-apply     -> simulated data -> validate UX first
+./install.sh                          # installs hooks globally
+cd my-project
+cp /path/to/agent-toolkit/hooks/gates.json .   # copy config
+# edit gates.json: "profile": "strict"
+# start coding — gates are active immediately
 ```
 
-### Flow 5: Architecture Assessment
-
+**Gates kick in mid-session:**
 ```
-/assess my-app
--> Scans infra, maps data flow, checks anti-patterns
--> "N+1 query in user list (fix now — any scale)"
--> "No caching on search endpoint (consider at >100 QPS — you're at 80)"
--> "RAG is overkill — your corpus fits in context window"
--> Safe refactoring if user wants: characterize -> abstract -> build -> switch -> verify -> remove
+You: "commit this"
+Claude: git commit -m "Add user auth"
+  → BLOCKED: commit requires /precommit + /evaluate
+Claude: runs /precommit → passes → runs /evaluate → 96%
+Claude: git commit → ALLOWED → flags cleared
 ```
 
-### Flow 6: Quality Scoring
-
+**Changing gates mid-project:**
 ```
-/evaluate my-app
--> Completeness: 95% (19/20 claims passed)
--> Code Quality: 88% (naming violations in 2 files)
--> Security: 100%
--> Test Quality: 85% (3 tests use unrealistic data)
--> Efficiency: 92%
--> Overall: 92% (A)
--> "To reach 96%: fix naming in api/users.py, use realistic test data in 3 tests."
+# Started with minimal, project grew, switch to strict:
+echo '{"profile": "strict"}' > gates.json
+# Next commit now requires /precommit + /evaluate
 ```
 
-### Flow 7: Auto Mode — Hands-Off Building
+### Skill routing in action
 
-Append `auto` to any skill to chain the full pipeline automatically:
+```
+You: "the search is broken"
+  → route-to-skill.sh injects: "Follow /debug. Hypothesis-driven. Test first."
+  → Claude follows /debug workflow automatically
+
+You: "add dark mode"
+  → route-to-skill.sh injects: "Follow /implementation. TDD. Slab-by-slab."
+  → Claude follows /implementation workflow automatically
+
+You: "/reviewer"
+  → No injection — you invoked the skill directly
+```
+
+### Context recovery
+
+Every session starts fresh — no relying on memory:
+```
+session-init.sh scans your project:
+  - HANDOFF.md (PRIORITY — resume from here)
+  - project-state.md (decisions, features, warnings)
+  - CLAUDE.md, DECISIONS.md
+  - requirements/*.md, architecture/*.md
+  → Tells Claude: "Read these FIRST"
+  → Re-fires after /compact (context survives)
+```
+
+### Feature Tracker
+
+In `project-state.md` — strikethrough = done, not struck = remaining:
+
+```markdown
+| Feature | Status | Verified | Commit |
+|---------|--------|----------|--------|
+| ~~Item CRUD~~ | ~~done~~ | ~~2026-05-19~~ | ~~abc1234~~ |
+| ~~Categories~~ | ~~done~~ | ~~2026-05-19~~ | ~~def5678~~ |
+| Low stock alerts | in-progress | | slab-3 |
+| Search + filter | pending | | |
+```
+
+Updated by `/implementation` after each slab. New sessions read this first.
+
+### Starting midway (existing project)
+
+```bash
+# 1. Install toolkit (once)
+/path/to/agent-toolkit/install.sh
+
+# 2. Configure gates
+cp /path/to/agent-toolkit/hooks/gates.json .
+echo '{"profile": "standard"}' > gates.json
+
+# 3. Understand the codebase
+/explore .
+# → creates project-state.md with architecture, conventions, features
+
+# 4. Start working — all hooks active immediately
+"add search feature"
+# → route-to-skill.sh routes to /implementation
+# → tdd-enforce.sh reminds about test-first on every edit
+# → gate.sh blocks commit without /precommit
+```
+
+### Clean development with skills
+
+```bash
+# After building, run these skills to clean up:
+/reviewer                # deep code audit — finds DRY violations, stale closures
+/assess                  # architecture fitness — are patterns right for current scale?
+/evaluate                # 5-dimension score — where are the gaps?
+
+# Fix what they find:
+"fix the N+1 query reviewer found"
+# → routes to /debug → failing test → fix → regression test
+
+# Before release:
+/setup                   # generates install scripts, Docker, Makefile, README
+```
+
+## Auto Mode
+
+Append `auto` to any skill. Skills chain without stopping. Pauses only on ambiguity or failure.
 
 ```
 /requirements auto inventory-app
 
--> [Opus] Requirements: auto-research via functional-researcher, draft early
--> [Opus] Architecture: tech-stack-advisor, pattern-advisor, decisions logged as D-ARCH-1, D-ARCH-2
--> [Opus] Code change plan: file-by-file, function-by-function, evidence-cited
--> [Sonnet] Slab 1: skeleton (TDD, 4 tests) → precommit ✓ → eval 96% → auto-commit
--> [Sonnet] Slab 2: CRUD (12 tests) → precommit ✓ → eval 95% → auto-commit
--> ⚠️ Context limit → HANDOFF.md generated → new session resumes
--> [Sonnet] Slab 3-4: remaining features → auto-commit each
--> [Opus] Final quality: eval 95%, README verified line-by-line, guardrail audit
--> Cleanup: archive artifacts, README = source of truth
+[Opus]   Research: functional-researcher studies existing inventory apps
+[Opus]   Requirements: drafts with domain table-stakes (not just what you said)
+[Opus]   Architecture: decisions logged as D-ARCH-1, D-ARCH-2 with evidence
+[Opus]   Code change plan: file-by-file before any code is written
+[Sonnet] Slab 1: skeleton → TDD → precommit ✓ → eval 96% → auto-commit
+[Sonnet] Slab 2: CRUD → TDD → precommit ✓ → eval 95% → auto-commit
+  ⚠️ Context limit → HANDOFF.md → new session resumes
+[Sonnet] Slab 3-4: remaining features → auto-commit each
+[Opus]   Final: eval 95%, README verified, guardrail audit
+         Cleanup: archive artifacts, README = source of truth
 ```
 
-**Pauses for:** ambiguity, repeated failures, eval < 70%, architectural decisions.
-**Never:** guesses, loops on failures, commits below 95% eval, pushes without auth.
+**Auto mode rules:**
+- 95% eval gate (configurable). Below 70% = hard stop.
+- Opus plans. Sonnet/Haiku implements. (cost-efficient)
+- Evidence-first: every change cites requirement, test, or research.
+- Never stops to ask "Ready to continue?" — just continues.
+- Sparse input (one-liner) → research is MANDATORY before building.
 
-### When to Run Which
+## Flows
 
-| Skill | When | Time |
-|-------|------|------|
-| `/verify` | After each slab — is the output useful? User confirms. | ~3 min |
-| `/precommit` | Before every commit — code standards + rules | ~1 min |
-| `/assess` | Before major changes — architecture fitness | ~15 min |
-| `/reviewer` | After a feature is complete — deep code audit | ~10 min |
-| `/evaluate` | Between skills or at end — percentage quality score | ~5 min |
+### Greenfield — Plan, Build, Ship
+
+```
+/requirements recipe-finder     → draft requirements, research domain
+/architecture recipe-finder     → design with trade-offs, log decisions
+/implementation recipe-finder   → skeleton → slabs with TDD → precommit → commit
+/reviewer recipe-finder         → deep code audit
+/setup recipe-finder            → install scripts + Docker + README
+/evaluate recipe-finder         → "94% (A). To reach 96%: add rate limiting."
+```
+
+### Add Feature to Existing App
+
+```
+/requirements add-search        → scans codebase, asks only about what's NEW
+/architecture add-search        → reuse check: found existing scorer.py — reuse 80%
+/implementation add-search      → one slab with TDD, existing conventions
+```
+
+### Debug
+
+```
+/debug search returns 0 results
+→ [H1] API key missing from .env (confirmed)
+→ Failing test written → fixed → regression test added
+→ "Change ready. Please verify: search for 'chicken'."
+```
+
+### Fix, Refactor, Demo
+
+```
+/implementation fix login-bug    → failing test → fix → verify
+/implementation refactor auth    → tests pass → refactor → tests still pass
+/implementation demo auto-apply  → mock data → validate UX first
+```
+
+### Architecture Assessment
+
+```
+/assess my-app
+→ "N+1 query in user list (fix now — any scale)"
+→ "No caching on search (consider at >100 QPS — you're at 80)"
+→ Safe refactoring: characterize → abstract → build → switch → verify → remove
+```
+
+### Quality Scoring
+
+```
+/evaluate my-app
+→ Completeness: 95% | Code Quality: 88% | Security: 100%
+→ Test Quality: 85% | Efficiency: 92% | Overall: 92% (A)
+```
+
+## Guardrails
+
+16 rules every skill follows. When hit: warns, records, continues.
+
+| Guardrail | What |
+|-----------|------|
+| **G1-G9** | No secrets, no destructive ops, file safety, no PII, flag doc gaps, mid-conversation updates, LLM data security |
+| **G10** | README auto-update after feature changes |
+| **G11** | Check project rules before acting — flag contradictions |
+| **G12** | Branch naming: `feature/`, `fix/`, `refactor/`. PR titles describe user impact. |
+| **G13** | Personal data encrypted at rest. Never plaintext. |
+| **G14** | Project rules override toolkit defaults. Your CLAUDE.md wins. |
+| **G-IMPL-6** | No easy way out — no hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors |
+| **G-PUSH-1** | No commit/push without /precommit. Non-negotiable. |
+| **G-AUTO-1** | Every change must cite evidence. Never assume. |
+| **G-PC-1-5** | No sloppy tests, all instructions addressed, no false "done", verify in app, ask on ambiguity |
 
 ## Architecture
 
-Token-optimized. Lean orchestrators load sub-skills on demand. Skill files target under 250 lines (precommit is 309 due to gate enforcement).
-
 ```
-skills/
-  requirements/     ~79-line orchestrator + 4 sub-skills + 7 references
-  architecture/     ~69-line orchestrator + 8 sub-skills + 4 references
-  implementation/   ~105-line orchestrator + 7 sub-skills + 7 references
-  reviewer/         103-line orchestrator + 6 sub-skills
-  assess/           164-line orchestrator + 2 references
-  debug/            ~190 lines
-  evaluate/         ~176 lines
-  explore/          ~143 lines
-  precommit/        ~309 lines (quality gate — intentionally thorough)
-  setup/             77-line orchestrator + 1 reference
-  status/           ~147 lines
-  updater/           180 lines
-  verify/           ~101 lines
+skills/                          13 skill workflows
+  requirements/                  ~79 lines + 4 sub-skills + 7 references
+  architecture/                  ~69 lines + 8 sub-skills + 4 references
+  implementation/                ~105 lines + 7 sub-skills + 7 references
+  reviewer/                      103 lines + 6 sub-skills
+  assess/                        164 lines + 2 references
+  debug/                         ~190 lines
+  evaluate/                      ~176 lines
+  explore/                       ~143 lines
+  precommit/                     ~309 lines
+  setup/                         77 lines + 1 reference
+  status/                        ~147 lines
+  updater/                       180 lines
+  verify/                        ~101 lines
 
-shared/
-  orchestrator.md             ~267 lines (loaded when `auto` flag is set)
-  guardrails-quick.md         ~40 lines (loaded by default)
-  guardrails.md               full rules (loaded only when triggered)
-  report-format.md            progress report template
-  project-state-template.md   created at project root by first skill run
+shared/                          loaded by skills on demand
+  orchestrator.md                auto mode protocol (~267 lines)
+  guardrails-quick.md            one-line rule summaries (~40 lines)
+  guardrails.md                  full guardrail definitions
+  report-format.md               report template
+  project-state-template.md      project state + feature tracker template
 
-hooks/
-  session-init.sh             loads rules + scans project .md files at session start
-  route-to-skill.sh           detects intent, routes to correct skill workflow
-  gate.sh                     blocks commit/push without required skills passing
-  skill-passed.sh             sets gate flags when skills complete
-  gate-cleanup.sh             clears flags after commit
-  gates.json                  configurable profiles (minimal/standard/strict/paranoid)
+hooks/                           harness enforcement (Claude Code only)
+  session-init.sh                scans .md files, loads rules at session start
+  route-to-skill.sh              detects intent, routes to skill workflow
+  gate.sh                        blocks commit/push without required skills
+  skill-passed.sh                reports gate status (skills set own flags on pass)
+  tdd-enforce.sh                 TDD reminder before source file edits (no test? write first)
+  gate-cleanup.sh                clears flags after commit
+  gates.json                     gate profiles (minimal/standard/strict/paranoid)
 
 scripts/
-  cleanup-archive.sh          deletes archive files older than 30 days
+  cleanup-archive.sh             deletes archive files older than 30 days
 
-agents/                       9 sub-agents for parallel research
+agents/                          9 sub-agents for parallel research
 ```
-
-## Agents
 
 | Agent | Purpose |
 |-------|---------|
@@ -223,155 +374,31 @@ agents/                       9 sub-agents for parallel research
 | `pattern-advisor` | Design patterns for specific problems |
 | `scale-advisor` | What changes at each scale level |
 | `codestructure-analyzer` | Analyze existing codebase structure |
-| `readme-validator` | Validate + fix every README claim line-by-line (links, features, paths, env vars, tests) |
+| `readme-validator` | Validate + fix every README claim line-by-line |
 | `rules-indexer` | Scan project docs for decisions and constraints |
-
-## Guardrails (G1-G14 + G-IMPL-6 + G-PUSH-1 + G-AUTO-1)
-
-Safety limits on every skill. When hit: warns, records, continues.
-
-- **G1-G9:** No secrets, no destructive ops, file safety, no PII, flag doc gaps, mid-conversation updates, LLM data security
-- **G10:** README auto-update after feature changes
-- **G11:** Check project rules before acting — flag contradictions
-- **G12:** Branch naming: `feature/`, `fix/`, `refactor/`, `chore/`. PR titles must be descriptive.
-- **G13:** Personal data and user preferences encrypted at rest. Never plaintext.
-- **G14:** Project rules override toolkit defaults. Your CLAUDE.md/AGENTS.md/DECISIONS.md wins over any skill's default.
-- **G-IMPL-6:** No easy way out — blocks hardcoded return values, magic numbers, copy-paste x3, shipped stubs, swallowed errors. Wired into precommit and evaluate.
-- **G-PUSH-1:** No commit or push without /precommit passing. Non-negotiable.
-- **G-AUTO-1:** In auto mode, every change must cite evidence (requirement ID, test result, code grep, research output). Never assume.
-- **G-PC-1-5:** No sloppy tests, all instructions addressed, no false "done", verify in running app, ask on ambiguity
-
-## Harness Engineering (structural enforcement)
-
-Guardrails are prompts — the model can ignore them. Hooks are structural — the model **cannot bypass them**.
-
-`install.sh` sets up these hooks automatically:
-
-| Hook | Event | What it does |
-|------|-------|-------------|
-| `session-init.sh` | SessionStart | **Scans all project .md files** (HANDOFF.md, project-state.md, CLAUDE.md, requirements/, architecture/) and tells Claude to read them FIRST. Loads toolkit rules. Persists after `/compact`. |
-| `route-to-skill.sh` | UserPromptSubmit | **Detects intent** from user prompt and injects skill routing. "fix bug" → `/debug` workflow. "build X" → `/implementation`. |
-| `gate.sh` | PreToolUse (Bash) | **Blocks `git commit`/`git push`** unless required skills have passed. Configurable. |
-| `skill-passed.sh` | PostToolUse (Skill) | Creates `.gates/<skill>-passed` flag when a gated skill completes. |
-| `gate-cleanup.sh` | PostToolUse (Bash) | Clears all gate flags after commit. Next commit needs fresh passes. |
-| `update.sh` | PreToolUse (Skill) | Auto-pulls latest toolkit before every skill invocation. |
-
-### Skill Routing (entry enforcement)
-
-The agent can't ignore skills anymore. When a user types a prompt:
-
-```
-User: "fix the login bug"
-  → route-to-skill.sh detects "fix" + "bug" → injects context:
-    "Follow /debug workflow. Read skills/debug/SKILL.md.
-     Hypothesis-driven. Write failing test BEFORE fixing."
-  → Claude reads the skill file and follows the workflow
-
-User: "build an inventory app"
-  → route-to-skill.sh detects "build" → injects context:
-    "Follow /implementation workflow. Read skills/implementation/SKILL.md.
-     If no requirements exist, run /requirements first.
-     Create code change plan BEFORE writing code. TDD."
-  → Claude follows the skill flow instead of just dumping code
-
-User: "/debug login bug"
-  → route-to-skill.sh sees "/" prefix → no injection (user invoked skill directly)
-```
-
-### Gate Profiles
-
-Configure which skills are required via `gates.json` in your project root:
-
-| Profile | Commit requires | Push requires |
-|---------|----------------|---------------|
-| **minimal** | `/precommit` | `/precommit` |
-| **standard** (default) | `/precommit` | `/precommit`, `/evaluate` |
-| **strict** | `/precommit`, `/evaluate` | `/precommit`, `/evaluate`, `/reviewer` |
-| **paranoid** | `/precommit`, `/evaluate` | `/precommit`, `/evaluate`, `/reviewer`, `/assess` |
-
-To use a profile, copy `hooks/gates.json` to your project root and add `"profile": "strict"`.
-
-**How it works:**
-```
-Claude: git commit -m "..."
-  → gate.sh checks gates.json → commit needs /precommit → no .gates/precommit-passed → BLOCKED
-  → Claude sees: "BLOCKED: git commit requires /precommit to pass first."
-  → Claude runs /precommit → passes → .gates/precommit-passed created
-  → Claude: git commit -m "..." → gate.sh → flag exists → ALLOWED
-  → gate-cleanup.sh → .gates/ cleared → next commit needs fresh passes
-
-Claude: git push origin main
-  → gate.sh → push needs /precommit + /evaluate → missing /evaluate → BLOCKED
-  → Claude runs /evaluate → 96% → .gates/evaluate-passed created
-  → Claude: git push → all flags present → ALLOWED
-```
-
-The model literally cannot commit or push without the required skills passing. No amount of "momentum" bypasses this.
 
 ## Portability
 
-Built for universal LLMs. Claude Code gets full harness enforcement. Other tools get skills + guardrails (prompt-level only).
-
-| Layer | Claude Code | Codex / Cursor / Gemini / Windsurf / Aider |
-|-------|------------|---------------------------------------------|
-| **Skills** (prompt) | Slash commands — `/implementation`, `/debug` | Flattened into AGENTS.md, read as rules |
-| **Guardrails** (prompt) | Loaded from shared/*.md | Included in generated AGENTS.md |
-| **Agents** (prompt) | Native sub-agents via Agent tool | Inlined in AGENTS.md |
-| **Harness hooks** (structural) | Full enforcement — gate, routing, session init | **Not available** — no hook system |
-| **Auto-update** | PreToolUse hook runs `git pull` | Cron, Makefile target, or CI |
-| **Install** | `./install.sh` — symlinks + hooks | `generate-project-rules.sh` → AGENTS.md |
-
-**What other LLMs get:** Skills and guardrails work as prompt-level guidance. The agent reads AGENTS.md and follows the workflow. But there's no structural enforcement — no hook can block `git commit`, no hook can route "fix bug" to the debug workflow. The agent follows rules because the prompt says to, not because it's blocked from doing otherwise.
-
-**What only Claude Code gets:** Harness hooks that make enforcement unbypassable. The model literally cannot `git commit` without `/precommit` passing. The model sees skill routing context before it responds. Session rules persist after `/compact`.
-
-### Universal Project Rules (one script, every tool)
+| Layer | Claude Code | Other LLMs (Codex, Cursor, Gemini, Windsurf, Aider) |
+|-------|------------|------------------------------------------------------|
+| **Skills** | Slash commands | Flattened into AGENTS.md |
+| **Guardrails** | Loaded from shared/*.md | Included in AGENTS.md |
+| **Agents** | Native sub-agents | Inlined in AGENTS.md |
+| **Harness** | Full hook enforcement | **Not available** — prompt-level only |
 
 ```bash
-/path/to/agent-toolkit/generate-project-rules.sh            # creates AGENTS.md
-/path/to/agent-toolkit/generate-project-rules.sh --cursor    # also creates .cursorrules
+# For non-Claude tools:
+./generate-project-rules.sh              # creates AGENTS.md
+./generate-project-rules.sh --cursor     # also creates .cursorrules
 ```
-
-Generates a single ~110-line file containing: guardrails, workflow rules (TDD, precommit, slabs), frontend/backend anti-patterns, git conventions, and all 9 agent instructions flattened inline. Run once — every AI tool reads it automatically.
-
-| File | Read by |
-|------|---------|
-| `AGENTS.md` | Codex, Claude Code, Gemini CLI, Windsurf, Aider |
-| `.cursorrules` | Cursor |
-
-## Project State & Context Recovery
-
-Every session starts by reading your project's `.md` files — the agent doesn't rely on memory or conversation history.
-
-**Session start (automatic via `session-init.sh`):**
-- Scans project root for `HANDOFF.md`, `project-state.md`, `CLAUDE.md`, `DECISIONS.md`
-- Scans `requirements/` and `architecture/` directories
-- Lists all found files and tells Claude: "Read these FIRST before responding"
-- Re-fires after `/compact` so context survives long sessions
-
-**Feature Tracker (in `project-state.md`):**
-
-Strikethrough = done. Not struck = remaining. One glance shows progress.
-
-```markdown
-| Feature | Status | Verified | Commit |
-|---------|--------|----------|--------|
-| ~~Item CRUD~~ | ~~done~~ | ~~2026-05-19~~ | ~~abc1234~~ |
-| ~~Categories~~ | ~~done~~ | ~~2026-05-19~~ | ~~def5678~~ |
-| Low stock alerts | in-progress | | slab-3 |
-| Search + filter | pending | | |
-| Reporting | BLOCKED: needs requirements | | |
-```
-
-Updated by `/implementation` after each slab. New sessions read this to know exactly where the project stands.
 
 ## Built From Real Usage
 
-Every rule comes from building a real product with AI agents — async/sync silent failures, Promise.all page blanking, sloppy tests, false success messages, parking lot blindness. Bugs that shipped and were caught.
+Every rule comes from building real products with AI agents — async/sync silent failures, Promise.all page blanking, sloppy tests, false success messages, parking lot blindness. Bugs that shipped and were caught.
 
 ## Automated Health Check
 
-GitHub Actions runs twice a month (1st and 15th): link check, freshness check (6-month threshold), file size check (250-line target), inventory. Opens an issue if problems found.
+GitHub Actions runs twice a month: link check, freshness check (6-month threshold), file size check (250-line target), inventory. Opens an issue if problems found.
 
 ## Contributing
 
@@ -379,4 +406,4 @@ PRs welcome. Battle-tested feedback? Open an issue or add to the patterns.
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](LICENSE)

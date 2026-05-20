@@ -8,7 +8,7 @@
 - [Brewer's CAP Theorem — Eric Brewer (2000)](https://en.wikipedia.org/wiki/CAP_theorem)
 - [CAP Theorem Revisited — Robert Greiner](https://robertgreiner.com/cap-theorem-revisited/)
 - [System Design Primer — CAP Theorem](https://github.com/donnemartin/system-design-primer#cap-theorem)
-- [You Can't Sacrifice Partition Tolerance — Coda Hale](https://codahale.com/you-cant-sacrifice-partition-tolerance/)
+- [CAP Theorem — Gilbert & Lynch (2002) proof](https://en.wikipedia.org/wiki/CAP_theorem#Formal_definition)
 
 ---
 

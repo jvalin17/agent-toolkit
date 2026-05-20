@@ -5,7 +5,13 @@
 # Runs as PostToolUse hook on Bash tool.
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+
+# Extract command — jq first, grep fallback
+if command -v jq &> /dev/null; then
+  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+else
+  COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+fi
 
 case "$COMMAND" in
   git\ commit*)

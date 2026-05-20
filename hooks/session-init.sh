@@ -83,10 +83,12 @@ RESPONSE STYLE:
 
 AVAILABLE SKILLS: /requirements /architecture /implementation /debug /verify /precommit /evaluate /reviewer /assess /explore /setup /status /updater"
 
-# Escape for JSON
-CONTEXT_ESCAPED=$(echo "$CONTEXT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
-
-cat <<INIT_EOF
+# Output JSON — jq first for safe escaping, sed fallback
+if command -v jq &> /dev/null; then
+  jq -n --arg ctx "$CONTEXT" '{hookSpecificOutput: {hookEventName: "SessionStart", additionalContext: $ctx}}'
+else
+  CONTEXT_ESCAPED=$(echo "$CONTEXT" | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g')
+  cat <<INIT_EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
@@ -94,5 +96,6 @@ cat <<INIT_EOF
   }
 }
 INIT_EOF
+fi
 
 exit 0

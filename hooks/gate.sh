@@ -4,16 +4,20 @@
 # Reads gates.json (from project root, or toolkit default) to determine
 # which skills must pass before commit and push are allowed.
 #
-# Each skill creates .gates/<skill>-passed when it completes.
-# This hook checks for all required flags.
+# Each skill creates .gates/<skill>-passed ONLY when it actually passes
+# (not on mere invocation). This hook checks for those flags.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # Read tool input from stdin
 INPUT=$(cat)
 
-# Extract the command
-COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+# Extract the command — jq first, grep fallback
+if command -v jq &> /dev/null; then
+  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+else
+  COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
+fi
 
 # Determine action type
 ACTION=""
@@ -33,9 +37,8 @@ elif [ -f "$SCRIPT_DIR/gates.json" ]; then
   GATES_CONFIG="$SCRIPT_DIR/gates.json"
 fi
 
-# If no config found, default to requiring precommit for commit
+# If no config or no jq, fallback to precommit-only check
 if [ -z "$GATES_CONFIG" ] || ! command -v jq &> /dev/null; then
-  # Fallback: just check precommit for commits
   if [ "$ACTION" = "commit" ] && [ ! -f ".gates/precommit-passed" ]; then
     cat <<FALLBACK_EOF
 {
@@ -64,12 +67,34 @@ if [ -z "$REQUIRED" ]; then
   exit 0
 fi
 
-# Check each required skill
+# Check each required skill — validate flag content, not just existence
 MISSING=""
 for SKILL in $REQUIRED; do
-  if [ ! -f ".gates/${SKILL}-passed" ]; then
+  FLAG=".gates/${SKILL}-passed"
+  if [ ! -f "$FLAG" ]; then
     MISSING="${MISSING} /${SKILL}"
+    continue
   fi
+
+  # Hardened validation: check flag content for proof of pass
+  case "$SKILL" in
+    precommit)
+      # Flag must contain "READY" (written by precommit skill on pass)
+      if ! grep -q "READY" "$FLAG" 2>/dev/null; then
+        MISSING="${MISSING} /${SKILL}(flag exists but no READY marker — re-run)"
+      fi
+      ;;
+    evaluate)
+      # Flag must contain score >= threshold (written by evaluate skill)
+      SCORE=$(grep -oE '[0-9]+' "$FLAG" 2>/dev/null | head -1)
+      if [ -z "$SCORE" ] || [ "$SCORE" -lt 70 ]; then
+        MISSING="${MISSING} /${SKILL}(flag exists but score ${SCORE:-missing} < threshold — re-run)"
+      fi
+      ;;
+    *)
+      # reviewer, assess — flag existence is sufficient (skill sets on pass)
+      ;;
+  esac
 done
 
 # If any missing, block

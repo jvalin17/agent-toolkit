@@ -4,7 +4,7 @@
 > Last verified: 2026-04-24
 
 ## Sources
-- [Test Driven Development: By Example — Kent Beck](https://en.wikipedia.org/wiki/Test-Driven_Development_by_Example)
+- [Test Driven Development: By Example — Kent Beck](https://en.wikipedia.org/wiki/Test-driven_development)
 - [The Three Laws of TDD — Robert C. Martin](https://blog.cleancoder.com/uncle-bob/2014/12/17/TheCyclesOfTDD.html)
 - [Testing Trophy — Kent C. Dodds](https://kentcdodds.com/blog/the-testing-trophy-and-testing-classifications)
 - [Judgement-tests /write-tests skill](https://github.com/jvalin17/judgement-tests) — patterns adapted from this project
