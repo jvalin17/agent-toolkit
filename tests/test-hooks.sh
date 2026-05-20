@@ -28,6 +28,7 @@ cd "$TEST_DIR"
 cat > gates.json << 'EOF'
 {
   "gate_mode": "legacy",
+  "enforcement": "block",
   "commit_requires": ["precommit"],
   "push_requires": ["precommit", "evaluate"]
 }
@@ -122,6 +123,42 @@ else
   fail "non-git command should be allowed" "got exit $EXIT_CODE"
 fi
 
+# Test 5b: enforcement warn — missing flags still exit 0 (advisory for Cursor/LLMs)
+rm -rf .gates
+cat > gates.json << 'EOF'
+{
+  "gate_mode": "legacy",
+  "enforcement": "warn",
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate"]
+}
+EOF
+EXIT_CODE=0
+OUT=$(echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" 2>&1) || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ] && echo "$OUT" | grep -q "GATE WARNING"; then
+  pass "warn mode: commit without flags exits 0 with warning"
+else
+  fail "warn mode should exit 0 with GATE WARNING" "exit=$EXIT_CODE out=$OUT"
+fi
+cat > gates.json << 'EOF'
+{
+  "gate_mode": "legacy",
+  "enforcement": "block",
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate"]
+}
+EOF
+
+# Test 5c: commit message mentioning git push — must not require push gates
+mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"docs: how to git push safely\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ]; then
+  pass "commit message with git push text does not trigger push gate"
+else
+  fail "commit-only should not enforce push gates from message text" "got exit $EXIT_CODE"
+fi
+
 # Test 6: precommit flag without READY marker → BLOCKED
 rm -rf .gates && mkdir -p .gates && touch .gates/precommit-passed
 EXIT_CODE=0
@@ -172,6 +209,7 @@ fi
 cat > gates.json << 'EOF'
 {
   "gate_mode": "legacy",
+  "enforcement": "block",
   "commit_requires": ["precommit"],
   "push_requires": ["precommit", "evaluate", "reviewer"]
 }
@@ -202,6 +240,7 @@ fi
 cat > gates.json << 'EOF'
 {
   "gate_mode": "legacy",
+  "enforcement": "block",
   "commit_requires": ["precommit"],
   "push_requires": ["precommit", "evaluate"]
 }
@@ -211,6 +250,7 @@ EOF
 cat > gates.json << 'EOF'
 {
   "gate_mode": "legacy",
+  "enforcement": "block",
   "profile": "strict",
   "profiles": {
     "strict": {

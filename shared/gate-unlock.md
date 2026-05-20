@@ -2,7 +2,9 @@
 
 Check `gates.json` → `gate_mode` (default: **`legacy`** for daily work; **`signed`** is optional for long sessions / teams — see README timeline).
 
-## Signed mode (default)
+**`enforcement`:** default **`warn`** — hook adds **GATE WARNING** context but does **not** stop the shell (works with Cursor and other LLM tools). Use **`block`** only when you want a hard stop.
+
+## Signed mode
 
 Skills produce **reports** under `reports/<skill>/`. They do **not** unlock git by writing `.gates/` files.
 
@@ -35,4 +37,4 @@ On pass, skills may write proof files:
 | `/reviewer` | `.gates/reviewer-passed` | `PASSED` |
 | `/assess` | `.gates/assess-passed` | `PASSED` |
 
-Legacy is weaker (agent can `echo` flags). Use only for solo local work without CI.
+Legacy is weaker (agent can `echo` flags). With `enforcement: warn`, the harness nudges without blocking — skills and guardrails carry most of the quality bar.

@@ -1,8 +1,6 @@
 #!/bin/bash
-# gate.sh — Blocks git commit/push unless signed gate token validates (or legacy .gates).
-#
-# Signed mode: verifies .gate/gate-token.jwt via verify_gate.py (report-bound JWT).
-# Legacy mode: reads .gates/*-passed files (gate_mode in gates.json).
+# gate.sh - Reminds or blocks git commit/push (legacy .gates or signed JWT).
+# Default enforcement is warn (exit 0) so Cursor and other agents are not hard-blocked.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TOOLKIT_DIR="$(dirname "$SCRIPT_DIR")"
@@ -15,36 +13,75 @@ else
   COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*: *"//;s/"$//')
 fi
 
-# Detect git commit/push in agent-composed commands (ignore "git push" inside quotes).
 STRIPPED=$(printf '%s' "$COMMAND" | sed "s/'[^']*'//g; s/\"[^\"]*\"//g")
 HAS_COMMIT=false
 HAS_PUSH=false
-if echo "$STRIPPED" | grep -qE 'git[[:space:]].*commit'; then
-  HAS_COMMIT=true
-fi
-if echo "$STRIPPED" | grep -qE 'git[[:space:]].*push'; then
-  HAS_PUSH=true
-fi
+while IFS= read -r seg; do
+  seg=$(echo "$seg" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+  [ -z "$seg" ] && continue
+  if echo "$seg" | grep -qE '^git[[:space:]]+.*[[:space:]]commit|^git[[:space:]]+commit'; then
+    HAS_COMMIT=true
+  fi
+  if echo "$seg" | grep -qE '^git[[:space:]]+.*[[:space:]]push|^git[[:space:]]+push'; then
+    HAS_PUSH=true
+  fi
+done <<SEGMENTS
+$(printf '%s\n' "$STRIPPED" | sed 's/&&/\n/g;s/;/\n/g;s/|/\n/g')
+SEGMENTS
 
 if [ "$HAS_COMMIT" = false ] && [ "$HAS_PUSH" = false ]; then
   exit 0
 fi
 
-# Push requirements are a superset of commit in every profile — use push when both appear
 ACTION="commit"
 if [ "$HAS_PUSH" = true ]; then
   ACTION="push"
 fi
 
-# Signed verify only when project was bootstrapped (not toolkit path alone)
+GATES_CONFIG=""
+for candidate in gates.json .claude/gates.json "$SCRIPT_DIR/gates.json"; do
+  if [ -f "$candidate" ]; then
+    GATES_CONFIG="$candidate"
+    break
+  fi
+done
+
+ENFORCEMENT="warn"
+GATE_MODE="legacy"
+if [ -n "$GATES_CONFIG" ] && command -v jq &> /dev/null; then
+  ENFORCEMENT=$(jq -r '.enforcement // "warn"' "$GATES_CONFIG" 2>/dev/null)
+  GATE_MODE=$(jq -r '.gate_mode // "legacy"' "$GATES_CONFIG" 2>/dev/null)
+fi
+
+gate_emit() {
+  local level="$1"
+  local msg="$2"
+  local prefix="GATE WARNING"
+  local exit_code=0
+  if [ "$level" = "block" ]; then
+    prefix="BLOCKED"
+    exit_code=2
+  fi
+  local ctx="${prefix}: ${msg}"
+  if command -v jq &> /dev/null; then
+    jq -n --arg ctx "$ctx" '{hookSpecificOutput: {hookEventName: "PreToolUse", additionalContext: $ctx}}'
+  else
+    printf '%s\n' "{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"$ctx\"}}"
+  fi
+  exit "$exit_code"
+}
+
+gate_finish() {
+  local msg="$1"
+  if [ "$ENFORCEMENT" = "block" ]; then
+    gate_emit block "$msg"
+  fi
+  gate_emit warn "$msg"
+}
+
 VERIFY_SCRIPT=""
 if [ -f ".agent-toolkit/gate/scripts/verify_gate.py" ]; then
   VERIFY_SCRIPT=".agent-toolkit/gate/scripts/verify_gate.py"
-fi
-
-GATE_MODE="legacy"
-if [ -f "gates.json" ] && command -v jq &> /dev/null; then
-  GATE_MODE=$(jq -r '.gate_mode // "legacy"' gates.json 2>/dev/null)
 fi
 
 if [ "$GATE_MODE" = "signed" ] && [ -n "$VERIFY_SCRIPT" ] && command -v python3 &> /dev/null; then
@@ -52,42 +89,15 @@ if [ "$GATE_MODE" = "signed" ] && [ -n "$VERIFY_SCRIPT" ] && command -v python3 
   OUTPUT=$(python3 "$VERIFY_SCRIPT" verify --action "$ACTION" --commit "$COMMIT_SHA" 2>&1) || EXIT_CODE=$?
   EXIT_CODE=${EXIT_CODE:-0}
   if [ "$EXIT_CODE" -ne 0 ]; then
-    MSG=$(echo "$OUTPUT" | tr '\n' ' ')
-    cat <<SIGNED_BLOCK_EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "additionalContext": "BLOCKED: git ${ACTION} — ${MSG} Run skills (/precommit, /evaluate), push to GitHub for CI to issue signed gate-token.jwt, or download the gate-token artifact."
-  }
-}
-SIGNED_BLOCK_EOF
-    exit 2
+    gate_finish "git ${ACTION} failed verify: ${OUTPUT}. Run precommit and evaluate; refresh gate token."
   fi
   exit 0
-fi
-
-# --- Legacy .gates/ validation (gate_mode: legacy) ---
-GATES_CONFIG=""
-if [ -f "gates.json" ]; then
-  GATES_CONFIG="gates.json"
-elif [ -f ".claude/gates.json" ]; then
-  GATES_CONFIG=".claude/gates.json"
-elif [ -f "$SCRIPT_DIR/gates.json" ]; then
-  GATES_CONFIG="$SCRIPT_DIR/gates.json"
 fi
 
 if [ -z "$GATES_CONFIG" ] || ! command -v jq &> /dev/null; then
   if [ "$ACTION" = "commit" ]; then
     if [ ! -f ".gates/precommit-passed" ] || ! grep -q "READY" ".gates/precommit-passed" 2>/dev/null; then
-      cat <<FALLBACK_EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "additionalContext": "BLOCKED: git commit requires /precommit (signed mode needs gate-token.jwt). Run ./install.sh in project root."
-  }
-}
-FALLBACK_EOF
-      exit 2
+      gate_finish "git commit requires precommit skill. Run install.sh in project root."
     fi
   fi
   exit 0
@@ -108,42 +118,35 @@ MISSING=""
 for SKILL in $REQUIRED; do
   FLAG=".gates/${SKILL}-passed"
   if [ ! -f "$FLAG" ]; then
-    MISSING="${MISSING} /${SKILL}"
+    MISSING="${MISSING} ${SKILL}"
     continue
   fi
   case "$SKILL" in
     precommit)
-      grep -q "READY" "$FLAG" 2>/dev/null || MISSING="${MISSING} /${SKILL}(no READY)"
+      grep -q "READY" "$FLAG" 2>/dev/null || MISSING="${MISSING} ${SKILL}(no READY)"
       ;;
     evaluate)
       EVAL_THRESHOLD=95
       CUSTOM=$(jq -r '.eval_threshold // empty' "$GATES_CONFIG" 2>/dev/null)
       [ -n "$CUSTOM" ] && EVAL_THRESHOLD="$CUSTOM"
       if ! grep -q "PASSED" "$FLAG" 2>/dev/null; then
-        MISSING="${MISSING} /${SKILL}(no PASSED)"
+        MISSING="${MISSING} ${SKILL}(no PASSED)"
       else
         SCORE=$(grep -oE '[0-9]+' "$FLAG" 2>/dev/null | head -1)
-        [ -z "$SCORE" ] || [ "$SCORE" -lt "$EVAL_THRESHOLD" ] && \
-          MISSING="${MISSING} /${SKILL}(score ${SCORE:-?}% < ${EVAL_THRESHOLD}%)"
+        if [ -z "$SCORE" ] || [ "$SCORE" -lt "$EVAL_THRESHOLD" ]; then
+          MISSING="${MISSING} ${SKILL}(score ${SCORE:-0} below ${EVAL_THRESHOLD})"
+        fi
       fi
       ;;
     reviewer|assess)
-      grep -q "PASSED" "$FLAG" 2>/dev/null || MISSING="${MISSING} /${SKILL}(no PASSED)"
+      grep -q "PASSED" "$FLAG" 2>/dev/null || MISSING="${MISSING} ${SKILL}(no PASSED)"
       ;;
   esac
 done
 
 if [ -n "$MISSING" ]; then
   MISSING_TRIMMED=$(echo "$MISSING" | xargs)
-  cat <<BLOCK_EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "PreToolUse",
-    "additionalContext": "BLOCKED: git ${ACTION} requires: ${MISSING_TRIMMED}. Run skills, then set-gate or use signed CI token."
-  }
-}
-BLOCK_EOF
-  exit 2
+  gate_finish "git ${ACTION} needs skills:${MISSING_TRIMMED}. Run precommit and evaluate when ready."
 fi
 
 exit 0

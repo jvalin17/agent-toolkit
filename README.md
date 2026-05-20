@@ -103,7 +103,7 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 | `session-init.sh` | Session start + after `/compact` | Scans project `.md` files, loads rules, initializes session counters, verifies hook integrity, clears stale gates. |
 | `session-monitor.sh` | Every tool use + every prompt | Tracks exchanges, tool calls, wall-clock time. Warns at 15 exchanges/40 min. Hard stops at 20 exchanges/50 min with grace period for HANDOFF.md. Blocks agent writes to `.session/`. |
 | `route-to-skill.sh` | Every user prompt | Detects intent → injects skill routing. Agent follows workflows automatically. |
-| `gate.sh` | Before `git commit` / `git push` | **Legacy mode (default):** reads `.gates/*-passed` files. **Signed mode (optional):** verifies `.gate/gate-token.jwt` (JWT bound to commit SHA + profile). |
+| `gate.sh` | Before `git commit` / `git push` | **Legacy (default):** checks `.gates/*-passed`. **Signed (optional):** verifies `.gate/gate-token.jwt`. **Default `enforcement: warn`** — reminds the agent without blocking; set `"block"` for hard stop. |
 | `skill-passed.sh` | After skill completes | **Reports** gate status — does not issue tokens. In legacy mode, skills may write `.gates/<skill>-passed` on pass. |
 | `tdd-enforce.sh` | Before every file edit | TDD reminder — if no test file exists, injects "write test first." Covers features AND bug fixes. |
 | `gate-cleanup.sh` | After successful commit | Clears all flags. Next commit needs fresh passes. |
@@ -139,12 +139,15 @@ There is no fixed rule — if you cap sessions at 30 minutes (as many do), you m
 ```json
 {
   "gate_mode": "legacy",
-  "profile": "standard",
+  "enforcement": "warn",
+  "profile": "minimal",
   "eval_threshold": 95
 }
 ```
 
-Run skills before commit; on pass they write `.gates/precommit-passed` (must contain `READY`), `.gates/evaluate-passed` (`PASSED` + score), etc. `gate.sh` validates flag **content**, not just file existence. Weaker than signed (agent could still `echo` flags) — acceptable for short trusted sessions.
+Run skills before commit; on pass they write `.gates/precommit-passed` (must contain `READY`), `.gates/evaluate-passed` (`PASSED` + score), etc. `gate.sh` validates flag **content**, not just file existence.
+
+**`enforcement`:** `"warn"` (default) injects a **GATE WARNING** into the agent context but **does not block** the shell command — so Cursor and other LLM tools can still run `git commit` / `git push` while being reminded to run `/precommit`. Use `"enforcement": "block"` only when you want a hard stop (teams, production). Weaker than signed (agent could still `echo` flags) — acceptable for short trusted sessions.
 
 #### Signed gates (optional extra layer)
 
@@ -209,12 +212,13 @@ Skill gate details: `shared/gate-unlock.md`.
 ```json
 {
   "gate_mode": "legacy",
-  "profile": "standard",
+  "enforcement": "warn",
+  "profile": "minimal",
   "eval_threshold": 95
 }
 ```
 
-For signed mode, use `"gate_mode": "signed"` and set `AGENT_TOOLKIT_GATE_SECRET` on the app repo (see above). Attestation requires mechanical checks plus valid skill reports under `reports/` (SHA-256 bound). See `gate/reports.py`.
+Set `"enforcement": "block"` when you want `gate.sh` to return exit 2 and stop the tool. For signed mode, use `"gate_mode": "signed"` and set `AGENT_TOOLKIT_GATE_SECRET` on the app repo (see above). Attestation requires mechanical checks plus valid skill reports under `reports/` (SHA-256 bound). See `gate/reports.py`.
 
 ### Examples
 
