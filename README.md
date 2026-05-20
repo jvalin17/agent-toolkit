@@ -79,7 +79,7 @@ Guardrails and skills are prompts — the model can ignore them. **Structural ho
 | `session-init.sh` | Session start + after `/compact` | Loads project `.md` rules, init counters, clears stale `.gates/`. |
 | `session_init.py` | Session start (Python replacement) | Same as above + HANDOFF.md continuation context injection. |
 | `session-monitor.sh` | Every tool use + prompt | Warn **15 exchanges**; hard stop **20 exchanges** + grace for HANDOFF. Blocks writes to `.session/` (G-SESSION-1). |
-| `session_monitor.py` | PreToolUse + PostToolUse + UserPromptSubmit + PostCompact | Context-pressure limits: cumulative output bytes, PostCompact detection, raised fallback thresholds (30 exchanges / 75 min). |
+| `session_monitor.py` | PreToolUse + PostToolUse + UserPromptSubmit + PostCompact | Context-pressure limits: cumulative output bytes, PostCompact detection, raised fallback exchange threshold (30 exchanges). No time limit. |
 | `route-to-skill.sh` | Every prompt | Intent → skill injection ("fix bug" → `/debug`, "build X" → `/implementation`). |
 | `gate.sh` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: warn`. |
 | `skill-passed.sh` | After skill completes | Reports gate status (does not issue tokens). |
