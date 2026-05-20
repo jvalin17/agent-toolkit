@@ -28,7 +28,10 @@ If `auto` flag is set, also read `shared/orchestrator.md` for auto mode protocol
 
 ## Project State
 
-Read `project-state.md` at start. Write feature status (works/placeholder/broken) at end.
+Read `project-state.md` at start. After each completed slab:
+- Update Feature Tracker: strikethrough completed features (`~~Feature name~~ | ~~done~~ | ~~date~~ | ~~commit~~`)
+- Features not yet done stay without strikethrough
+- At a glance: struck = done, not struck = remaining work
 
 ## Code Quality
 

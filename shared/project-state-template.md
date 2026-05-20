@@ -30,10 +30,20 @@
 ## Active Warnings
 <!-- Cross-skill warnings that haven't been resolved -->
 
-## Feature Status
-<!-- Updated by /implementation and /reviewer -->
-| Feature | Status | Last Verified | Slab | Commit |
-|---------|--------|--------------|------|--------|
+## Feature Tracker
+<!-- Single source of truth for what's done and what's left.
+     Updated by /implementation after each slab and /reviewer after audits.
+
+     Convention:
+     - Pending:    | Feature name | pending | | |
+     - In progress: | Feature name | in-progress | | slab-2 |
+     - Done:        | ~~Feature name~~ | ~~done~~ | ~~2026-05-19~~ | ~~abc1234~~ |
+     - Blocked:     | Feature name | BLOCKED: [reason] | | |
+
+     Strikethrough (~~) = completed and verified. At a glance you see what's left (not struck) vs done (struck).
+-->
+| Feature | Status | Verified | Commit | Notes |
+|---------|--------|----------|--------|-------|
 
 ## Handoff Summaries
 <!-- Each skill writes a 3-line summary for the next skill -->
