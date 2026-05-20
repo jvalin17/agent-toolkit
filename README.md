@@ -108,9 +108,46 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 | `gate-cleanup.sh` | After successful commit | Clears all flags. Next commit needs fresh passes. |
 | `update.sh` | Before every skill | Auto-pulls latest toolkit. |
 
-### Signed gates (default)
+### Gate modes — legacy (usual) vs signed (optional)
 
-**Problem:** In legacy mode, an agent could write `.gates/precommit-passed` with `echo` and bypass the harness. Flags were honor-system.
+**Most people should use legacy mode** — skills, hooks, and reports are enough, especially for short sessions (under ~30 minutes). No GitHub secrets, no per-repo token setup, no JWT workflow.
+
+**Signed gates** are an **optional extra security layer** for long-running sessions, handoffs, team repos, or production merges — when you want CI and branch protection to hold authority, not filesystem flags the agent could forge.
+
+| Mode | Setup | Best for |
+|------|--------|----------|
+| **legacy** (recommended default) | `"gate_mode": "legacy"` in `gates.json` | Solo dev, sessions &lt; 30–60 min, prototypes |
+| **signed** (optional) | `./install.sh` + `AGENT_TOOLKIT_GATE_SECRET` on **your app repo** | Sessions 2+ hours, HANDOFF/compaction, team `main`, regulated work |
+
+**Using the toolkit does not require any secret on the agent-toolkit GitHub repo.** Consumers only set `AGENT_TOOLKIT_GATE_SECRET` on **their own** project repo if they enable signed mode. Maintainers set it on agent-toolkit only for this repo’s own CI.
+
+#### When to turn on signed gates (usual timeline)
+
+| Session / situation | Suggested mode | Why |
+|---------------------|----------------|-----|
+| **&lt; 30 min**, single goal, you stay in the loop | **legacy** + standard profile | Low bypass risk; hooks + skills are sufficient |
+| **30–90 min**, one feature, no handoff | **legacy** | Same; refresh `.gates/` or re-run skills before commit |
+| **2+ hours**, `/compact`, or **HANDOFF.md** resume | Consider **signed** on that repo | Stale flags and skipped skills are more likely |
+| **Multi-day** or **async agent** (walk away, come back) | **signed** + CI check on `main` | Merge authority outside the agent filesystem |
+| **Team / production** | **signed** + branch protection `agent-toolkit-gate` | Strongest; not needed for personal experiments |
+
+There is no fixed rule — if you cap sessions at 30 minutes (as many do), you may **never** need signed mode.
+
+#### Legacy mode (default for daily work)
+
+```json
+{
+  "gate_mode": "legacy",
+  "profile": "standard",
+  "eval_threshold": 95
+}
+```
+
+Run skills before commit; on pass they write `.gates/precommit-passed` (must contain `READY`), `.gates/evaluate-passed` (`PASSED` + score), etc. `gate.sh` validates flag **content**, not just file existence. Weaker than signed (agent could still `echo` flags) — acceptable for short trusted sessions.
+
+#### Signed gates (optional extra layer)
+
+**Problem signed mode solves:** In legacy mode, an agent could write `.gates/precommit-passed` with `echo` and bypass the harness.
 
 **Approach:** Split **workflow** (skills) from **authority** (CI + signed token).
 
@@ -129,15 +166,15 @@ When you run `./install.sh` from inside a git checkout:
 
 - `.agent-toolkit/gate/` — gate scripts copied into the project (for CI and local verify)
 - `.agent-toolkit/config.json` — toolkit path and version
-- `gates.json` — if missing, template with `"gate_mode": "signed"` and profile **standard**
+- `gates.json` — if missing, template is installed (set `"gate_mode": "legacy"` for daily use; template may use `signed`)
 - `.gate/signing.key` — gitignored signing secret (created once)
 - `.github/workflows/agent-toolkit-gate.yml` — attest → issue token → verify
 - `.gitignore` entries for `.gate/signing.key`, `.gate/gate-token.jwt`, etc.
-- If `gh` is logged in: uploads `AGENT_TOOLKIT_GATE_SECRET` to the repo
+- If `gh` is logged in and mode is **signed**: uploads `AGENT_TOOLKIT_GATE_SECRET` to **this app repo** (skip for legacy)
 
-#### If you use the skills (what you actually do)
+#### If you use signed mode (optional — long sessions / teams)
 
-Skills are unchanged in intent — still run them for quality. The harness no longer trusts hand-written flag files in signed mode.
+Skills are unchanged in intent — still run them for quality. In signed mode the harness does not trust hand-written `.gates/` files.
 
 1. **Work as usual** — `/precommit`, `/evaluate`, `/reviewer`, `/assess` when your profile requires them. Fix what they find; reports live under `reports/`.
 
@@ -157,8 +194,6 @@ Skills are unchanged in intent — still run them for quality. The harness no lo
 
 5. **Who can mint tokens?** Anyone with `.gate/signing.key` (or the GitHub secret) can issue a local JWT. That stops casual `echo` into `.gates/`, but **branch protection on `agent-toolkit-gate`** is the real merge authority for teams.
 
-6. **Legacy local-only** — Set `"gate_mode": "legacy"` in `gates.json` to restore `.gates/*-passed` behavior (weaker; useful for solo hacking without CI).
-
 Skill gate details: `shared/gate-unlock.md`.
 
 #### Gate profiles (`gates.json`)
@@ -172,13 +207,13 @@ Skill gate details: `shared/gate-unlock.md`.
 
 ```json
 {
-  "gate_mode": "signed",
+  "gate_mode": "legacy",
   "profile": "standard",
   "eval_threshold": 95
 }
 ```
 
-Attestation requires both passing mechanical checks and valid skill reports (e.g. precommit report contains `READY TO COMMIT`, evaluate report contains `Score: N%` ≥ threshold). See `gate/reports.py`.
+For signed mode, use `"gate_mode": "signed"` and set `AGENT_TOOLKIT_GATE_SECRET` on the app repo (see above). Attestation requires mechanical checks plus valid skill reports under `reports/` (SHA-256 bound). See `gate/reports.py`.
 
 ### Examples
 

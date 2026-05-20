@@ -28,9 +28,9 @@ if [ -f ".agent-toolkit/gate/scripts/verify_gate.py" ]; then
   VERIFY_SCRIPT=".agent-toolkit/gate/scripts/verify_gate.py"
 fi
 
-GATE_MODE="signed"
+GATE_MODE="legacy"
 if [ -f "gates.json" ] && command -v jq &> /dev/null; then
-  GATE_MODE=$(jq -r '.gate_mode // "signed"' gates.json 2>/dev/null)
+  GATE_MODE=$(jq -r '.gate_mode // "legacy"' gates.json 2>/dev/null)
 fi
 
 if [ "$GATE_MODE" = "signed" ] && [ -n "$VERIFY_SCRIPT" ] && command -v python3 &> /dev/null; then

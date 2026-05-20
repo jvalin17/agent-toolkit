@@ -1,6 +1,6 @@
 # Gate unlock — signed vs legacy
 
-Check `gates.json` → `gate_mode` (default: `signed` after `./install.sh`).
+Check `gates.json` → `gate_mode` (default: **`legacy`** for daily work; **`signed`** is optional for long sessions / teams — see README timeline).
 
 ## Signed mode (default)
 

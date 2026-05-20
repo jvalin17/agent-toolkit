@@ -32,7 +32,7 @@ def load_gates_config(project_root: Path) -> dict[str, Any]:
     path = find_gates_config(project_root)
     if not path:
         return {
-            "gate_mode": "signed",
+            "gate_mode": "legacy",
             "profile": "standard",
             "eval_threshold": 95,
             "commit_requires": ["precommit"],
