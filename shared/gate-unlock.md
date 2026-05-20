@@ -11,12 +11,15 @@ Check `gates.json` → `gate_mode` (default: **`legacy`** for daily work; **`sig
 
 **`AGENT_TOOLKIT_GATE_SECRET`:** optional. Use `scripts/setup-signed-gates.sh --upload-github-secret` when you want CI and laptop to share one key.
 
-## Enable signed mode (straightforward path)
+## Switch modes (human or agent)
 
 ```bash
-/path/to/agent-toolkit/scripts/setup-signed-gates.sh
-/path/to/agent-toolkit/scripts/setup-signed-gates.sh --upload-github-secret   # teams only
+/path/to/agent-toolkit/scripts/set-gate-mode.sh status    # what mode are we in?
+/path/to/agent-toolkit/scripts/set-gate-mode.sh signed    # enable signed (full setup)
+/path/to/agent-toolkit/scripts/set-gate-mode.sh legacy    # back to default
 ```
+
+Review `gates.json` after switching. Ask your agent to run the commands above; you approve the result.
 
 ## Signed mode — before git commit / push
 

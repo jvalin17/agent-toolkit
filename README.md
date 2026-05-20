@@ -134,6 +134,29 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 
 There is no fixed rule — if you cap sessions at 30 minutes (as many do), you may **never** need signed mode.
 
+#### Switching modes (you or your agent — human reviews `gates.json`)
+
+No hidden toggle. Mode is only `gates.json` → `gate_mode`. Use the scripts below (safe for agents: non-interactive, prints status).
+
+| Goal | Command (from your project repo) |
+|------|----------------------------------|
+| **See current mode** | `path/to/agent-toolkit/scripts/set-gate-mode.sh status` |
+| **Enable signed** (full setup + smoke test) | `path/to/agent-toolkit/scripts/set-gate-mode.sh signed` |
+| **Back to legacy** (default) | `path/to/agent-toolkit/scripts/set-gate-mode.sh legacy` |
+
+**Ask your agent** (copy-paste):
+
+- *“Run `agent-toolkit/scripts/set-gate-mode.sh status` and tell me our gate mode.”*
+- *“Enable signed gates: run `agent-toolkit/scripts/setup-signed-gates.sh` in this repo, then show me `gates.json`.”*
+- *“Switch this project to legacy gates: run `set-gate-mode.sh legacy`, then confirm `gate_mode` is legacy.”*
+
+**Human in the loop:** After the agent runs a command, glance at `gates.json` (and the script output). Signed mode still needs you to run skills and refresh tokens before ship — the agent can run attest/issue steps, but you decide when to merge.
+
+| Mode | After switch, before `git push` |
+|------|--------------------------------|
+| **legacy** | Run `/precommit` (and other skills per profile); flags in `.gates/` |
+| **signed** | Run skills → `verify_gate.py attest` → `issue_token.py` (or CI on push) |
+
 #### Legacy mode (default for daily work)
 
 ```json
@@ -519,6 +542,7 @@ gate/                            signed gate module (also copied to .agent-toolk
 scripts/
   bootstrap-project-gates.sh     project gate layout (called from install.sh)
   setup-signed-gates.sh          optional one-command signed mode setup
+  set-gate-mode.sh               switch legacy ↔ signed (or status); agent-safe
   cleanup-archive.sh             deletes archive files older than 30 days
 
 templates/
