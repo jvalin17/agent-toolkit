@@ -2,11 +2,11 @@
 
 [![Skills: 13](https://img.shields.io/badge/Skills-13-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
-[![Structural hooks: 8](https://img.shields.io/badge/Structural_hooks-8-purple?style=for-the-badge)](hooks/)
+[![Structural hooks: 10](https://img.shields.io/badge/Structural_hooks-10-purple?style=for-the-badge)](hooks/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. 13 skills, 9 agents, 19 guardrail groups, 8 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 19 guardrail groups, 10 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
 
 Built for **Claude Code** (structural hooks + gates). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (skills + guardrails via `AGENTS.md`; no structural hooks).
 
@@ -37,7 +37,7 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 |-------|------|
 | **Skills (13)** | Workflows — `/implementation`, `/debug`, `/precommit`, … Interactive or `auto` (chains until ambiguity or failure). |
 | **Guardrails (19 groups)** | Rules every skill follows — see [Guardrails](#guardrails) and [`shared/guardrails.md`](shared/guardrails.md). |
-| **Structural hooks (8)** | Runtime enforcement the model cannot bypass — routing, TDD reminders, session limits, commit/push gates. |
+| **Structural hooks (10)** | Runtime enforcement the model cannot bypass — routing, TDD reminders, session limits, commit/push gates. |
 
 ### When to use what
 
@@ -50,6 +50,7 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 | Refactor | `/implementation refactor auth` |
 | Before release | `/reviewer` + `/evaluate` |
 | Architecture review | `/assess` |
+| Long task, walk away | `python scripts/auto_continue.py --headless "goal"` |
 
 ## Skills
 
@@ -76,7 +77,9 @@ Guardrails and skills are prompts — the model can ignore them. **Structural ho
 | Hook | When | What |
 |------|------|------|
 | `session-init.sh` | Session start + after `/compact` | Loads project `.md` rules, init counters, clears stale `.gates/`. |
+| `session_init.py` | Session start (Python replacement) | Same as above + HANDOFF.md continuation context injection. |
 | `session-monitor.sh` | Every tool use + prompt | Warn **15 exchanges / 40 min**; hard stop **20 / 50 min** + grace for HANDOFF. Blocks writes to `.session/` (G-SESSION-1). |
+| `session_monitor.py` | Every tool use + prompt (Python replacement) | Context-pressure limits: cumulative output bytes, PostCompact detection, raised fallback thresholds (30 exchanges / 75 min). |
 | `route-to-skill.sh` | Every prompt | Intent → skill injection ("fix bug" → `/debug`, "build X" → `/implementation`). |
 | `gate.sh` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: warn`. |
 | `skill-passed.sh` | After skill completes | Reports gate status (does not issue tokens). |
@@ -172,6 +175,27 @@ git push             # → allowed when JWT matches HEAD
 
 **Session recovery:** `session-init.sh` prioritizes `HANDOFF.md`, `project-state.md` (local per project — copy from `shared/project-state-template.md`), and requirements/architecture docs.
 
+## Auto-Continuation
+
+Sessions that hit context limits automatically hand off and relaunch. The wrapper script manages the session lifecycle — detect context exhaustion, write HANDOFF.md, clean `.session/`, relaunch with a fresh context window.
+
+```bash
+# Headless — fire-and-forget until goal is done
+python scripts/auto_continue.py --headless "Build auth system with token refresh"
+
+# With budget cap
+python scripts/auto_continue.py --headless --max-budget-usd 5.00 "Build auth system"
+
+# Resume (reads goal from existing HANDOFF.md)
+python scripts/auto_continue.py --headless
+```
+
+**How it works:** `auto_continue.py` launches Claude Code sessions in a loop. Each session runs with `session_monitor.py` tracking context pressure (cumulative output bytes + PostCompact events). When a threshold is hit, the agent writes HANDOFF.md and exits. The wrapper detects the handoff, cleans `.session/`, and relaunches. The new session reads HANDOFF.md via `session_init.py` and continues where the previous one left off.
+
+**Completion:** The loop stops when HANDOFF.md contains `## COMPLETE` or is removed by the agent.
+
+Architecture: [`architecture/auto-continuation.md`](architecture/auto-continuation.md). Requirements: [`requirements/auto-continuation.md`](requirements/auto-continuation.md).
+
 ## Auto Mode
 
 Append `auto` to chain skills without stopping (`/requirements auto my-app`). Opus plans; Sonnet/Haiku implements. **95%** eval gate (default); below **70%** = hard stop. Evidence-first (G-AUTO-1). Protocol: [`shared/orchestrator.md`](shared/orchestrator.md).
@@ -185,6 +209,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 | Debug | `/debug …` or natural language — hypothesis → test → fix |
 | Mid-project install | `./install.sh` → `/explore .` → work (hooks active immediately) |
 | Cleanup pass | `/reviewer` → `/assess` → `/evaluate` → fix findings → `/precommit` |
+| Fire-and-forget | `python scripts/auto_continue.py --headless "Build X"` — auto-relaunches on context exhaustion |
 
 ## Guardrails
 
@@ -207,10 +232,10 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 skills/          13 workflows (+ sub-skills & references per skill)
 agents/          9 research sub-agents
 shared/          guardrails, orchestrator, gate-unlock, report-format, templates
-hooks/           7 structural hook scripts (+ gates.json reference copy)
-update.sh        8th hook — auto-pull before skills
+hooks/           7 bash + 2 Python structural hook scripts (+ gates.json reference copy)
+update.sh        10th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
-scripts/         bootstrap, set-gate-mode, setup-signed-gates, seed reports, …
+scripts/         auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …
 templates/       gates.json, signed example, GitHub workflow template
 ```
 
