@@ -1,2 +1,9 @@
+# Personal documents — never commit
+HANDOFF.md
+**/HANDOFF.md
+*proposal*
+*PROPOSAL*
+*.proposal.md
+
 # Local project memory — per-user, not shared
 memory/
