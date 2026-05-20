@@ -125,9 +125,9 @@ install_hooks() {
     local skill_passed_cmd="$toolkit_path/hooks/skill-passed.sh"
     local gate_cleanup_cmd="$toolkit_path/hooks/gate-cleanup.sh"
     local route_cmd="$toolkit_path/hooks/route-to-skill.sh"
-    local session_init_cmd="$toolkit_path/hooks/session-init.sh"
+    local session_init_cmd="python3 $toolkit_path/hooks/session_init.py"
     local tdd_cmd="$toolkit_path/hooks/tdd-enforce.sh"
-    local monitor_cmd="$toolkit_path/hooks/session-monitor.sh"
+    local monitor_cmd="python3 $toolkit_path/hooks/session_monitor.py"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
         cat > "$SETTINGS_FILE" << HOOKEOF
