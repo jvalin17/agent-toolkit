@@ -1,0 +1,28 @@
+{
+  "_comment": "Configure which skills are required before git commit and git push.",
+  "_usage": "Copy this file to your project root and edit. Or use the default.",
+
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate"],
+
+  "profiles": {
+    "_comment": "Predefined gate profiles. Set 'profile' to use one instead of custom lists.",
+
+    "minimal": {
+      "commit_requires": ["precommit"],
+      "push_requires": ["precommit"]
+    },
+    "standard": {
+      "commit_requires": ["precommit"],
+      "push_requires": ["precommit", "evaluate"]
+    },
+    "strict": {
+      "commit_requires": ["precommit", "evaluate"],
+      "push_requires": ["precommit", "evaluate", "reviewer"]
+    },
+    "paranoid": {
+      "commit_requires": ["precommit", "evaluate"],
+      "push_requires": ["precommit", "evaluate", "reviewer", "assess"]
+    }
+  }
+}

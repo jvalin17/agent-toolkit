@@ -241,25 +241,40 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — t
 
 | Hook | Type | What it does |
 |------|------|-------------|
-| `precommit-gate.sh` | PreToolUse (Bash) | **Blocks `git commit`/`git push`** unless `/precommit` has passed. Exit code 2 = blocked. |
-| `precommit-passed.sh` | PostToolUse (Skill) | Creates `.precommit-passed` flag when `/precommit` completes. Only way to unlock commit. |
-| `post-commit-cleanup.sh` | PostToolUse (Bash) | Clears `.precommit-passed` after commit. Next commit needs fresh `/precommit`. |
+| `gate.sh` | PreToolUse (Bash) | **Blocks `git commit`/`git push`** unless required skills have passed. Configurable. |
+| `skill-passed.sh` | PostToolUse (Skill) | Creates `.gates/<skill>-passed` flag when a gated skill completes. |
+| `gate-cleanup.sh` | PostToolUse (Bash) | Clears all gate flags after commit. Next commit needs fresh passes. |
 | `update.sh` | PreToolUse (Skill) | Auto-pulls latest toolkit before every skill invocation. |
+
+### Gate Profiles
+
+Configure which skills are required via `gates.json` in your project root:
+
+| Profile | Commit requires | Push requires |
+|---------|----------------|---------------|
+| **minimal** | `/precommit` | `/precommit` |
+| **standard** (default) | `/precommit` | `/precommit`, `/evaluate` |
+| **strict** | `/precommit`, `/evaluate` | `/precommit`, `/evaluate`, `/reviewer` |
+| **paranoid** | `/precommit`, `/evaluate` | `/precommit`, `/evaluate`, `/reviewer`, `/assess` |
+
+To use a profile, copy `hooks/gates.json` to your project root and add `"profile": "strict"`.
 
 **How it works:**
 ```
-User: "commit this"
 Claude: git commit -m "..."
-  → precommit-gate.sh runs → no .precommit-passed → BLOCKED
-  → Claude sees: "BLOCKED. Run /precommit first."
-  → Claude runs /precommit → all checks pass → .precommit-passed created
-  → Claude: git commit -m "..."
-  → precommit-gate.sh runs → .precommit-passed exists → ALLOWED
-  → post-commit-cleanup.sh runs → .precommit-passed deleted
-  → Next commit requires fresh /precommit
+  → gate.sh checks gates.json → commit needs /precommit → no .gates/precommit-passed → BLOCKED
+  → Claude sees: "BLOCKED: git commit requires /precommit to pass first."
+  → Claude runs /precommit → passes → .gates/precommit-passed created
+  → Claude: git commit -m "..." → gate.sh → flag exists → ALLOWED
+  → gate-cleanup.sh → .gates/ cleared → next commit needs fresh passes
+
+Claude: git push origin main
+  → gate.sh → push needs /precommit + /evaluate → missing /evaluate → BLOCKED
+  → Claude runs /evaluate → 96% → .gates/evaluate-passed created
+  → Claude: git push → all flags present → ALLOWED
 ```
 
-The model literally cannot commit without precommit passing. No amount of "momentum" bypasses this.
+The model literally cannot commit or push without the required skills passing. No amount of "momentum" bypasses this.
 
 ## Portability
 

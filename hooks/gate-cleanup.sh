@@ -1,7 +1,7 @@
 #!/bin/bash
-# post-commit-cleanup.sh — Clears .precommit-passed flag after successful commit
+# gate-cleanup.sh — Clears all gate flags after successful commit
 #
-# This ensures every NEW commit requires a fresh /precommit pass.
+# Every new commit requires fresh skill passes.
 # Runs as PostToolUse hook on Bash tool.
 
 INPUT=$(cat)
@@ -9,7 +9,7 @@ COMMAND=$(echo "$INPUT" | grep -o '"command"[[:space:]]*:[[:space:]]*"[^"]*"' | 
 
 case "$COMMAND" in
   git\ commit*)
-    rm -f .precommit-passed 2>/dev/null
+    rm -rf .gates 2>/dev/null
     ;;
 esac
 

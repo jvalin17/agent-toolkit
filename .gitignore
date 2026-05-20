@@ -7,3 +7,6 @@ HANDOFF.md
 
 # Local project memory — per-user, not shared
 memory/
+
+# Gate flags — created/cleared by hooks per session
+.gates/

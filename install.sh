@@ -121,9 +121,11 @@ HOOKS_SRC="$SCRIPT_DIR/hooks"
 install_hooks() {
     local toolkit_path="$SCRIPT_DIR"
     local update_command="$toolkit_path/update.sh 2>/dev/null || true"
+    local gate_cmd="$toolkit_path/hooks/gate.sh"
+    local skill_passed_cmd="$toolkit_path/hooks/skill-passed.sh"
+    local gate_cleanup_cmd="$toolkit_path/hooks/gate-cleanup.sh"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
-        # Create settings file with all hooks
         cat > "$SETTINGS_FILE" << HOOKEOF
 {
   "hooks": {
@@ -144,30 +146,30 @@ install_hooks() {
         "hooks": [
           {
             "type": "command",
-            "command": "$toolkit_path/hooks/precommit-gate.sh",
+            "command": "$gate_cmd",
             "timeout": 5,
-            "statusMessage": "Checking precommit gate..."
+            "statusMessage": "Checking quality gates..."
           }
         ]
       }
     ],
     "PostToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Skill",
         "hooks": [
           {
             "type": "command",
-            "command": "$toolkit_path/hooks/post-commit-cleanup.sh",
+            "command": "$skill_passed_cmd",
             "timeout": 5
           }
         ]
       },
       {
-        "matcher": "Skill",
+        "matcher": "Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "$toolkit_path/hooks/precommit-passed.sh",
+            "command": "$gate_cleanup_cmd",
             "timeout": 5
           }
         ]
@@ -180,65 +182,58 @@ HOOKEOF
         return
     fi
 
-    # Merge hooks into existing settings
+    # Merge hooks into existing settings — remove old hooks, add new ones
     local tmp_file=$(mktemp)
 
+    # Remove old single-skill hooks if present
+    jq '
+        .hooks.PreToolUse = [(.hooks.PreToolUse // [])[] | select(.hooks | all(.command | (contains("precommit-gate") | not)))] |
+        .hooks.PostToolUse = [(.hooks.PostToolUse // [])[] | select(.hooks | all(.command | ((contains("precommit-passed") | not) and (contains("post-commit-cleanup") | not))))]
+    ' "$SETTINGS_FILE" > "$tmp_file" 2>/dev/null && mv "$tmp_file" "$SETTINGS_FILE"
+
     # Add/update auto-update hook
-    if jq -e '.hooks.PreToolUse[]? | select(.matcher == "Skill") | .hooks[]? | select(.command | contains("update.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    if jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("update.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$update_command" '
-            .hooks.PreToolUse = [.hooks.PreToolUse[]? | if .matcher == "Skill" then .hooks = [.hooks[]? | if (.command | contains("update.sh")) then .command = $cmd else . end] else . end]
+            .hooks.PreToolUse = [.hooks.PreToolUse[]? | if (.hooks[]? | .command | contains("update.sh")) then .hooks = [.hooks[]? | if (.command | contains("update.sh")) then .command = $cmd else . end] else . end]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
-        echo "  [updated] auto-update hook (path refreshed)"
+        echo "  [updated] auto-update hook"
     else
         jq --arg cmd "$update_command" '
-            .hooks //= {} |
-            .hooks.PreToolUse //= [] |
-            .hooks.PreToolUse += [{
-                "matcher": "Skill",
-                "hooks": [{"type": "command", "command": $cmd, "timeout": 10, "statusMessage": "Checking for toolkit updates..."}]
-            }]
+            .hooks //= {} | .hooks.PreToolUse //= [] |
+            .hooks.PreToolUse += [{"matcher": "Skill", "hooks": [{"type": "command", "command": $cmd, "timeout": 10, "statusMessage": "Checking for toolkit updates..."}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
         echo "  [installed] auto-update hook"
     fi
 
-    # Add precommit-gate hook (PreToolUse on Bash)
-    if jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("precommit-gate"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
-        jq --arg cmd "$toolkit_path/hooks/precommit-gate.sh" '
-            .hooks.PreToolUse = [.hooks.PreToolUse[]? | if (.hooks[]? | .command | contains("precommit-gate")) then .hooks = [.hooks[]? | if (.command | contains("precommit-gate")) then .command = $cmd else . end] else . end]
+    # Add gate hook (replaces old precommit-gate)
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("gate.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$gate_cmd" '
+            .hooks.PreToolUse += [{"matcher": "Bash", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Checking quality gates..."}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
-        echo "  [updated] precommit-gate hook (path refreshed)"
+        echo "  [installed] quality gate hook (blocks commit/push without required skills)"
     else
-        jq --arg cmd "$toolkit_path/hooks/precommit-gate.sh" '
-            .hooks.PreToolUse += [{
-                "matcher": "Bash",
-                "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Checking precommit gate..."}]
-            }]
-        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
-        echo "  [installed] precommit-gate hook"
+        echo "  [skip] quality gate hook (already installed)"
     fi
 
-    # Add post-commit cleanup hook (PostToolUse on Bash)
-    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("post-commit-cleanup"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
-        jq --arg cmd "$toolkit_path/hooks/post-commit-cleanup.sh" '
-            .hooks //= {} |
-            .hooks.PostToolUse //= [] |
-            .hooks.PostToolUse += [{
-                "matcher": "Bash",
-                "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]
-            }]
+    # Add skill-passed hook (replaces old precommit-passed)
+    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("skill-passed.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$skill_passed_cmd" '
+            .hooks //= {} | .hooks.PostToolUse //= [] |
+            .hooks.PostToolUse += [{"matcher": "Skill", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
-        echo "  [installed] post-commit-cleanup hook"
+        echo "  [installed] skill-passed hook (tracks which skills have run)"
+    else
+        echo "  [skip] skill-passed hook (already installed)"
     fi
 
-    # Add precommit-passed hook (PostToolUse on Skill)
-    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("precommit-passed"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
-        jq --arg cmd "$toolkit_path/hooks/precommit-passed.sh" '
-            .hooks.PostToolUse += [{
-                "matcher": "Skill",
-                "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]
-            }]
+    # Add gate-cleanup hook (replaces old post-commit-cleanup)
+    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("gate-cleanup.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$gate_cleanup_cmd" '
+            .hooks.PostToolUse += [{"matcher": "Bash", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
-        echo "  [installed] precommit-passed hook"
+        echo "  [installed] gate-cleanup hook (resets gates after commit)"
+    else
+        echo "  [skip] gate-cleanup hook (already installed)"
     fi
 }
 
