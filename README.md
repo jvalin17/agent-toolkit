@@ -5,7 +5,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. 13 skills, 9 agents, 16 guardrails, 7 harness hooks. Plan, build, test, debug, and ship — any repo, any language.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 17 guardrails, 8 harness hooks. Plan, build, test, debug, and ship — any repo, any language.
 
 Built for Claude Code (full harness enforcement). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (prompt-level skills only).
 
@@ -47,16 +47,17 @@ Auto:         /implementation auto my-app  → skills chain automatically
               Pauses only on ambiguity or failure. 95% eval gate.
 ```
 
-**2. Guardrails (16)** — rules every skill follows
+**2. Guardrails (17)** — rules every skill follows
 ```
 No hardcoded shortcuts (G-IMPL-6). No sloppy tests (G-PC-1).
 Evidence-first in auto mode (G-AUTO-1). No commit without /precommit (G-PUSH-1).
 ```
 
-**3. Harness (7 hooks)** — structural enforcement the model cannot bypass
+**3. Harness (8 hooks)** — structural enforcement the model cannot bypass
 ```
-Session start:  scans .md files, loads rules, routes intent to skills
+Session start:  scans .md files, loads rules, verifies hook integrity, routes intent
 Every prompt:   detects "fix bug" → /debug, "build X" → /implementation
+Every tool use: session monitor tracks exchanges + time, hard stops at limit
 Commit/push:    blocked unless required skills pass (configurable gate profiles)
 ```
 
@@ -98,7 +99,8 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 
 | Hook | When | What |
 |------|------|------|
-| `session-init.sh` | Session start + after `/compact` | Scans all project `.md` files, tells Claude to read them FIRST. Loads toolkit rules. |
+| `session-init.sh` | Session start + after `/compact` | Scans project `.md` files, loads rules, initializes session counters, verifies hook integrity, clears stale gates. |
+| `session-monitor.sh` | Every tool use + every prompt | Tracks exchanges, tool calls, wall-clock time. Warns at 15 exchanges/20 min. Hard stops at 20 exchanges/30 min with grace period for HANDOFF.md. Blocks agent writes to `.session/`. |
 | `route-to-skill.sh` | Every user prompt | Detects intent → injects skill routing. Agent follows workflows automatically. |
 | `gate.sh` | Before `git commit` / `git push` | **Signed mode (default):** verifies `.gate/gate-token.jwt` (JWT bound to commit SHA + profile). **Legacy mode:** reads `.gates/*-passed` files. |
 | `skill-passed.sh` | After skill completes | **Reports** gate status — does not issue tokens. In legacy mode, skills may write `.gates/<skill>-passed` on pass. |
@@ -115,7 +117,7 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 | Layer | Role |
 |-------|------|
 | **Skills** (`/precommit`, `/evaluate`, …) | Run the real workflows. Write human-readable reports under `reports/`. You (or the agent) still run these before shipping. |
-| **Attestation** (CI or local script) | Runs **mechanical** checks only: tests, lint, toolkit hook tests. Writes `.gate/attestation.json` — facts, not prose. |
+| **Attestation** (CI or local script) | Mechanical checks (tests, lint) **plus** validation of skill **reports** under `reports/` (SHA-256 bound). Writes `.gate/attestation.json`. |
 | **JWT** (CI issues, local hook verifies) | Short-lived token in `.gate/gate-token.jwt`, bound to `commit_sha` and your `gates.json` profile. `gate.sh` refuses `git commit` / `git push` without a valid token. |
 | **GitHub** (optional but strongest) | Workflow `agent-toolkit-gate` on push/PR. Branch protection can require that check — merge authority lives outside the agent’s filesystem. |
 
@@ -153,7 +155,11 @@ Skills are unchanged in intent — still run them for quality. The harness no lo
 
 4. **GitHub (team / production)** — In repo settings → branch protection, require status check **`agent-toolkit-gate`**. Ensure secret `AGENT_TOOLKIT_GATE_SECRET` exists (install tries via `gh`; otherwise paste contents of `.gate/signing.key`).
 
-5. **Legacy local-only** — Set `"gate_mode": "legacy"` in `gates.json` to restore `.gates/*-passed` behavior (weaker; useful for solo hacking without CI).
+5. **Who can mint tokens?** Anyone with `.gate/signing.key` (or the GitHub secret) can issue a local JWT. That stops casual `echo` into `.gates/`, but **branch protection on `agent-toolkit-gate`** is the real merge authority for teams.
+
+6. **Legacy local-only** — Set `"gate_mode": "legacy"` in `gates.json` to restore `.gates/*-passed` behavior (weaker; useful for solo hacking without CI).
+
+Skill gate details: `shared/gate-unlock.md`.
 
 #### Gate profiles (`gates.json`)
 
@@ -172,7 +178,7 @@ Skills are unchanged in intent — still run them for quality. The harness no lo
 }
 ```
 
-Mechanical attestation maps profile skills to test/lint/hook results today; skill reports are for humans and future stricter attestation.
+Attestation requires both passing mechanical checks and valid skill reports (e.g. precommit report contains `READY TO COMMIT`, evaluate report contains `Score: N%` ≥ threshold). See `gate/reports.py`.
 
 ### Examples
 
@@ -216,6 +222,24 @@ You: "/reviewer"
   → No injection — you invoked the skill directly
 ```
 
+### Session monitor
+
+Prevents quality degradation from long sessions. Hook-enforced — the agent cannot bypass it.
+
+```
+session-monitor.sh tracks:
+  - Exchange count (user prompts)
+  - Wall-clock time
+  - Tool call count
+
+Thresholds (whichever hits first):
+  15 exchanges / 20 min  → WARNING: "Prepare HANDOFF.md, finish current work"
+  20 exchanges / 30 min  → GRACE: 10 tool calls to wrap up + write handoff
+  Grace exhausted        → HARD STOP: only HANDOFF.md, project-state.md, git commit allowed
+
+Agent cannot modify .session/ files (G-SESSION-1) — blocked by the same hook.
+```
+
 ### Context recovery
 
 Every session starts fresh — no relying on memory:
@@ -227,6 +251,9 @@ session-init.sh scans your project:
   - requirements/*.md, architecture/*.md
   → Tells Claude: "Read these FIRST"
   → Re-fires after /compact (context survives)
+  → Initializes session counters (fresh session = fresh limits)
+  → Verifies hooks are installed and executable
+  → Clears stale gate files from previous sessions
 ```
 
 ### Feature Tracker
@@ -363,7 +390,7 @@ Append `auto` to any skill. Skills chain without stopping. Pauses only on ambigu
 
 ## Guardrails
 
-16 rules every skill follows. When hit: warns, records, continues.
+17 rules every skill follows. When hit: warns, records, continues.
 
 | Guardrail | What |
 |-----------|------|
@@ -376,6 +403,7 @@ Append `auto` to any skill. Skills chain without stopping. Pauses only on ambigu
 | **G-IMPL-6** | No easy way out — no hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors |
 | **G-PUSH-1** | No commit/push without /precommit. Non-negotiable. |
 | **G-AUTO-1** | Every change must cite evidence. Never assume. |
+| **G-SESSION-1** | Agent must never modify `.session/` files. Session state is hook-managed only. |
 | **G-PC-1-5** | No sloppy tests, all instructions addressed, no false "done", verify in app, ask on ambiguity |
 
 ## Architecture
@@ -404,7 +432,8 @@ shared/                          loaded by skills on demand
   project-state-template.md      project state + feature tracker template
 
 hooks/                           harness enforcement (Claude Code only)
-  session-init.sh                scans .md files, loads rules at session start
+  session-init.sh                scans .md files, loads rules, verifies integrity
+  session-monitor.sh             tracks exchanges/time, hard stops at limit, protects .session/
   route-to-skill.sh              detects intent, routes to skill workflow
   gate.sh                        signed JWT verify or legacy .gates/ check
   skill-passed.sh                reports gate status after skills

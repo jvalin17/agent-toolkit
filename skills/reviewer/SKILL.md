@@ -102,6 +102,6 @@ Report structure per area:
 
 Final summary includes: areas reviewed, total findings by severity, bugs discovered, tests written, action items.
 
-**If no high-severity findings remain:** Set the gate flag with marker: `mkdir -p .gates && echo "PASSED $(date +%Y-%m-%d-%H%M)" > .gates/reviewer-passed` — the gate hook validates the flag contains "PASSED", not just that the file exists.
+**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: completed report with `PASSED` (no open high-severity findings), then refresh gate token. Legacy only: `echo "PASSED ..." > .gates/reviewer-passed`.
 
-**If high-severity findings exist:** Do NOT set the flag. Gate remains locked until findings are resolved and reviewer re-run.
+**If high-severity findings exist:** Do not claim pass; gate remains locked until resolved and reviewer re-run.

@@ -13,7 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from gate.attest import Attestation, build_attestation  # noqa: E402
+from gate.attest import Attestation, build_attestation, write_attestation  # noqa: E402
 from gate.core import (  # noqa: E402
     issue_token,
     load_gates_config,
@@ -23,6 +23,7 @@ from gate.core import (  # noqa: E402
     write_token,
 )
 from gate.keys import generate_signing_secret  # noqa: E402
+from gate.reports import check_evaluate_report, check_precommit_report  # noqa: E402
 
 
 @pytest.fixture
@@ -123,19 +124,96 @@ def test_required_skills_standard_profile(gate_env: Path):
     assert required_skills(config, "push") == ["precommit", "evaluate"]
 
 
-def test_cli_attest_on_toolkit_repo():
-    """Smoke: attest runs in agent-toolkit repo (has test-hooks.sh)."""
-    script = ROOT / "gate/scripts/verify_gate.py"
+def test_report_precommit_requires_ready(tmp_path: Path):
+    report = tmp_path / "reports/precommit/pc_x.md"
+    report.parent.mkdir(parents=True)
+    report.write_text("BLOCKED\n", encoding="utf-8")
+    r = check_precommit_report(tmp_path, report)
+    assert r["passed"] is False
+    report.write_text("[x] READY TO COMMIT\n", encoding="utf-8")
+    r2 = check_precommit_report(tmp_path, report)
+    assert r2["passed"] is True
+    assert "report_sha256" in r2
+
+
+def test_report_evaluate_threshold(tmp_path: Path):
+    report = tmp_path / "reports/evaluate/eval_x.md"
+    report.parent.mkdir(parents=True)
+    report.write_text("# Score: 80% (C)\n", encoding="utf-8")
+    r = check_evaluate_report(tmp_path, report, 95)
+    assert r["passed"] is False
+    assert r["overall_score"] == 80
+    report.write_text("# Score: 96% (A)\n", encoding="utf-8")
+    r2 = check_evaluate_report(tmp_path, report, 95)
+    assert r2["passed"] is True
+
+
+def test_attest_requires_reports(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "gates.json").write_text(
+        json.dumps({"gate_mode": "signed", "profile": "standard", "eval_threshold": 95}),
+        encoding="utf-8",
+    )
+    att = build_attestation(tmp_path, load_gates_config(tmp_path))
+    assert att.results["precommit"]["passed"] is False
+    assert "missing" in att.results["precommit"]["detail"]
+
+
+def test_attest_with_fixture_reports(tmp_path: Path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    fixtures = ROOT / "tests/fixtures/gate-reports"
+    for skill in ("precommit", "evaluate", "reviewer", "assess"):
+        (tmp_path / "reports" / skill).mkdir(parents=True, exist_ok=True)
+    import shutil
+
+    shutil.copy(fixtures / "pc_toolkit_ci.md", tmp_path / "reports/precommit/")
+    shutil.copy(fixtures / "eval_toolkit_ci.md", tmp_path / "reports/evaluate/")
+    shutil.copy(fixtures / "review_toolkit_ci.md", tmp_path / "reports/reviewer/")
+    shutil.copy(fixtures / "assess_toolkit_ci.md", tmp_path / "reports/assess/")
+    (tmp_path / "gates.json").write_text(
+        json.dumps({"profile": "standard", "eval_threshold": 95}),
+        encoding="utf-8",
+    )
+    att = build_attestation(tmp_path, load_gates_config(tmp_path))
+    assert att.results["evaluate"]["passed"] is True
+    assert att.results["evaluate"]["overall_score"] == 96
+
+
+def test_bootstrap_and_signed_roundtrip(tmp_path: Path):
+    import shutil
+
+    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    bootstrap = ROOT / "scripts/bootstrap-project-gates.sh"
     proc = subprocess.run(
-        [sys.executable, str(script), "attest", "--project-root", str(ROOT)],
-        cwd=ROOT,
+        ["bash", str(bootstrap), str(ROOT), str(tmp_path)],
         capture_output=True,
         text=True,
     )
     assert proc.returncode == 0, proc.stderr + proc.stdout
-    data = json.loads(proc.stdout)
-    assert "results" in data
-    assert "precommit" in data["results"]
+    assert (tmp_path / ".agent-toolkit/gate/scripts/verify_gate.py").is_file()
+    assert (tmp_path / ".gate/signing.key").is_file()
+    fixtures = ROOT / "tests/fixtures/gate-reports"
+    for skill in ("precommit", "evaluate"):
+        (tmp_path / "reports" / skill).mkdir(parents=True, exist_ok=True)
+    shutil.copy(fixtures / "pc_toolkit_ci.md", tmp_path / "reports/precommit/")
+    shutil.copy(fixtures / "eval_toolkit_ci.md", tmp_path / "reports/evaluate/")
+    att = build_attestation(tmp_path, load_gates_config(tmp_path))
+    write_attestation(tmp_path / ".gate/attestation.json", att)
+    config = load_gates_config(tmp_path)
+    token = issue_token(att.to_dict(), config, "push", tmp_path)
+    ok, msg = verify_token(token, tmp_path, "push", commit_sha=att.commit_sha)
+    assert ok, msg
+
+
+def test_attest_on_toolkit_repo_with_seeded_reports(monkeypatch):
+    """Smoke: build_attestation on toolkit with seeded reports (hooks tested separately)."""
+    monkeypatch.setenv("AGENT_TOOLKIT_ATTEST_SKIP_HOOK_TESTS", "1")
+    monkeypatch.setenv("AGENT_TOOLKIT_ATTEST_SKIP_GATE_TESTS", "1")
+    seed = ROOT / "scripts/seed-gate-reports.sh"
+    subprocess.run(["bash", str(seed)], cwd=ROOT, check=True)
+    att = build_attestation(ROOT, load_gates_config(ROOT))
+    assert att.results["precommit"].get("report_sha256")
+    assert att.results["evaluate"]["passed"] is True
 
 
 def test_cli_issue_verify_roundtrip(gate_env: Path, monkeypatch):

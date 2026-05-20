@@ -22,12 +22,10 @@ case "$COMMAND" in
   *)             exit 0 ;;
 esac
 
-# Resolve verify_gate.py (project copy first, then toolkit)
+# Signed verify only when project was bootstrapped (not toolkit path alone)
 VERIFY_SCRIPT=""
 if [ -f ".agent-toolkit/gate/scripts/verify_gate.py" ]; then
   VERIFY_SCRIPT=".agent-toolkit/gate/scripts/verify_gate.py"
-elif [ -f "$TOOLKIT_DIR/gate/scripts/verify_gate.py" ]; then
-  VERIFY_SCRIPT="$TOOLKIT_DIR/gate/scripts/verify_gate.py"
 fi
 
 GATE_MODE="signed"

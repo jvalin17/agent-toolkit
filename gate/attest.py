@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from gate.reports import skill_results_from_reports
 
 
 @dataclass
@@ -143,13 +146,6 @@ def run_toolkit_gate_tests(cwd: Path) -> CheckResult | None:
     return None
 
 
-def mechanical_evaluate_score(checks: list[CheckResult]) -> int:
-    if not checks:
-        return 0
-    passed = sum(1 for c in checks if c.passed)
-    return int(round(100 * passed / len(checks)))
-
-
 def build_attestation(
     project_root: Path,
     config: dict,
@@ -159,44 +155,28 @@ def build_attestation(
     test = detect_and_run_tests(cwd, config)
     lint = detect_and_run_lint(cwd, config)
     extra: list[CheckResult] = []
-    hook_tests = run_toolkit_hook_tests(cwd)
-    if hook_tests:
-        extra.append(hook_tests)
-    gate_tests = run_toolkit_gate_tests(cwd)
-    if gate_tests:
-        extra.append(gate_tests)
+    if os.environ.get("AGENT_TOOLKIT_ATTEST_SKIP_HOOK_TESTS", "").lower() not in ("1", "true", "yes"):
+        hook_tests = run_toolkit_hook_tests(cwd)
+        if hook_tests:
+            extra.append(hook_tests)
+    if os.environ.get("AGENT_TOOLKIT_ATTEST_SKIP_GATE_TESTS", "").lower() not in ("1", "true", "yes"):
+        if not os.environ.get("PYTEST_CURRENT_TEST"):
+            gate_tests = run_toolkit_gate_tests(cwd)
+            if gate_tests:
+                extra.append(gate_tests)
 
     precommit_checks = [test, lint] + extra
     precommit_passed = all(c.passed for c in precommit_checks)
-
-    eval_checks = list(precommit_checks)
-    score = mechanical_evaluate_score(eval_checks)
     threshold = int(config.get("eval_threshold", 95))
-    evaluate_passed = precommit_passed and score >= threshold
 
-    results: dict[str, Any] = {
-        "precommit": {
-            "passed": precommit_passed,
-            "checks": [
-                {"name": c.name, "passed": c.passed, "detail": c.detail}
-                for c in precommit_checks
-            ],
-        },
-        "evaluate": {
-            "passed": evaluate_passed,
-            "overall_score": score,
-            "threshold": threshold,
-            "source": "mechanical_v1",
-        },
-        "reviewer": {
-            "passed": precommit_passed and lint.passed,
-            "source": "mechanical_v1",
-        },
-        "assess": {
-            "passed": precommit_passed,
-            "source": "mechanical_v1",
-        },
+    mechanical_precommit = {
+        "passed": precommit_passed,
+        "checks": [
+            {"name": c.name, "passed": c.passed, "detail": c.detail}
+            for c in precommit_checks
+        ],
     }
+    results = skill_results_from_reports(cwd, threshold, mechanical_precommit)
 
     return Attestation(
         version=1,

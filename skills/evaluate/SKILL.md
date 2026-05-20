@@ -173,8 +173,8 @@ Overall = (Completeness * 0.30) + (Code Quality * 0.25) + (Security * 0.20)
 
 If user specified a quality target: list exactly what needs to change to reach it.
 
-**If overall score ≥ 95% (or user's threshold):** Set the gate flag with score: `mkdir -p .gates && echo "PASSED <score>% $(date +%Y-%m-%d-%H%M)" > .gates/evaluate-passed` — the gate hook validates the score in the flag file, not just file existence.
+Write to `reports/evaluate/eval_<slug>_<uuid>.md` with `# Score: **X%**` in the header (required for signed attestation).
 
-**If score < threshold:** Do NOT set the flag. Gate remains locked.
+**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: completed report with score ≥ threshold, then refresh gate token. Legacy only: `echo "PASSED <score>% ..." > .gates/evaluate-passed`.
 
-Write to `reports/evaluate/eval_<slug>_<uuid>.md`.
+**If score < threshold:** Do not claim pass; gate remains locked.

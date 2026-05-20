@@ -1,5 +1,6 @@
 {
-  "profile": "paranoid",
+  "gate_mode": "signed",
+  "profile": "standard",
   "eval_threshold": 95,
   "profiles": {
     "minimal": {

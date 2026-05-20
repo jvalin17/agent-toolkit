@@ -127,6 +127,7 @@ install_hooks() {
     local route_cmd="$toolkit_path/hooks/route-to-skill.sh"
     local session_init_cmd="$toolkit_path/hooks/session-init.sh"
     local tdd_cmd="$toolkit_path/hooks/tdd-enforce.sh"
+    local monitor_cmd="$toolkit_path/hooks/session-monitor.sh"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
         cat > "$SETTINGS_FILE" << HOOKEOF
@@ -164,6 +165,17 @@ install_hooks() {
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "Bash|Write|Edit|Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$monitor_cmd",
+            "timeout": 5,
+            "statusMessage": "Session monitor..."
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -195,11 +207,11 @@ HOOKEOF
 
         # Add UserPromptSubmit and SessionStart hooks
         local tmp_file_fresh=$(mktemp)
-        jq --arg route "$route_cmd" --arg init "$session_init_cmd" '
-            .hooks.UserPromptSubmit = [{"matcher": "", "hooks": [{"type": "command", "command": $route, "timeout": 5}]}] |
+        jq --arg route "$route_cmd" --arg init "$session_init_cmd" --arg monitor "$monitor_cmd" '
+            .hooks.UserPromptSubmit = [{"matcher": "", "hooks": [{"type": "command", "command": $route, "timeout": 5}, {"type": "command", "command": $monitor, "timeout": 5}]}] |
             .hooks.SessionStart = [{"matcher": "startup", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}, {"matcher": "compact", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}]
         ' "$SETTINGS_FILE" > "$tmp_file_fresh" && mv "$tmp_file_fresh" "$SETTINGS_FILE"
-        echo "  [installed] skill routing + session init hooks"
+        echo "  [installed] skill routing + session init + session monitor hooks"
         return
     fi
 
@@ -276,6 +288,21 @@ HOOKEOF
         echo "  [installed] skill routing hook (detects intent, routes to correct skill)"
     else
         echo "  [skip] skill routing hook (already installed)"
+    fi
+
+    # Add session-monitor hook (PreToolUse on Bash|Write|Edit|Skill + UserPromptSubmit)
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("session-monitor"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$monitor_cmd" '
+            .hooks.PreToolUse += [{"matcher": "Bash|Write|Edit|Skill", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Session monitor..."}]}]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        # Also add to UserPromptSubmit for exchange counting
+        jq --arg cmd "$monitor_cmd" '
+            .hooks //= {} | .hooks.UserPromptSubmit //= [] |
+            .hooks.UserPromptSubmit = [.hooks.UserPromptSubmit[]? | .hooks += [{"type": "command", "command": $cmd, "timeout": 5}]]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] session monitor hook (tracks exchanges, enforces time/context limits)"
+    else
+        echo "  [skip] session monitor hook (already installed)"
     fi
 
     # Add session-init hook (SessionStart — startup + compact)

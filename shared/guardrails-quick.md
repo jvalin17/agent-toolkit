@@ -28,6 +28,9 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G-PC-4:** Verify in running app, not just tests
 - **G-PC-5:** Ask on ambiguity, log concern in project-state.md
 
+## Session Integrity
+- **G-SESSION-1:** Never read, write, edit, or delete files in `.session/` directory. Session state is managed exclusively by hooks. Any attempt is blocked by the harness.
+
 ## Auto Mode
 - **G-AUTO-1:** Every change must cite its evidence source (requirement ID, test result, code grep, research output). Never change code based on assumption. If evidence is missing, stop and ask.
 

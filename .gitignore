@@ -8,8 +8,11 @@ HANDOFF.md
 # Local project memory — per-user, not shared
 memory/
 
-# Gate flags — legacy mode per session
+# Gate flags — per session
 .gates/
+
+# Session state — per session, managed by hooks only
+.session/
 
 # Signed gate — private key never commit; token refreshed by CI
 .gate/signing.key

@@ -9,6 +9,48 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TOOLKIT_DIR="$(dirname "$SCRIPT_DIR")"
 CWD=$(pwd)
 
+# --- Initialize session state (fresh counters for fresh session) ---
+SESSION_DIR="$CWD/.session"
+mkdir -p "$SESSION_DIR"
+cat > "$SESSION_DIR/state" << SESSIONEOF
+SESSION_START=$(date +%s)
+EXCHANGES=0
+TOOL_CALLS=0
+WARNED=0
+STOPPED=0
+STOP_AT_TOOL_CALL=0
+SESSIONEOF
+
+# --- Hook integrity check ---
+INTEGRITY_WARNINGS=""
+REQUIRED_HOOKS="gate.sh skill-passed.sh gate-cleanup.sh route-to-skill.sh session-init.sh session-monitor.sh tdd-enforce.sh"
+for hook in $REQUIRED_HOOKS; do
+  if [ ! -f "$SCRIPT_DIR/$hook" ]; then
+    INTEGRITY_WARNINGS="${INTEGRITY_WARNINGS}\n  - MISSING hook: $hook"
+  elif [ ! -x "$SCRIPT_DIR/$hook" ]; then
+    INTEGRITY_WARNINGS="${INTEGRITY_WARNINGS}\n  - NOT EXECUTABLE: $hook"
+  fi
+done
+
+# Check settings.json has hooks registered
+SETTINGS_FILE="$HOME/.claude/settings.json"
+if [ -f "$SETTINGS_FILE" ] && command -v jq &> /dev/null; then
+  for hook_check in "gate.sh" "session-monitor.sh" "skill-passed.sh"; do
+    if ! grep -q "$hook_check" "$SETTINGS_FILE" 2>/dev/null; then
+      INTEGRITY_WARNINGS="${INTEGRITY_WARNINGS}\n  - NOT REGISTERED in settings.json: $hook_check (run install.sh)"
+    fi
+  done
+fi
+
+# Check for stale gate files (shouldn't exist at session start)
+if [ -d "$CWD/.gates" ]; then
+  GATE_COUNT=$(find "$CWD/.gates" -type f 2>/dev/null | wc -l | tr -d ' ')
+  if [ "$GATE_COUNT" -gt 0 ]; then
+    INTEGRITY_WARNINGS="${INTEGRITY_WARNINGS}\n  - STALE GATE FILES: .gates/ had $GATE_COUNT files from previous session (cleared)"
+    rm -rf "$CWD/.gates"
+  fi
+fi
+
 # --- Scan for project .md files ---
 MD_FILES=""
 
@@ -81,7 +123,19 @@ RESPONSE STYLE:
 - Show evidence (file:line) for every claim
 - If unsure, ask. Don't assume.
 
-AVAILABLE SKILLS: /requirements /architecture /implementation /debug /verify /precommit /evaluate /reviewer /assess /explore /setup /status /updater"
+AVAILABLE SKILLS: /requirements /architecture /implementation /debug /verify /precommit /evaluate /reviewer /assess /explore /setup /status /updater
+
+SESSION MONITOR ACTIVE: This session is tracked. Exchanges, tool calls, and wall-clock time are counted by hooks. At 15 exchanges or 20 minutes you will be warned. At 20 exchanges or 30 minutes a hard stop triggers — you get 10 tool calls to write HANDOFF.md and commit, then all non-handoff operations are blocked.
+
+G-SESSION-1: You must NEVER read, write, edit, or delete files in the .session/ directory. Session state is managed exclusively by hooks. Any attempt to modify .session/ will be blocked."
+
+# Append integrity warnings if any
+if [ -n "$INTEGRITY_WARNINGS" ]; then
+  CONTEXT="${CONTEXT}
+
+HARNESS INTEGRITY WARNINGS:${INTEGRITY_WARNINGS}
+Run install.sh to fix missing hooks. Do NOT proceed with work until hooks are verified."
+fi
 
 # Output JSON — jq first for safe escaping, sed fallback
 if command -v jq &> /dev/null; then
