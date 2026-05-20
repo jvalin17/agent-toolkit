@@ -249,7 +249,7 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — t
 
 | Hook | Event | What it does |
 |------|-------|-------------|
-| `session-init.sh` | SessionStart | **Loads toolkit rules** at session start. Persists after `/compact`. Agent always knows about skills. |
+| `session-init.sh` | SessionStart | **Scans all project .md files** (HANDOFF.md, project-state.md, CLAUDE.md, requirements/, architecture/) and tells Claude to read them FIRST. Loads toolkit rules. Persists after `/compact`. |
 | `route-to-skill.sh` | UserPromptSubmit | **Detects intent** from user prompt and injects skill routing. "fix bug" → `/debug` workflow. "build X" → `/implementation`. |
 | `gate.sh` | PreToolUse (Bash) | **Blocks `git commit`/`git push`** unless required skills have passed. Configurable. |
 | `skill-passed.sh` | PostToolUse (Skill) | Creates `.gates/<skill>-passed` flag when a gated skill completes. |
@@ -338,6 +338,32 @@ Generates a single ~110-line file containing: guardrails, workflow rules (TDD, p
 |------|---------|
 | `AGENTS.md` | Codex, Claude Code, Gemini CLI, Windsurf, Aider |
 | `.cursorrules` | Cursor |
+
+## Project State & Context Recovery
+
+Every session starts by reading your project's `.md` files — the agent doesn't rely on memory or conversation history.
+
+**Session start (automatic via `session-init.sh`):**
+- Scans project root for `HANDOFF.md`, `project-state.md`, `CLAUDE.md`, `DECISIONS.md`
+- Scans `requirements/` and `architecture/` directories
+- Lists all found files and tells Claude: "Read these FIRST before responding"
+- Re-fires after `/compact` so context survives long sessions
+
+**Feature Tracker (in `project-state.md`):**
+
+Strikethrough = done. Not struck = remaining. One glance shows progress.
+
+```markdown
+| Feature | Status | Verified | Commit |
+|---------|--------|----------|--------|
+| ~~Item CRUD~~ | ~~done~~ | ~~2026-05-19~~ | ~~abc1234~~ |
+| ~~Categories~~ | ~~done~~ | ~~2026-05-19~~ | ~~def5678~~ |
+| Low stock alerts | in-progress | | slab-3 |
+| Search + filter | pending | | |
+| Reporting | BLOCKED: needs requirements | | |
+```
+
+Updated by `/implementation` after each slab. New sessions read this to know exactly where the project stands.
 
 ## Built From Real Usage
 
