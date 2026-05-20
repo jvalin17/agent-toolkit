@@ -144,7 +144,7 @@ class TestCheckHookIntegrity:
         hooks_dir.mkdir()
         required = [
             "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
-            "route-to-skill.sh", "session-init.sh", "session-monitor.sh",
+            "route-to-skill.sh", "session_init.py", "session_monitor.py",
             "tdd-enforce.sh",
         ]
         for hook in required:
@@ -170,7 +170,7 @@ class TestCheckHookIntegrity:
         hooks_dir.mkdir()
         required = [
             "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
-            "route-to-skill.sh", "session-init.sh", "session-monitor.sh",
+            "route-to-skill.sh", "session_init.py", "session_monitor.py",
             "tdd-enforce.sh",
         ]
         for hook in required:
@@ -189,7 +189,7 @@ class TestCheckHookIntegrity:
         hooks_dir.mkdir()
         required = [
             "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
-            "route-to-skill.sh", "session-init.sh", "session-monitor.sh",
+            "route-to-skill.sh", "session_init.py", "session_monitor.py",
             "tdd-enforce.sh",
         ]
         for hook in required:
@@ -208,7 +208,7 @@ class TestCheckHookIntegrity:
         hooks_dir.mkdir()
         required = [
             "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
-            "route-to-skill.sh", "session-init.sh", "session-monitor.sh",
+            "route-to-skill.sh", "session_init.py", "session_monitor.py",
             "tdd-enforce.sh",
         ]
         for hook in required:
@@ -220,7 +220,7 @@ class TestCheckHookIntegrity:
             "hooks": {
                 "PreToolUse": [
                     {"hooks": [{"command": "gate.sh"}]},
-                    {"hooks": [{"command": "session-monitor.sh"}]},
+                    {"hooks": [{"command": "session_monitor.py"}]},
                 ],
                 "PostToolUse": [
                     {"hooks": [{"command": "skill-passed.sh"}]},

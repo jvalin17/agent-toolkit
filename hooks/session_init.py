@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Session init hook — SessionStart replacement for session-init.sh.
+"""Session init hook — SessionStart hook.
 
-Replaces session-init.sh (156 lines bash → ~130 lines Python).
-Runs on SessionStart. Same responsibilities:
+Runs on SessionStart. Responsibilities:
 - Initialize .session/state.json (fresh counters)
 - Scan project .md files (priority ordering)
 - Hook integrity check
@@ -31,11 +30,11 @@ EXCLUDED_ROOT_FILES = {"README.md", "HANDOFF.md", "project-state.md", "CLAUDE.md
 
 REQUIRED_HOOKS = [
     "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
-    "route-to-skill.sh", "session-init.sh", "session-monitor.sh",
+    "route-to-skill.sh", "session_init.py", "session_monitor.py",
     "tdd-enforce.sh",
 ]
 
-SETTINGS_CHECKED_HOOKS = ["gate.sh", "session-monitor.sh", "skill-passed.sh"]
+SETTINGS_CHECKED_HOOKS = ["gate.sh", "session_monitor.py", "skill-passed.sh"]
 
 
 # --- Core functions ---

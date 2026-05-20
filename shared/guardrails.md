@@ -124,11 +124,11 @@ Every skill that writes code MUST invoke `/precommit` before committing. This is
 ## Session Integrity Guardrails
 
 ### G-SESSION-1: Never Modify Session State
-Never read, write, edit, or delete files in the `.session/` directory. Session state (exchange counts, tool calls, wall-clock time, warn/stop flags) is managed **exclusively** by harness hooks (`session-init.sh`, `session-monitor.sh`).
+Never read, write, edit, or delete files in the `.session/` directory. Session state (exchange counts, tool calls, output bytes, warn/stop flags) is managed **exclusively** by harness hooks (`session_init.py`, `session_monitor.py`).
 
 **If triggered:** The harness blocks the tool (exit 2) and injects: "BLOCKED: Agent must not modify `.session/` files (G-SESSION-1). Session state is managed by hooks only."
 
-**Why this exists:** Agents that rewrite `.session/state` can disable hard stops, reset counters, or hide that a session limit was reached. Structural enforcement keeps session limits trustworthy. `session-init.sh` also reminds the agent of this rule at session start.
+**Why this exists:** Agents that rewrite `.session/state` can disable hard stops, reset counters, or hide that a session limit was reached. Structural enforcement keeps session limits trustworthy. `session_init.py` also reminds the agent of this rule at session start.
 
 ## Skill-Specific Guardrails
 

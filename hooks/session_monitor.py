@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Session monitor hook — context-based session limits.
 
-Replaces session-monitor.sh with context-pressure detection:
+Context-pressure detection:
 - Cumulative tool output bytes (PostToolUse)
 - Compaction events (PostCompact)
-- Exchange/time fallbacks (raised thresholds)
+- Exchange count fallback (raised threshold)
 
 Single script, multiple events. Reads hook_event_name from stdin JSON
 and dispatches to the appropriate handler.
