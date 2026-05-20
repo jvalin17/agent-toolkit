@@ -17,8 +17,8 @@
 # --- Configuration (thresholds) ---
 WARN_EXCHANGES=15
 STOP_EXCHANGES=20
-WARN_MINUTES=20
-STOP_MINUTES=30
+WARN_MINUTES=40
+STOP_MINUTES=50
 GRACE_TOOL_CALLS=10  # tool calls allowed after stop triggers (finish current work)
 
 # --- State file ---

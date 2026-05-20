@@ -125,7 +125,7 @@ RESPONSE STYLE:
 
 AVAILABLE SKILLS: /requirements /architecture /implementation /debug /verify /precommit /evaluate /reviewer /assess /explore /setup /status /updater
 
-SESSION MONITOR ACTIVE: This session is tracked. Exchanges, tool calls, and wall-clock time are counted by hooks. At 15 exchanges or 20 minutes you will be warned. At 20 exchanges or 30 minutes a hard stop triggers — you get 10 tool calls to write HANDOFF.md and commit, then all non-handoff operations are blocked.
+SESSION MONITOR ACTIVE: This session is tracked. Exchanges, tool calls, and wall-clock time are counted by hooks. At 15 exchanges or 40 minutes you will be warned. At 20 exchanges or 50 minutes a hard stop triggers — you get 10 tool calls to write HANDOFF.md and commit, then all non-handoff operations are blocked.
 
 G-SESSION-1: You must NEVER read, write, edit, or delete files in the .session/ directory. Session state is managed exclusively by hooks. Any attempt to modify .session/ will be blocked."
 

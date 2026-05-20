@@ -100,7 +100,7 @@ Guardrails are prompts — the model can ignore them. Hooks are structural — *
 | Hook | When | What |
 |------|------|------|
 | `session-init.sh` | Session start + after `/compact` | Scans project `.md` files, loads rules, initializes session counters, verifies hook integrity, clears stale gates. |
-| `session-monitor.sh` | Every tool use + every prompt | Tracks exchanges, tool calls, wall-clock time. Warns at 15 exchanges/20 min. Hard stops at 20 exchanges/30 min with grace period for HANDOFF.md. Blocks agent writes to `.session/`. |
+| `session-monitor.sh` | Every tool use + every prompt | Tracks exchanges, tool calls, wall-clock time. Warns at 15 exchanges/40 min. Hard stops at 20 exchanges/50 min with grace period for HANDOFF.md. Blocks agent writes to `.session/`. |
 | `route-to-skill.sh` | Every user prompt | Detects intent → injects skill routing. Agent follows workflows automatically. |
 | `gate.sh` | Before `git commit` / `git push` | **Signed mode (default):** verifies `.gate/gate-token.jwt` (JWT bound to commit SHA + profile). **Legacy mode:** reads `.gates/*-passed` files. |
 | `skill-passed.sh` | After skill completes | **Reports** gate status — does not issue tokens. In legacy mode, skills may write `.gates/<skill>-passed` on pass. |
@@ -268,8 +268,8 @@ session-monitor.sh tracks:
   - Tool call count
 
 Thresholds (whichever hits first):
-  15 exchanges / 20 min  → WARNING: "Prepare HANDOFF.md, finish current work"
-  20 exchanges / 30 min  → GRACE: 10 tool calls to wrap up + write handoff
+  15 exchanges / 40 min  → WARNING: "Prepare HANDOFF.md, finish current work"
+  20 exchanges / 50 min  → GRACE: 10 tool calls to wrap up + write handoff
   Grace exhausted        → HARD STOP: only HANDOFF.md, project-state.md, git commit allowed
 
 Agent cannot modify .session/ files (G-SESSION-1) — blocked by the same hook.
