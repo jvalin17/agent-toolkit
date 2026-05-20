@@ -3,8 +3,6 @@
   "enforcement": "warn",
   "profile": "minimal",
   "eval_threshold": 95,
-  "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate"],
   "profiles": {
     "minimal": {
       "commit_requires": ["precommit"],

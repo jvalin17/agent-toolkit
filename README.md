@@ -6,7 +6,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. 13 skills, 9 agents, 17 guardrails, 8 harness hooks. Plan, build, test, debug, and ship — any repo, any language.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 19 guardrail groups, 8 harness hooks. Plan, build, test, debug, and ship — any repo, any language.
 
 Built for Claude Code (full harness enforcement). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (prompt-level skills only).
 
@@ -142,7 +142,7 @@ Everything below is in this README — use whichever fits (you, or ask your agen
 
 ---
 
-**Most people should use legacy mode** — skills, hooks, and reports are enough, especially for short sessions (under ~30 minutes). No GitHub secrets, no per-repo token setup, no JWT workflow.
+**Most people should use legacy mode** — skills, hooks, and reports are enough, especially for short sessions (up to ~50 minutes — matching the harness hard stop). No GitHub secrets, no per-repo token setup, no JWT workflow.
 
 **Signed gates** are an **optional extra security layer** for long-running sessions, handoffs, team repos, or production merges — when you want CI and branch protection to hold authority, not filesystem flags the agent could forge.
 
@@ -157,13 +157,13 @@ Everything below is in this README — use whichever fits (you, or ask your agen
 
 | Session / situation | Suggested mode | Why |
 |---------------------|----------------|-----|
-| **&lt; 30 min**, single goal, you stay in the loop | **legacy** + **minimal** profile + `enforcement: warn` | Low friction for Cursor/LLMs; skills carry quality |
+| **Up to ~50 min**, single goal, you stay in the loop | **legacy** + **minimal** profile + `enforcement: warn` | Matches session monitor; low friction for Cursor/LLMs |
 | **30–90 min**, one feature, no handoff | **legacy** | Same; refresh `.gates/` or re-run skills before commit |
 | **2+ hours**, `/compact`, or **HANDOFF.md** resume | Consider **signed** on that repo | Stale flags and skipped skills are more likely |
 | **Multi-day** or **async agent** (walk away, come back) | **signed** + CI check on `main` | Merge authority outside the agent filesystem |
 | **Team / production** | **signed** + branch protection `agent-toolkit-gate` | Strongest; not needed for personal experiments |
 
-There is no fixed rule — if you cap sessions at 30 minutes (as many do), you may **never** need signed mode.
+There is no fixed rule — if you cap sessions at ~50 minutes or less (as many do), you may **never** need signed mode.
 
 #### Switching modes (you or your agent — human reviews `gates.json`)
 
@@ -499,21 +499,20 @@ Append `auto` to any skill. Skills chain without stopping. Pauses only on ambigu
 
 ## Guardrails
 
-17 rules every skill follows. When hit: warns, records, continues.
+**19 rule groups** below (universal + harness + precommit). Per-skill rules (G-REQ, G-ARCH, G-IMPL-1–5, G-EVAL, G-UPD) live in [`shared/guardrails.md`](shared/guardrails.md). When hit: warn, record, continue.
 
-| Guardrail | What |
-|-----------|------|
-| **G1-G9** | No secrets, no destructive ops, file safety, no PII, flag doc gaps, mid-conversation updates, LLM data security |
-| **G10** | README auto-update after feature changes |
-| **G11** | Check project rules before acting — flag contradictions |
-| **G12** | Branch naming: `feature/`, `fix/`, `refactor/`. PR titles describe user impact. |
-| **G13** | Personal data encrypted at rest. Never plaintext. |
-| **G14** | Project rules override toolkit defaults. Your CLAUDE.md wins. |
-| **G-IMPL-6** | No easy way out — no hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors |
-| **G-PUSH-1** | No commit/push without /precommit. Non-negotiable. |
-| **G-AUTO-1** | Every change must cite evidence. Never assume. |
-| **G-SESSION-1** | Agent must never modify `.session/` files. Session state is hook-managed only. |
-| **G-PC-1-5** | No sloppy tests, all instructions addressed, no false "done", verify in app, ask on ambiguity |
+| Group | IDs | What |
+|-------|-----|------|
+| Universal safety | **G1–G9** | No secrets in output, no destructive ops without confirm, honest verification, stale doc warning, external file safety, synthetic PII, hybrid review on external docs, mid-conversation upstream edits, LLM data-exit safeguards |
+| Docs & workflow | **G10–G14** | README auto-update, check project rules first, branch/PR naming, encrypt personal data, project rules override toolkit |
+| Implementation quality | **G-IMPL-6** | No easy way out — hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean-flag APIs |
+| Commit gate | **G-PUSH-1** | No commit/push without `/precommit` (hook enforces per `enforcement` in `gates.json`) |
+| Auto mode | **G-AUTO-1** | Every change cites evidence (requirement, test, research) |
+| Session harness | **G-SESSION-1** | Agent must never modify `.session/` (hook blocks) |
+| Precommit | **G-PC-1–G-PC-5** | Meaningful tests, all instructions addressed, no false "done", verify in running app, ask on ambiguity |
+| Requirements skill | **G-REQ-1–3** | Question limit, estimation disclaimer, ML data privacy — see `guardrails.md` |
+| Architecture skill | **G-ARCH-1–4** | Backtrack limit, OWASP refs, decision cap — see `guardrails.md` |
+| Evaluate / updater | **G-EVAL-1–2**, **G-UPD-1–2** | Unverifiable claims flagged; no silent auto-update — see `guardrails.md` |
 
 ## Architecture
 
@@ -540,6 +539,8 @@ shared/                          loaded by skills on demand
   gate-unlock.md                 how skills unlock gates (signed vs legacy)
   report-format.md               report template
   project-state-template.md      project state + feature tracker template
+
+update.sh                        auto-pull toolkit before each skill (repo root; 8th harness hook)
 
 hooks/                           harness enforcement (Claude Code only)
   session-init.sh                scans .md files, loads rules, verifies integrity

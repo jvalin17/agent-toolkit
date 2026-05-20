@@ -324,12 +324,12 @@ else
     echo "  [skip] hooks (jq not installed — install jq for hook enforcement)"
 fi
 
-# --- Project signed gates (auto — same install, no extra step) ---
+# --- Project gates bootstrap (auto — same install, no extra step) ---
 if command -v python3 &> /dev/null; then
     "$SCRIPT_DIR/scripts/bootstrap-project-gates.sh" "$SCRIPT_DIR"
 else
     echo ""
-    echo "  [skip] project signed gates (python3 required)"
+    echo "  [skip] project gates bootstrap (python3 required)"
 fi
 
 # --- Summary ---

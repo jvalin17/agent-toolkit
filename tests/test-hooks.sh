@@ -432,6 +432,119 @@ else
 fi
 
 echo ""
+echo "=== session-init.sh ==="
+
+rm -rf .session .gates
+echo "# Resume here" > HANDOFF.md
+echo "# Project state" > project-state.md
+mkdir -p requirements && echo "# Req" > requirements/feature.md
+mkdir -p .gates && echo "stale" > .gates/stale-passed
+
+OUTPUT=$(bash "$HOOKS_DIR/session-init.sh" 2>/dev/null)
+if echo "$OUTPUT" | grep -q "SessionStart" && echo "$OUTPUT" | grep -q "HANDOFF.md"; then
+  pass "session-init lists priority project files"
+else
+  fail "session-init should emit SessionStart with HANDOFF.md" "got: ${OUTPUT:0:200}"
+fi
+
+if [ -f ".session/state" ] && grep -q "EXCHANGES=0" ".session/state"; then
+  pass "session-init initializes .session/state counters"
+else
+  fail "session-init should reset session counters" "state=$(cat .session/state 2>/dev/null)"
+fi
+
+if [ ! -d ".gates" ]; then
+  pass "session-init clears stale .gates/ at session start"
+else
+  fail "session-init should clear stale .gates" "still has: $(ls .gates 2>/dev/null)"
+fi
+
+if echo "$OUTPUT" | grep -q "G-SESSION-1"; then
+  pass "session-init reminds agent of G-SESSION-1"
+else
+  fail "session-init should mention G-SESSION-1" "missing from output"
+fi
+
+echo ""
+echo "=== gate.sh (signed mode smoke) ==="
+
+TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+git init -q 2>/dev/null || true
+git config user.email "test@example.com" 2>/dev/null || true
+git config user.name "Test User" 2>/dev/null || true
+git add -A 2>/dev/null || true
+git commit -m "init" --allow-empty -q 2>/dev/null || true
+
+rm -rf .agent-toolkit .gate
+mkdir -p .agent-toolkit
+cp -R "$TOOLKIT_ROOT/gate" .agent-toolkit/
+find .agent-toolkit/gate -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+cat > gates.json << 'GATEJSON'
+{
+  "gate_mode": "signed",
+  "enforcement": "block",
+  "profile": "minimal",
+  "eval_threshold": 95,
+  "profiles": {
+    "minimal": {
+      "commit_requires": ["precommit"],
+      "push_requires": ["precommit"]
+    }
+  }
+}
+GATEJSON
+
+COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "deadbeef")
+python3 << PY || true
+import json, sys
+from pathlib import Path
+sys.path.insert(0, ".agent-toolkit")
+from gate.keys import generate_signing_secret
+from gate.core import issue_token, write_token
+
+root = Path(".")
+generate_signing_secret(root / ".gate" / "signing.key")
+config = json.loads((root / "gates.json").read_text())
+att = {
+    "version": 1,
+    "repo": "test/repo",
+    "commit_sha": "$COMMIT_SHA",
+    "ref": "refs/heads/main",
+    "producer": "test",
+    "results": {"precommit": {"passed": True}},
+}
+token = issue_token(att, config, "commit", root)
+write_token(root / ".gate" / "gate-token.jwt", token)
+PY
+
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"signed ok\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ]; then
+  pass "signed gate.sh allows commit with valid JWT"
+else
+  fail "signed gate.sh should allow commit with valid token" "exit=$EXIT_CODE"
+fi
+
+rm -f .gate/gate-token.jwt
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"no token\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "signed gate.sh blocks commit without JWT"
+else
+  fail "signed gate.sh should block without token" "exit=$EXIT_CODE"
+fi
+
+cat > gates.json << 'GATEJSON'
+{
+  "gate_mode": "legacy",
+  "enforcement": "block",
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate"]
+}
+GATEJSON
+
+echo ""
 echo "=== session-monitor.sh ==="
 
 # Reset state for session monitor tests
