@@ -179,6 +179,19 @@ def test_attest_with_fixture_reports(tmp_path: Path, monkeypatch):
     assert att.results["evaluate"]["overall_score"] == 96
 
 
+def test_generate_signing_secret_meta_beside_key(tmp_path: Path, monkeypatch):
+    """Meta file must live next to signing.key, not cwd-relative .gate/."""
+    other_cwd = tmp_path / "other"
+    other_cwd.mkdir()
+    monkeypatch.chdir(other_cwd)
+    key = tmp_path / "project" / ".gate" / "signing.key"
+    generate_signing_secret(key)
+    assert key.is_file()
+    meta = key.parent / "signing.meta.json"
+    assert meta.is_file()
+    assert json.loads(meta.read_text(encoding="utf-8"))["alg"] == "HS256"
+
+
 def test_bootstrap_and_signed_roundtrip(tmp_path: Path):
     import shutil
 

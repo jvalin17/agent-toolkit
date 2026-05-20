@@ -59,14 +59,15 @@ fi
 GATE_LOCAL="$PROJECT_ROOT/.gate"
 mkdir -p "$GATE_LOCAL"
 if [ ! -f "$GATE_LOCAL/signing.key" ]; then
-  python3 -c "
+  (cd "$PROJECT_ROOT" && python3 -c "
 import sys
 from pathlib import Path
 sys.path.insert(0, '$AGENT_DIR')
 from gate.keys import generate_signing_secret
-generate_signing_secret(Path('$GATE_LOCAL/signing.key'))
+gate = Path('.gate')
+generate_signing_secret(gate / 'signing.key', gate / 'signing.meta.json')
 print('  [installed] .gate/signing.key (HS256, stdlib only)')
-"
+")
 else
   echo "  [skip] .gate/signing.key (already exists)"
 fi
