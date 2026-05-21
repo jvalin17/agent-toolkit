@@ -46,7 +46,7 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 | Quick prototype | `/requirements auto my-app` |
 | Production / careful build | `/requirements` → `/architecture` → `/implementation` |
 | Existing codebase | `/explore .` → `/implementation` for new work |
-| Fix a bug | Say "fix the login bug" — `route-to-skill.sh` routes to `/debug` |
+| Fix a bug | Say "fix the login bug" — `route_to_skill.py` routes to `/debug` |
 | Refactor | `/implementation refactor auth` |
 | Before release | `/reviewer` + `/evaluate` |
 | Architecture review | `/assess` |
@@ -78,11 +78,11 @@ Guardrails and skills are prompts — the model can ignore them. **Structural ho
 |------|------|------|
 | `session_init.py` | Session start + after `/compact` | Loads project `.md` rules, init counters, clears stale `.gates/`, HANDOFF.md continuation context injection. |
 | `session_monitor.py` | PreToolUse + PostToolUse + UserPromptSubmit + PostCompact | Context-pressure limits: cumulative output bytes, PostCompact detection, exchange fallback (30). Blocks writes to `.session/` (G-SESSION-1). |
-| `route-to-skill.sh` | Every prompt | Intent → skill injection ("fix bug" → `/debug`, "build X" → `/implementation`). |
+| `route_to_skill.py` | Every prompt | Intent → skill injection ("fix bug" → `/debug`, "build X" → `/implementation`). |
 | `gate.py` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: block`. Auto-escalates warn→block on first violation. |
-| `skill-passed.sh` | After skill completes | Reports gate status (does not issue tokens). |
-| `tdd-enforce.sh` | Before file edit | TDD reminder if no test file exists. |
-| `gate-cleanup.sh` | After commit | Clears flags / token for next cycle. |
+| `skill_passed.py` | After skill completes | Reports gate status (does not issue tokens). |
+| `tdd_enforce.py` | Before file edit | TDD reminder if no test file exists. |
+| `gate_cleanup.py` | After commit | Clears flags / token for next cycle. |
 | `update.sh` | Before each skill | Auto-pull toolkit. |
 
 **Gates:** Most users stay on **legacy** (short sessions, no secrets). **Signed** is optional for teams and long handoffs. Setup, profiles, day-to-day, and scripts → **[`shared/gate-unlock.md`](shared/gate-unlock.md)**.
@@ -233,7 +233,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 skills/          13 workflows (+ sub-skills & references per skill)
 agents/          9 research sub-agents
 shared/          guardrails, orchestrator, gate-unlock, report-format, templates
-hooks/           4 bash + 3 Python structural hook scripts (+ gates.json reference copy)
+hooks/           7 Python structural hook scripts + update.sh (+ gates.json reference copy)
 update.sh        8th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
 scripts/         claude-auto, auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …

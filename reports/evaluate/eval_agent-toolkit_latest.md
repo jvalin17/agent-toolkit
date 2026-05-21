@@ -1,26 +1,26 @@
 # Evaluation: agent-toolkit (latest)
-# Score: **88%** (B+)
+# Score: **93%** (A)
 
 **Evaluated:** 2026-05-20  
-**Commit:** `bb6ca53`  
-**Full report:** `eval_repo_bb6ca53.md`
+**Commit:** `1e8b539`  
+**Full report:** `eval_repo_1e8b539.md`
 
 | Dimension | Score | Weight | Weighted |
 |-----------|-------|--------|----------|
-| Completeness | 85% | 30% | 25.5 |
-| Code Quality | 88% | 25% | 22.0 |
+| Completeness | 94% | 30% | 28.2 |
+| Code Quality | 91% | 25% | 22.8 |
 | Security | 95% | 20% | 19.0 |
-| Test Quality | 81% | 15% | 12.2 |
+| Test Quality | 92% | 15% | 13.8 |
 | Efficiency | 95% | 10% | 9.5 |
-| **Overall** | | | **88%** |
+| **Overall** | | | **93%** |
 
-## Grade: B+ (85–89%)
+## Grade: A (90–94%)
 
 ---
 
 ## Executive summary
 
-Re-evaluation at `bb6ca53`: bash session hooks removed, Python hooks canonical, **8 structural hooks**, **116/116** local pytest + **38/38** hook tests, **CI green** on main. Score **88%** (+1 from prior). Still below 95% due to CI running only gate pytest, stale `project-state.md`, and minor test/code quality gaps.
+Re-check at `1e8b539`: **121/121** pytest, **38/38** hooks, **CI green**. Guardrail "20 groups" now verifiable (20 `###` sections in `guardrails.md`). Score **93%** (+1). Still below 95% push gate — mainly the annotated-but-silent `except: pass` in `auto_continue.py`.
 
 **Do not unlock evaluate gate for 95% push threshold on this score alone.**
 
@@ -28,10 +28,7 @@ Re-evaluation at `bb6ca53`: bash session hooks removed, Python hooks canonical, 
 
 ## Top fixes for 95%
 
-1. Run full `pytest tests/` in `.github/workflows/gate.yml`.
-2. Update `project-state.md` (hook count, recent commits).
-3. Fix weak timestamp assertion in `tests/test_auto_continue.py:196`.
-4. Remove silent except in `scripts/auto_continue.py:161-162`.
-5. Refresh `architecture/auto-continuation.md` migration section.
+1. Replace silent `except: pass` in `scripts/auto_continue.py:160-161`.
+2. Add README footnote linking "20 groups" to `guardrails.md` sections.
 
-**Tests:** `python3 -m pytest tests/ -q` → 116 passed; `bash tests/test-hooks.sh` → 38 passed; CI `agent-toolkit-gate` → success @ `bb6ca53`.
+**Tests:** `python3 -m pytest tests/ -q` → 121 passed; `bash tests/test-hooks.sh` → 38 passed; CI success @ `1e8b539`.

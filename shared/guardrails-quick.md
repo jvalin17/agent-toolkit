@@ -38,6 +38,7 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G-REQ-1/2/3:** 20 questions max, estimation disclaimers, ML data privacy
 - **G-ARCH-1/2/3/4:** 2 backtracks, OWASP refs, OWASP LLM, 20 decisions max
 - **G-IMPL-1/2/3/4/5:** No SQL concat, no hardcoded secrets, overwrite protection (exempt TDD), trusted packages, 1 file per cycle
+- **G-IMPL-7:** Ground truth — test fixtures must cite data source (query output, user sample, spec, factory). "I read the code" is not valid provenance. Hard blocker in strict mode.
 - **G-IMPL-6:** No easy way out — no hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean flag arguments
 - **G-EVAL-1/2:** Highlight unverifiable, guardrail-aware grading
 - **G-UPD-1/2:** No auto-update, offline graceful

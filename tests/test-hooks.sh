@@ -1,7 +1,7 @@
 #!/bin/bash
 # test-hooks.sh — Tests for harness hooks
 #
-# Runs gate.sh, skill-passed.sh, gate-cleanup.sh, route-to-skill.sh
+# Runs gate.py, skill_passed.py, gate_cleanup.py, route_to_skill.py, tdd_enforce.py
 # with fixture JSON inputs and verifies correct behavior.
 #
 # Usage: ./tests/test-hooks.sh
@@ -34,11 +34,11 @@ cat > gates.json << 'EOF'
 }
 EOF
 
-echo "=== gate.sh ==="
+echo "=== gate.py ==="
 
 # Test 1: git commit without precommit-passed → BLOCKED (exit 2)
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "git commit blocked without precommit"
 else
@@ -48,7 +48,7 @@ fi
 # Test 2: git commit with valid precommit-passed → ALLOWED (exit 0)
 mkdir -p .gates && echo "READY 2026-05-20-1200" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "git commit allowed with precommit-passed"
 else
@@ -58,7 +58,7 @@ fi
 # Test 3: git push without evaluate-passed → BLOCKED
 rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "git push blocked without evaluate-passed"
 else
@@ -68,7 +68,7 @@ fi
 # Test 4: git push with both valid flags → ALLOWED
 echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "git push allowed with all flags"
 else
@@ -78,7 +78,7 @@ fi
 # Test 4b: git commit && git push — must enforce push gates (not commit-only)
 rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "commit && push blocked without evaluate (push gates enforced)"
 else
@@ -88,7 +88,7 @@ fi
 # Test 4c: git -C subdir push — still enforces push gates
 rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git -C /tmp/repo push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git -C /tmp/repo push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "git -C dir push blocked without evaluate"
 else
@@ -97,7 +97,7 @@ fi
 
 # Test 4d: commit; push (semicolon) — push gates
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"x\"; git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"x\"; git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "commit; push blocked without evaluate"
 else
@@ -107,7 +107,7 @@ fi
 # Test 4e: commit && push allowed when all flags present
 echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "commit && push allowed with all flags"
 else
@@ -116,7 +116,7 @@ fi
 
 # Test 5: non-git command → ALLOWED (exit 0)
 EXIT_CODE=0
-echo '{"tool_input":{"command":"ls -la"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"ls -la"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "non-git command allowed"
 else
@@ -134,7 +134,7 @@ cat > gates.json << 'EOF'
 }
 EOF
 EXIT_CODE=0
-OUT=$(echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" 2>&1) || EXIT_CODE=$?
+OUT=$(echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" 2>&1) || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ] && echo "$OUT" | grep -q "GATE WARNING"; then
   pass "warn mode: commit without flags exits 0 with warning"
 else
@@ -152,7 +152,7 @@ EOF
 # Test 5c: commit message mentioning git push — must not require push gates
 mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"docs: how to git push safely\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"docs: how to git push safely\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "commit message with git push text does not trigger push gate"
 else
@@ -162,7 +162,7 @@ fi
 # Test 6: precommit flag without READY marker → BLOCKED
 rm -rf .gates && mkdir -p .gates && touch .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "empty precommit flag (no READY) blocked"
 else
@@ -174,7 +174,7 @@ rm -rf .gates && mkdir -p .gates
 echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 40% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "evaluate flag with 40% score blocked for push"
 else
@@ -186,7 +186,7 @@ rm -rf .gates && mkdir -p .gates
 echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 94% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "evaluate at 94% blocked (below 95% threshold)"
 else
@@ -198,7 +198,7 @@ rm -rf .gates && mkdir -p .gates
 echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 95% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "evaluate at 95% allowed (meets threshold)"
 else
@@ -219,7 +219,7 @@ echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
 touch .gates/reviewer-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "reviewer flag without PASSED marker blocked"
 else
@@ -229,7 +229,7 @@ fi
 # Test 7e: reviewer flag with PASSED marker → ALLOWED
 echo "PASSED 2026-05-20" > .gates/reviewer-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "reviewer flag with PASSED marker allowed"
 else
@@ -262,7 +262,7 @@ cat > gates.json << 'EOF'
 EOF
 rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "strict profile: commit blocked without evaluate"
 else
@@ -270,13 +270,13 @@ else
 fi
 
 echo ""
-echo "=== gate-cleanup.sh ==="
+echo "=== gate_cleanup.py ==="
 
 # Test 9: git commit clears .gates/
 rm -rf .gates && mkdir -p .gates
 echo "READY" > .gates/precommit-passed
 echo "PASSED 96%" > .gates/evaluate-passed
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate-cleanup.sh" > /dev/null 2>&1
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate_cleanup.py" > /dev/null 2>&1
 if [ ! -d ".gates" ]; then
   pass "git commit clears .gates directory"
 else
@@ -285,7 +285,7 @@ fi
 
 # Test 10: non-commit doesn't clear .gates/
 mkdir -p .gates && echo "READY" > .gates/precommit-passed
-echo '{"tool_input":{"command":"git status"}}' | "$HOOKS_DIR/gate-cleanup.sh" > /dev/null 2>&1
+echo '{"tool_input":{"command":"git status"}}' | python3 "$HOOKS_DIR/gate_cleanup.py" > /dev/null 2>&1
 if [ -f ".gates/precommit-passed" ]; then
   pass "non-commit preserves .gates"
 else
@@ -293,11 +293,11 @@ else
 fi
 
 echo ""
-echo "=== skill-passed.sh ==="
+echo "=== skill_passed.py ==="
 
 # Test 9: skill completion WITHOUT flag file → reports not passed
 rm -rf .gates
-OUTPUT=$(echo '{"tool_input":{"skill":"precommit"}}' | "$HOOKS_DIR/skill-passed.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"skill":"precommit"}}' | python3 "$HOOKS_DIR/skill_passed.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "did NOT pass"; then
   pass "skill without flag reports not passed"
 else
@@ -306,7 +306,7 @@ fi
 
 # Test 12: skill completion WITH flag file → reports passed
 mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
-OUTPUT=$(echo '{"tool_input":{"skill":"precommit"}}' | "$HOOKS_DIR/skill-passed.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"skill":"precommit"}}' | python3 "$HOOKS_DIR/skill_passed.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "PASSED"; then
   pass "skill with flag reports passed"
 else
@@ -314,7 +314,7 @@ else
 fi
 
 # Test 11: non-gated skill → no output
-OUTPUT=$(echo '{"tool_input":{"skill":"explore"}}' | "$HOOKS_DIR/skill-passed.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"skill":"explore"}}' | python3 "$HOOKS_DIR/skill_passed.py" 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
   pass "non-gated skill produces no output"
 else
@@ -322,10 +322,10 @@ else
 fi
 
 echo ""
-echo "=== route-to-skill.sh ==="
+echo "=== route_to_skill.py ==="
 
 # Test 12: "fix the bug" → debug routing
-OUTPUT=$(echo '{"prompt":"fix the login bug"}' | "$HOOKS_DIR/route-to-skill.sh" 2>/dev/null)
+OUTPUT=$(echo '{"prompt":"fix the login bug"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "debug"; then
   pass "\"fix the login bug\" routes to debug"
 else
@@ -333,7 +333,7 @@ else
 fi
 
 # Test 13: "fix the design" → should NOT route to debug
-OUTPUT=$(echo '{"prompt":"fix the design of the homepage"}' | "$HOOKS_DIR/route-to-skill.sh" 2>/dev/null)
+OUTPUT=$(echo '{"prompt":"fix the design of the homepage"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "debug"; then
   fail "\"fix the design\" should NOT route to debug" "false positive"
 else
@@ -341,7 +341,7 @@ else
 fi
 
 # Test 14: "build an inventory app" → implementation routing
-OUTPUT=$(echo '{"prompt":"build an inventory app"}' | "$HOOKS_DIR/route-to-skill.sh" 2>/dev/null)
+OUTPUT=$(echo '{"prompt":"build an inventory app"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "implementation"; then
   pass "\"build an inventory app\" routes to implementation"
 else
@@ -349,7 +349,7 @@ else
 fi
 
 # Test 15: "/debug something" → no injection (user invoked directly)
-OUTPUT=$(echo '{"prompt":"/debug something"}' | "$HOOKS_DIR/route-to-skill.sh" 2>/dev/null)
+OUTPUT=$(echo '{"prompt":"/debug something"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
   pass "\"/debug\" prefix skips routing"
 else
@@ -357,7 +357,7 @@ else
 fi
 
 # Test 16: "refactor the auth module" → implementation refactor mode
-OUTPUT=$(echo '{"prompt":"refactor the auth module"}' | "$HOOKS_DIR/route-to-skill.sh" 2>/dev/null)
+OUTPUT=$(echo '{"prompt":"refactor the auth module"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "refactor mode"; then
   pass "\"refactor\" routes to implementation refactor mode"
 else
@@ -365,7 +365,7 @@ else
 fi
 
 # Test 17: "the search is broken" → debug routing
-OUTPUT=$(echo '{"prompt":"the search is broken"}' | "$HOOKS_DIR/route-to-skill.sh" 2>/dev/null)
+OUTPUT=$(echo '{"prompt":"the search is broken"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "debug"; then
   pass "\"broken\" routes to debug"
 else
@@ -373,7 +373,7 @@ else
 fi
 
 # Test 18: generic prompt → no routing
-OUTPUT=$(echo '{"prompt":"what time is it"}' | "$HOOKS_DIR/route-to-skill.sh" 2>/dev/null)
+OUTPUT=$(echo '{"prompt":"what time is it"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
   pass "generic prompt has no routing"
 else
@@ -381,10 +381,10 @@ else
 fi
 
 echo ""
-echo "=== tdd-enforce.sh ==="
+echo "=== tdd_enforce.py ==="
 
 # Test 19: editing source file with no test → TDD reminder
-OUTPUT=$(echo '{"tool_input":{"file_path":"/app/src/users.py"}}' | "$HOOKS_DIR/tdd-enforce.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"file_path":"/app/src/users.py"}}' | python3 "$HOOKS_DIR/tdd_enforce.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "TDD CHECK"; then
   pass "source file without test triggers TDD reminder"
 else
@@ -392,7 +392,7 @@ else
 fi
 
 # Test 20: editing a test file → no reminder
-OUTPUT=$(echo '{"tool_input":{"file_path":"/app/tests/test_users.py"}}' | "$HOOKS_DIR/tdd-enforce.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"file_path":"/app/tests/test_users.py"}}' | python3 "$HOOKS_DIR/tdd_enforce.py" 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
   pass "test file skips TDD reminder"
 else
@@ -400,7 +400,7 @@ else
 fi
 
 # Test 21: editing .md file → no reminder
-OUTPUT=$(echo '{"tool_input":{"file_path":"/app/README.md"}}' | "$HOOKS_DIR/tdd-enforce.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"file_path":"/app/README.md"}}' | python3 "$HOOKS_DIR/tdd_enforce.py" 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
   pass ".md file skips TDD reminder"
 else
@@ -408,7 +408,7 @@ else
 fi
 
 # Test 22: editing config file → no reminder
-OUTPUT=$(echo '{"tool_input":{"file_path":"/app/Dockerfile"}}' | "$HOOKS_DIR/tdd-enforce.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"file_path":"/app/Dockerfile"}}' | python3 "$HOOKS_DIR/tdd_enforce.py" 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
   pass "Dockerfile skips TDD reminder"
 else
@@ -416,7 +416,7 @@ else
 fi
 
 # Test 23: editing .spec.ts file → no reminder (it IS a test)
-OUTPUT=$(echo '{"tool_input":{"file_path":"/app/src/users.spec.ts"}}' | "$HOOKS_DIR/tdd-enforce.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"file_path":"/app/src/users.spec.ts"}}' | python3 "$HOOKS_DIR/tdd_enforce.py" 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
   pass ".spec.ts file skips TDD reminder"
 else
@@ -424,7 +424,7 @@ else
 fi
 
 # Test 24: TDD reminder mentions bug fix workflow
-OUTPUT=$(echo '{"tool_input":{"file_path":"/app/src/auth.py"}}' | "$HOOKS_DIR/tdd-enforce.sh" 2>/dev/null)
+OUTPUT=$(echo '{"tool_input":{"file_path":"/app/src/auth.py"}}' | python3 "$HOOKS_DIR/tdd_enforce.py" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "BUG FIX"; then
   pass "TDD reminder includes bug fix workflow"
 else
@@ -432,7 +432,7 @@ else
 fi
 
 echo ""
-echo "=== gate.sh (signed mode smoke) ==="
+echo "=== gate.py (signed mode smoke) ==="
 
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 git init -q 2>/dev/null || true
@@ -485,20 +485,20 @@ write_token(root / ".gate" / "gate-token.jwt", token)
 PY
 
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"signed ok\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"signed ok\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
-  pass "signed gate.sh allows commit with valid JWT"
+  pass "signed gate.py allows commit with valid JWT"
 else
-  fail "signed gate.sh should allow commit with valid token" "exit=$EXIT_CODE"
+  fail "signed gate.py should allow commit with valid token" "exit=$EXIT_CODE"
 fi
 
 rm -f .gate/gate-token.jwt
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"no token\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"no token\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
-  pass "signed gate.sh blocks commit without JWT"
+  pass "signed gate.py blocks commit without JWT"
 else
-  fail "signed gate.sh should block without token" "exit=$EXIT_CODE"
+  fail "signed gate.py should block without token" "exit=$EXIT_CODE"
 fi
 
 cat > gates.json << 'GATEJSON'
@@ -511,7 +511,7 @@ cat > gates.json << 'GATEJSON'
 GATEJSON
 
 echo ""
-echo "=== gate.sh enforcement escalation ==="
+echo "=== gate.py enforcement escalation ==="
 
 # Reset to warn mode
 cat > gates.json << 'EOF'
@@ -526,7 +526,7 @@ rm -rf .gates
 
 # Test: env var AGENT_TOOLKIT_ENFORCEMENT overrides gates.json
 EXIT_CODE=0
-AGENT_TOOLKIT_ENFORCEMENT=block echo '{"tool_input":{"command":"git commit -m \"test\""}}' | AGENT_TOOLKIT_ENFORCEMENT=block "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+AGENT_TOOLKIT_ENFORCEMENT=block echo '{"tool_input":{"command":"git commit -m \"test\""}}' | AGENT_TOOLKIT_ENFORCEMENT=block python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "env var AGENT_TOOLKIT_ENFORCEMENT=block overrides warn mode"
 else
@@ -537,7 +537,7 @@ fi
 mkdir -p .gates
 echo "block" > .gates/enforcement-override
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass ".gates/enforcement-override=block overrides warn mode"
 else
@@ -548,7 +548,7 @@ rm -f .gates/enforcement-override
 # Test: warn mode auto-escalates — first violation writes override file
 rm -rf .gates
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ] && [ -f ".gates/enforcement-override" ] && grep -q "block" .gates/enforcement-override 2>/dev/null; then
   pass "warn mode auto-escalates: writes enforcement-override on first violation"
 else
@@ -557,7 +557,7 @@ fi
 
 # Test: subsequent commit after escalation is hard-blocked
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"second attempt\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"second attempt\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "second commit after escalation is hard-blocked"
 else

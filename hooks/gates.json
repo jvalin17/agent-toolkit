@@ -3,7 +3,7 @@
   "_usage": "Set gate_mode, enforcement, and profile. Skill requirements come from profiles.<name>.",
 
   "gate_mode": "legacy",
-  "enforcement": "warn",
+  "enforcement": "block",
   "profile": "minimal",
   "eval_threshold": 95,
   "profiles": {

@@ -122,11 +122,11 @@ install_hooks() {
     local toolkit_path="$SCRIPT_DIR"
     local update_command="$toolkit_path/update.sh 2>/dev/null || true"
     local gate_cmd="python3 $toolkit_path/hooks/gate.py"
-    local skill_passed_cmd="$toolkit_path/hooks/skill-passed.sh"
-    local gate_cleanup_cmd="$toolkit_path/hooks/gate-cleanup.sh"
-    local route_cmd="$toolkit_path/hooks/route-to-skill.sh"
+    local skill_passed_cmd="python3 $toolkit_path/hooks/skill_passed.py"
+    local gate_cleanup_cmd="python3 $toolkit_path/hooks/gate_cleanup.py"
+    local route_cmd="python3 $toolkit_path/hooks/route_to_skill.py"
     local session_init_cmd="python3 $toolkit_path/hooks/session_init.py"
-    local tdd_cmd="$toolkit_path/hooks/tdd-enforce.sh"
+    local tdd_cmd="python3 $toolkit_path/hooks/tdd_enforce.py"
     local monitor_cmd="python3 $toolkit_path/hooks/session_monitor.py"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
@@ -262,13 +262,24 @@ HOOKEOF
         echo "  [installed] auto-update hook"
     fi
 
-    # Migrate gate.sh → gate.py if needed
-    if jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("gate.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
-        jq --arg cmd "$gate_cmd" '
-            .hooks.PreToolUse = [.hooks.PreToolUse[] | if (.hooks[]? | .command | contains("gate.sh")) then .hooks = [.hooks[] | if (.command | contains("gate.sh")) then .command = $cmd else . end] else . end]
-        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
-        echo "  [migrated] gate.sh → gate.py"
-    fi
+    # Migrate bash hooks → Python hooks
+    local bash_py_migrations=(
+        "gate.sh:gate.py:PreToolUse"
+        "skill-passed.sh:skill_passed.py:PostToolUse"
+        "gate-cleanup.sh:gate_cleanup.py:PostToolUse"
+        "tdd-enforce.sh:tdd_enforce.py:PreToolUse"
+        "route-to-skill.sh:route_to_skill.py:UserPromptSubmit"
+    )
+    for migration in "${bash_py_migrations[@]}"; do
+        IFS=':' read -r old_name new_name event <<< "$migration"
+        if jq -e ".hooks.${event}[]? | select(.hooks[]? | .command | contains(\"${old_name}\"))" "$SETTINGS_FILE" > /dev/null 2>&1; then
+            local new_cmd="python3 $toolkit_path/hooks/$new_name"
+            jq --arg old "$old_name" --arg new "$new_cmd" --arg evt "$event" '
+                .hooks[($evt)] = [.hooks[($evt)][] | if (.hooks[]? | .command | contains($old)) then .hooks = [.hooks[] | if (.command | contains($old)) then .command = $new else . end] else . end]
+            ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+            echo "  [migrated] $old_name → $new_name"
+        fi
+    done
 
     # Add gate hook
     if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("gate.py"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
@@ -281,7 +292,7 @@ HOOKEOF
     fi
 
     # Add skill-passed hook (replaces old precommit-passed)
-    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("skill-passed.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("skill_passed"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$skill_passed_cmd" '
             .hooks //= {} | .hooks.PostToolUse //= [] |
             .hooks.PostToolUse += [{"matcher": "Skill", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]
@@ -292,7 +303,7 @@ HOOKEOF
     fi
 
     # Add gate-cleanup hook (replaces old post-commit-cleanup)
-    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("gate-cleanup.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    if ! jq -e '.hooks.PostToolUse[]? | select(.hooks[]? | .command | contains("gate_cleanup"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$gate_cleanup_cmd" '
             .hooks.PostToolUse += [{"matcher": "Bash", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
@@ -302,7 +313,7 @@ HOOKEOF
     fi
 
     # Add tdd-enforce hook (PreToolUse on Edit/Write)
-    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("tdd-enforce"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("tdd_enforce"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$tdd_cmd" '
             .hooks.PreToolUse += [{"matcher": "Edit|Write", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
@@ -312,7 +323,7 @@ HOOKEOF
     fi
 
     # Add route-to-skill hook (UserPromptSubmit)
-    if ! jq -e '.hooks.UserPromptSubmit[]? | select(.hooks[]? | .command | contains("route-to-skill"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    if ! jq -e '.hooks.UserPromptSubmit[]? | select(.hooks[]? | .command | contains("route_to_skill"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$route_cmd" '
             .hooks //= {} | .hooks.UserPromptSubmit //= [] |
             .hooks.UserPromptSubmit += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]

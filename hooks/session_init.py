@@ -29,15 +29,37 @@ SCAN_DIRS = ["requirements", "architecture"]
 EXCLUDED_ROOT_FILES = {"README.md", "HANDOFF.md", "project-state.md", "CLAUDE.md", "DECISIONS.md"}
 
 REQUIRED_HOOKS = [
-    "gate.py", "skill-passed.sh", "gate-cleanup.sh",
-    "route-to-skill.sh", "session_init.py", "session_monitor.py",
-    "tdd-enforce.sh",
+    "gate.py", "skill_passed.py", "gate_cleanup.py",
+    "route_to_skill.py", "session_init.py", "session_monitor.py",
+    "tdd_enforce.py",
 ]
 
-SETTINGS_CHECKED_HOOKS = ["gate.py", "session_monitor.py", "skill-passed.sh"]
+SETTINGS_CHECKED_HOOKS = ["gate.py", "session_monitor.py", "skill_passed.py"]
+
+DEFAULT_MODE = "normal"
 
 
 # --- Core functions ---
+
+
+def detect_mode(project_dir: Path) -> str:
+    """Detect agent toolkit mode from gates.json or env var.
+
+    Priority: AGENT_TOOLKIT_MODE env var > gates.json "mode" field > "normal".
+    """
+    env_mode = os.environ.get("AGENT_TOOLKIT_MODE")
+    if env_mode:
+        return env_mode
+
+    gates_path = project_dir / "gates.json"
+    if gates_path.is_file():
+        try:
+            data = json.loads(gates_path.read_text(encoding="utf-8"))
+            return data.get("mode", DEFAULT_MODE)
+        except (json.JSONDecodeError, OSError):
+            return DEFAULT_MODE
+
+    return DEFAULT_MODE
 
 
 def scan_project_files(project_dir: Path) -> Tuple[List[str], int]:
@@ -173,6 +195,7 @@ def build_context(
     report_count: int,
     warnings: List[str],
     continuation: Optional[Dict[str, object]],
+    mode: Optional[str] = None,
 ) -> str:
     """Build the full context string for SessionStart.
 
@@ -181,8 +204,18 @@ def build_context(
         report_count: Number of report .md files
         warnings: List of integrity warning strings
         continuation: Dict with 'goal' and 'session_number', or None
+        mode: Agent toolkit mode ("normal", "strict", or None for default)
     """
     parts = ["AGENT TOOLKIT ACTIVE — You must follow skill workflows for all tasks."]
+
+    # Strict mode banner
+    if mode == "strict":
+        parts.append("")
+        parts.append(
+            "STRICT MODE ACTIVE — G-IMPL-7 enforced, "
+            "periodic integrity checks enabled, "
+            "/evaluate required before commit."
+        )
 
     # Continuation context (prominent, before file list)
     if continuation:
@@ -303,10 +336,13 @@ def main() -> int:
     if is_continuation:
         continuation = {"goal": goal, "session_number": session_number}
 
-    # 6. Build context
-    context = build_context(files, report_count, all_warnings, continuation)
+    # 6. Detect mode
+    mode = detect_mode(project_dir)
 
-    # 7. Output JSON
+    # 7. Build context
+    context = build_context(files, report_count, all_warnings, continuation, mode=mode)
+
+    # 8. Output JSON
     output = json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",

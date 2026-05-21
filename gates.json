@@ -1,7 +1,8 @@
 {
   "gate_mode": "legacy",
-  "enforcement": "warn",
+  "enforcement": "block",
   "profile": "minimal",
+  "mode": "normal",
   "eval_threshold": 95,
   "profiles": {
     "minimal": {

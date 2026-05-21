@@ -18,6 +18,7 @@ from hooks.session_init import (
     check_hook_integrity,
     clear_stale_gates,
     detect_continuation,
+    detect_mode,
     init_session_state,
     main,
     scan_project_files,
@@ -143,9 +144,9 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.py", "skill-passed.sh", "gate-cleanup.sh",
-            "route-to-skill.sh", "session_init.py", "session_monitor.py",
-            "tdd-enforce.sh",
+            "gate.py", "skill_passed.py", "gate_cleanup.py",
+            "route_to_skill.py", "session_init.py", "session_monitor.py",
+            "tdd_enforce.py",
         ]
         for hook in required:
             hook_file = hooks_dir / hook
@@ -165,32 +166,31 @@ class TestCheckHookIntegrity:
         warnings = check_hook_integrity(hooks_dir, settings_path=None)
         assert any("MISSING" in w for w in warnings)
 
-    def test_non_executable_hook_reported(self, project_dir):
+    def test_python_hooks_skip_executable_check(self, project_dir):
+        """Python hooks don't need +x since they're invoked via python3."""
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.py", "skill-passed.sh", "gate-cleanup.sh",
-            "route-to-skill.sh", "session_init.py", "session_monitor.py",
-            "tdd-enforce.sh",
+            "gate.py", "skill_passed.py", "gate_cleanup.py",
+            "route_to_skill.py", "session_init.py", "session_monitor.py",
+            "tdd_enforce.py",
         ]
         for hook in required:
             hook_file = hooks_dir / hook
-            hook_file.write_text("#!/bin/bash")
-            if hook == "skill-passed.sh":
-                hook_file.chmod(0o644)  # Not executable
-            else:
-                hook_file.chmod(0o755)
+            hook_file.write_text("#!/usr/bin/env python3")
+            hook_file.chmod(0o644)  # Not executable — should be fine for .py
 
         warnings = check_hook_integrity(hooks_dir, settings_path=None)
-        assert any("NOT EXECUTABLE" in w and "skill-passed.sh" in w for w in warnings)
+        exec_warnings = [w for w in warnings if "NOT EXECUTABLE" in w]
+        assert exec_warnings == []
 
     def test_settings_missing_hook_registration(self, project_dir):
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.py", "skill-passed.sh", "gate-cleanup.sh",
-            "route-to-skill.sh", "session_init.py", "session_monitor.py",
-            "tdd-enforce.sh",
+            "gate.py", "skill_passed.py", "gate_cleanup.py",
+            "route_to_skill.py", "session_init.py", "session_monitor.py",
+            "tdd_enforce.py",
         ]
         for hook in required:
             hook_file = hooks_dir / hook
@@ -207,9 +207,9 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.py", "skill-passed.sh", "gate-cleanup.sh",
-            "route-to-skill.sh", "session_init.py", "session_monitor.py",
-            "tdd-enforce.sh",
+            "gate.py", "skill_passed.py", "gate_cleanup.py",
+            "route_to_skill.py", "session_init.py", "session_monitor.py",
+            "tdd_enforce.py",
         ]
         for hook in required:
             hook_file = hooks_dir / hook
@@ -223,7 +223,7 @@ class TestCheckHookIntegrity:
                     {"hooks": [{"command": "session_monitor.py"}]},
                 ],
                 "PostToolUse": [
-                    {"hooks": [{"command": "skill-passed.sh"}]},
+                    {"hooks": [{"command": "skill_passed.py"}]},
                 ],
             }
         })
@@ -312,6 +312,54 @@ Previous sessions: 6
 
         _, _, session_number = detect_continuation(project_dir)
         assert session_number == 7
+
+
+# --- detect_mode ---
+
+
+class TestDetectMode:
+    def test_reads_mode_from_gates_json(self, project_dir):
+        """detect_mode reads the 'mode' field from gates.json."""
+        gates = {"gate_mode": "legacy", "mode": "strict"}
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        mode = detect_mode(project_dir)
+        assert mode == "strict"
+
+    def test_missing_mode_field_returns_normal(self, project_dir):
+        """If gates.json has no 'mode' field, default to 'normal'."""
+        gates = {"gate_mode": "legacy"}
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        mode = detect_mode(project_dir)
+        assert mode == "normal"
+
+    def test_missing_gates_json_returns_normal(self, project_dir):
+        """If gates.json doesn't exist, default to 'normal'."""
+        mode = detect_mode(project_dir)
+        assert mode == "normal"
+
+    def test_env_var_overrides_gates_json(self, project_dir):
+        """AGENT_TOOLKIT_MODE env var overrides gates.json."""
+        gates = {"mode": "normal"}
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "strict"}):
+            mode = detect_mode(project_dir)
+        assert mode == "strict"
+
+    def test_env_var_without_gates_json(self, project_dir):
+        """AGENT_TOOLKIT_MODE works even without gates.json."""
+        with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "strict"}):
+            mode = detect_mode(project_dir)
+        assert mode == "strict"
+
+    def test_corrupt_gates_json_returns_normal(self, project_dir):
+        """Corrupt gates.json should not crash, returns 'normal'."""
+        (project_dir / "gates.json").write_text("not valid json {{{")
+
+        mode = detect_mode(project_dir)
+        assert mode == "normal"
 
 
 # --- build_context ---
@@ -448,6 +496,63 @@ class TestMain:
         assert state_file.exists()
         data = json.loads(state_file.read_text())
         assert data["exchanges"] == 0
+
+    def test_strict_mode_context_injected(self):
+        """When mode=strict, build_context includes strict mode banner."""
+        context = build_context(
+            files=["- HANDOFF.md (PRIORITY — read this first)"],
+            report_count=0,
+            warnings=[],
+            continuation=None,
+            mode="strict",
+        )
+        assert "STRICT MODE ACTIVE" in context
+        assert "G-IMPL-7" in context
+        assert "/evaluate required before commit" in context
+
+    def test_normal_mode_no_strict_context(self):
+        """When mode=normal, build_context does NOT include strict mode banner."""
+        context = build_context(
+            files=["- HANDOFF.md (PRIORITY — read this first)"],
+            report_count=0,
+            warnings=[],
+            continuation=None,
+            mode="normal",
+        )
+        assert "STRICT MODE ACTIVE" not in context
+
+    def test_default_mode_no_strict_context(self):
+        """When mode is omitted (None), behaves like normal mode."""
+        context = build_context(
+            files=["- HANDOFF.md (PRIORITY — read this first)"],
+            report_count=0,
+            warnings=[],
+            continuation=None,
+        )
+        assert "STRICT MODE ACTIVE" not in context
+
+    def test_strict_mode_injected_via_main(self, project_dir):
+        """When gates.json has mode=strict, main() injects strict mode context."""
+        gates = {"gate_mode": "legacy", "mode": "strict"}
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        with patch("hooks.session_init.get_project_dir", return_value=project_dir):
+            with patch("sys.stdin") as mock_stdin:
+                mock_stdin.read.return_value = json.dumps({
+                    "hook_event_name": "SessionStart",
+                })
+                with patch("sys.stdout") as mock_stdout:
+                    written = []
+                    mock_stdout.write = lambda s: written.append(s)
+                    mock_stdout.flush = lambda: None
+
+                    with patch("hooks.session_init.get_settings_path", return_value=None):
+                        main()
+
+        output = "".join(written)
+        data = json.loads(output)
+        context = data["hookSpecificOutput"]["additionalContext"]
+        assert "STRICT MODE ACTIVE" in context
 
     def test_continuation_context_injected(self, project_dir):
         """When HANDOFF.md exists with a goal, continuation context appears."""
