@@ -6,14 +6,11 @@ modes, flag validation, profile-based gates, override chain, auto-escalation.
 
 import json
 import os
-import sys
 from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
-
-from gate import (
+from hooks.gate import (
     detect_git_action,
     check_gate_flags,
     load_gate_config,
