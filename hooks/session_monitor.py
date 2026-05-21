@@ -38,6 +38,38 @@ BASH_WRITE_PATTERNS = re.compile(
 )
 BASH_SESSION_REF = re.compile(r"\.session(/|\s|$)")
 
+# Real-system query patterns (strict mode drift detection)
+REAL_SYSTEM_QUERY_PATTERNS = re.compile(
+    r"\b(curl|wget|httpie|grpcurl|postman)\b"
+    r"|\bhttp\s+(GET|POST|PUT|DELETE|PATCH)\b"
+    r"|\b(psql|mysql|sqlite3|mongosh)\b"
+    r"|\b(SELECT|INSERT|UPDATE|DELETE)\s+"
+    r"|\bdocker\s+exec\b.*\b(psql|mysql|mongo|redis)",
+    re.IGNORECASE,
+)
+
+# Test runner patterns
+TEST_RUNNER_PATTERNS = re.compile(
+    r"\b(pytest|py\.test|python3?\s+-m\s+pytest)\b"
+    r"|\b(jest|vitest|mocha)\b"
+    r"|\bgo\s+test\b"
+    r"|\bcargo\s+test\b"
+    r"|\bnpm\s+(run\s+)?test\b"
+    r"|\byarn\s+test\b",
+    re.IGNORECASE,
+)
+
+# Test failure indicators in output
+TEST_FAILURE_PATTERNS = re.compile(
+    r"\bFAILED\b|\bFAILURE\b|\bERROR\b.*test"
+    r"|\bfailed\b.*\btests?\b"
+    r"|\bAssertionError\b"
+    r"|\bExpect.*received\b",
+    re.IGNORECASE,
+)
+
+MAX_TOOL_SEQUENCE_LENGTH = 10
+
 
 @dataclass
 class SessionState:
@@ -49,15 +81,28 @@ class SessionState:
     warned: bool = False
     stopped: int = 0  # 0=running, 1=grace, 2=hard-stop
     stop_at_tool_call: int = 0
+    # Strict mode drift tracking
+    mode: str = "normal"
+    exchanges_since_query: int = 0
+    patch_forward_count: int = 0
+    slabs_without_data: int = 0
+    last_tool_sequence: list = field(default_factory=list)
 
 
 def load_state(state_file: Path) -> SessionState:
-    """Load session state from JSON file. Returns fresh state if missing/corrupt."""
+    """Load session state from JSON file. Returns fresh state if missing/corrupt.
+
+    Tolerates missing fields (uses defaults) and extra fields (ignores them)
+    for backward/forward compatibility when SessionState gains new fields.
+    """
     if not state_file.exists():
         return SessionState(session_start=int(time.time()))
     try:
         data = json.loads(state_file.read_text(encoding="utf-8"))
-        return SessionState(**data)
+        # Filter to only known fields for forward compatibility
+        valid_fields = {f.name for f in SessionState.__dataclass_fields__.values()}
+        filtered = {k: v for k, v in data.items() if k in valid_fields}
+        return SessionState(**filtered)
     except (json.JSONDecodeError, TypeError, KeyError):
         return SessionState(session_start=int(time.time()))
 
@@ -177,12 +222,98 @@ def is_handoff_allowed(tool_name: str, file_path: str, command: str) -> bool:
     return False
 
 
+# --- Drift detection (strict mode) ---
+
+
+def is_real_system_query(command: str) -> bool:
+    """Check if a Bash command is a real-system query (curl, psql, SELECT, etc.)."""
+    if not command:
+        return False
+    return bool(REAL_SYSTEM_QUERY_PATTERNS.search(command))
+
+
+def is_test_command(command: str) -> bool:
+    """Check if a Bash command runs a test suite."""
+    if not command:
+        return False
+    return bool(TEST_RUNNER_PATTERNS.search(command))
+
+
+def is_test_failure(output: str) -> bool:
+    """Check if tool output indicates test failure."""
+    if not output:
+        return False
+    return bool(TEST_FAILURE_PATTERNS.search(output))
+
+
+def is_test_file(file_path: str) -> bool:
+    """Check if a file path is a test file."""
+    if not file_path:
+        return False
+    name = Path(file_path).name
+    return (
+        name.startswith("test_")
+        or name.endswith("_test.py")
+        or name.endswith(".test.ts")
+        or name.endswith(".test.js")
+        or name.endswith(".spec.ts")
+        or name.endswith(".spec.js")
+        or "/tests/" in file_path
+        or "/test/" in file_path
+        or "/__tests__/" in file_path
+    )
+
+
+def detect_patch_forward(sequence: list) -> bool:
+    """Detect patch-forward pattern in tool sequence.
+
+    Pattern: test failure → Edit/Write source file with no investigation between.
+    Investigation = Read, Grep, or real-system query (Bash with query pattern).
+    """
+    if len(sequence) < 2:
+        return False
+
+    # Walk backward from the last entry
+    last = sequence[-1]
+    if last.get("tool") not in ("Edit", "Write"):
+        return False
+
+    # If editing a test file, not patch-forward
+    if is_test_file(last.get("file_path", "")):
+        return False
+
+    # Look backward for test failure, checking for investigation between
+    for i in range(len(sequence) - 2, -1, -1):
+        entry = sequence[i]
+
+        # Found investigation — not patch-forward
+        if entry.get("tool") in ("Read", "Grep"):
+            return False
+        if entry.get("was_query"):
+            return False
+
+        # Found test failure — this is patch-forward
+        if entry.get("was_test") and entry.get("failed"):
+            return True
+
+        # Found non-test, non-investigation tool — stop searching
+        # (the test failure must be adjacent-ish)
+        if entry.get("tool") not in ("Edit", "Write"):
+            return False
+
+    return False
+
+
 # --- Event handlers ---
 
 
 def handle_user_prompt(state: SessionState) -> tuple:
     """Handle UserPromptSubmit event. Increments exchanges, checks warn."""
     state.exchanges += 1
+
+    # Strict mode: track exchanges since last real-system query
+    if state.mode == "strict":
+        state.exchanges_since_query += 1
 
     response = None
     if should_warn(state):
@@ -197,9 +328,49 @@ def handle_user_prompt(state: SessionState) -> tuple:
     return state, response
 
 
-def handle_post_tool_use(state: SessionState, tool_result: str) -> SessionState:
-    """Handle PostToolUse event. Tracks cumulative output bytes."""
+def handle_post_tool_use(
+    state: SessionState,
+    tool_result: str,
+    tool_name: str = "",
+    command: str = "",
+    file_path: str = "",
+) -> SessionState:
+    """Handle PostToolUse event. Tracks cumulative output bytes and drift."""
     state.cumulative_output_bytes += len(tool_result)
+
+    # Strict mode: track tool sequence and drift counters
+    if state.mode == "strict":
+        entry = {"tool": tool_name}
+
+        if tool_name == "Bash" and command:
+            was_test = is_test_command(command)
+            was_query = is_real_system_query(command)
+            entry["was_test"] = was_test
+            entry["command"] = command
+            if was_test:
+                entry["failed"] = is_test_failure(tool_result)
+            if was_query:
+                entry["was_query"] = True
+                state.exchanges_since_query = 0
+        elif tool_name in ("Edit", "Write"):
+            entry["file_path"] = file_path
+            entry["was_test"] = False
+        else:
+            entry["was_test"] = False
+
+        state.last_tool_sequence.append(entry)
+
+        # Cap sequence length
+        if len(state.last_tool_sequence) > MAX_TOOL_SEQUENCE_LENGTH:
+            state.last_tool_sequence = state.last_tool_sequence[
+                -MAX_TOOL_SEQUENCE_LENGTH:
+            ]
+
+        # Check for patch-forward pattern
+        if tool_name in ("Edit", "Write") and not is_test_file(file_path):
+            if detect_patch_forward(state.last_tool_sequence):
+                state.patch_forward_count += 1
+
     return state
 
 
@@ -336,7 +507,10 @@ def main() -> int:
 
     elif hook_event == "PostToolUse":
         result_text = tool_result if isinstance(tool_result, str) else json.dumps(tool_result)
-        state = handle_post_tool_use(state, result_text)
+        state = handle_post_tool_use(
+            state, result_text,
+            tool_name=tool_name, command=command, file_path=file_path,
+        )
 
     elif hook_event == "PostCompact":
         state, response = handle_post_compact(state)

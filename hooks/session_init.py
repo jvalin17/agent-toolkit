@@ -97,10 +97,10 @@ def scan_project_files(project_dir: Path) -> Tuple[List[str], int]:
     return files, report_count
 
 
-def init_session_state(session_dir: Path) -> SessionState:
+def init_session_state(session_dir: Path, mode: str = "normal") -> SessionState:
     """Initialize .session/state.json with fresh counters."""
     session_dir.mkdir(parents=True, exist_ok=True)
-    state = SessionState(session_start=int(time.time()))
+    state = SessionState(session_start=int(time.time()), mode=mode)
     state_file = session_dir / "state.json"
     save_state(state, state_file)
     return state
@@ -317,27 +317,27 @@ def main() -> int:
     settings_path = get_settings_path()
     session_dir = project_dir / ".session"
 
-    # 1. Initialize session state
-    init_session_state(session_dir)
+    # 1. Detect mode (needed for session state init)
+    mode = detect_mode(project_dir)
 
-    # 2. Clear stale gates
+    # 2. Initialize session state with mode
+    init_session_state(session_dir, mode=mode)
+
+    # 3. Clear stale gates
     gate_warnings = clear_stale_gates(project_dir)
 
-    # 3. Hook integrity check
+    # 4. Hook integrity check
     integrity_warnings = check_hook_integrity(hooks_dir, settings_path)
     all_warnings = gate_warnings + integrity_warnings
 
-    # 4. Scan project files
+    # 5. Scan project files
     files, report_count = scan_project_files(project_dir)
 
-    # 5. Detect continuation
+    # 6. Detect continuation
     continuation = None
     is_continuation, goal, session_number = detect_continuation(project_dir)
     if is_continuation:
         continuation = {"goal": goal, "session_number": session_number}
-
-    # 6. Detect mode
-    mode = detect_mode(project_dir)
 
     # 7. Build context
     context = build_context(files, report_count, all_warnings, continuation, mode=mode)

@@ -18,14 +18,17 @@ from session_monitor import (
     FALLBACK_MAX_EXCHANGES,
     GRACE_TOOL_CALLS,
     HARD_THRESHOLD_BYTES,
+    REAL_SYSTEM_QUERY_PATTERNS,
     WARN_THRESHOLD_BYTES,
     SessionState,
     check_session_blocked,
     check_thresholds,
+    detect_patch_forward,
     handle_post_compact,
     handle_post_tool_use,
     handle_pre_tool_use,
     handle_user_prompt,
+    is_real_system_query,
     load_state,
     make_hook_response,
     save_state,
@@ -398,3 +401,207 @@ class TestHookResponse:
         response = make_hook_response("PreToolUse", 'message with "quotes" and\nnewlines')
         data = json.loads(response)
         assert '"quotes"' in data["hookSpecificOutput"]["additionalContext"]
+
+
+# --- Drift state fields (Slab 2) ---
+
+
+class TestSessionStateDriftFields:
+    def test_drift_field_defaults(self):
+        state = SessionState(session_start=1000)
+        assert state.mode == "normal"
+        assert state.exchanges_since_query == 0
+        assert state.patch_forward_count == 0
+        assert state.slabs_without_data == 0
+        assert state.last_tool_sequence == []
+
+    def test_drift_fields_serialize_roundtrip(self):
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges_since_query=5,
+            patch_forward_count=2,
+            slabs_without_data=1,
+            last_tool_sequence=[
+                {"tool": "Bash", "was_test": True, "failed": True},
+            ],
+        )
+        data = asdict(state)
+        restored = SessionState(**data)
+        assert restored.mode == "strict"
+        assert restored.exchanges_since_query == 5
+        assert restored.patch_forward_count == 2
+        assert restored.last_tool_sequence == state.last_tool_sequence
+
+
+# --- Real-system query detection ---
+
+
+class TestIsRealSystemQuery:
+    def test_curl_detected(self):
+        assert is_real_system_query("curl https://api.example.com/items") is True
+
+    def test_wget_detected(self):
+        assert is_real_system_query("wget https://example.com/data.json") is True
+
+    def test_psql_detected(self):
+        assert is_real_system_query("psql -c 'SELECT * FROM users'") is True
+
+    def test_mysql_detected(self):
+        assert is_real_system_query("mysql -e 'SHOW TABLES'") is True
+
+    def test_sqlite3_detected(self):
+        assert is_real_system_query("sqlite3 db.sqlite 'SELECT count(*) FROM items'") is True
+
+    def test_select_in_command(self):
+        assert is_real_system_query("echo 'SELECT name FROM users' | psql") is True
+
+    def test_docker_exec_query(self):
+        assert is_real_system_query("docker exec db psql -c 'SELECT 1'") is True
+
+    def test_httpie_detected(self):
+        assert is_real_system_query("http GET https://api.example.com/items") is True
+
+    def test_git_command_not_detected(self):
+        assert is_real_system_query("git status") is False
+
+    def test_pytest_not_detected(self):
+        assert is_real_system_query("python3 -m pytest tests/ -q") is False
+
+    def test_echo_not_detected(self):
+        assert is_real_system_query("echo hello") is False
+
+    def test_empty_command_not_detected(self):
+        assert is_real_system_query("") is False
+
+    def test_grpcurl_detected(self):
+        assert is_real_system_query("grpcurl localhost:50051 list") is True
+
+    def test_mongosh_detected(self):
+        assert is_real_system_query("mongosh --eval 'db.users.find()'") is True
+
+
+# --- Patch-forward detection ---
+
+
+class TestDetectPatchForward:
+    def test_no_patch_forward_on_empty_sequence(self):
+        assert detect_patch_forward([]) is False
+
+    def test_detects_test_fail_then_source_edit(self):
+        """Test fail → Edit source with no investigation = patch-forward."""
+        sequence = [
+            {"tool": "Bash", "was_test": True, "failed": True},
+            {"tool": "Edit", "file_path": "src/main.py", "was_test": False},
+        ]
+        assert detect_patch_forward(sequence) is True
+
+    def test_no_patch_forward_with_investigation(self):
+        """Test fail → Read → Edit source = NOT patch-forward (investigated)."""
+        sequence = [
+            {"tool": "Bash", "was_test": True, "failed": True},
+            {"tool": "Read", "file_path": "src/main.py", "was_test": False},
+            {"tool": "Edit", "file_path": "src/main.py", "was_test": False},
+        ]
+        assert detect_patch_forward(sequence) is False
+
+    def test_no_patch_forward_with_query(self):
+        """Test fail → curl → Edit source = NOT patch-forward (queried)."""
+        sequence = [
+            {"tool": "Bash", "was_test": True, "failed": True},
+            {"tool": "Bash", "command": "curl localhost:8080/api", "was_test": False, "was_query": True},
+            {"tool": "Edit", "file_path": "src/main.py", "was_test": False},
+        ]
+        assert detect_patch_forward(sequence) is False
+
+    def test_no_patch_forward_when_editing_test_file(self):
+        """Test fail → Edit test file = NOT patch-forward (fixing test)."""
+        sequence = [
+            {"tool": "Bash", "was_test": True, "failed": True},
+            {"tool": "Edit", "file_path": "tests/test_main.py", "was_test": False},
+        ]
+        assert detect_patch_forward(sequence) is False
+
+    def test_no_patch_forward_on_test_pass(self):
+        """Test pass → Edit source = normal workflow, not patch-forward."""
+        sequence = [
+            {"tool": "Bash", "was_test": True, "failed": False},
+            {"tool": "Edit", "file_path": "src/main.py", "was_test": False},
+        ]
+        assert detect_patch_forward(sequence) is False
+
+
+# --- Drift counters in strict mode ---
+
+
+class TestDriftCountersStrictMode:
+    def test_exchanges_since_query_increments_in_strict(self):
+        """In strict mode, exchanges_since_query increments on user prompt."""
+        state = SessionState(session_start=1000, mode="strict")
+        state, _ = handle_user_prompt(state)
+        assert state.exchanges_since_query == 1
+
+    def test_exchanges_since_query_not_tracked_in_normal(self):
+        """In normal mode, exchanges_since_query stays at 0."""
+        state = SessionState(session_start=1000, mode="normal")
+        state, _ = handle_user_prompt(state)
+        assert state.exchanges_since_query == 0
+
+    def test_query_resets_exchanges_since_query(self):
+        """A real-system query resets the counter."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges_since_query=8,
+        )
+        state = handle_post_tool_use(
+            state, "curl output here",
+            tool_name="Bash", command="curl https://api.example.com"
+        )
+        assert state.exchanges_since_query == 0
+
+    def test_tool_sequence_tracked_in_strict(self):
+        """In strict mode, tool calls are added to last_tool_sequence."""
+        state = SessionState(session_start=1000, mode="strict")
+        state = handle_post_tool_use(
+            state, "FAILED: 2 tests",
+            tool_name="Bash", command="python3 -m pytest tests/"
+        )
+        assert len(state.last_tool_sequence) == 1
+        assert state.last_tool_sequence[0]["was_test"] is True
+        assert state.last_tool_sequence[0]["failed"] is True
+
+    def test_tool_sequence_not_tracked_in_normal(self):
+        """In normal mode, last_tool_sequence stays empty."""
+        state = SessionState(session_start=1000, mode="normal")
+        state = handle_post_tool_use(
+            state, "FAILED: 2 tests",
+            tool_name="Bash", command="python3 -m pytest tests/"
+        )
+        assert state.last_tool_sequence == []
+
+    def test_tool_sequence_capped_at_10(self):
+        """Sequence buffer doesn't grow unbounded."""
+        state = SessionState(session_start=1000, mode="strict")
+        for i in range(15):
+            state = handle_post_tool_use(
+                state, f"result {i}",
+                tool_name="Read", command=""
+            )
+        assert len(state.last_tool_sequence) <= 10
+
+    def test_patch_forward_increments_counter(self):
+        """When patch-forward is detected, counter increments."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            last_tool_sequence=[
+                {"tool": "Bash", "was_test": True, "failed": True},
+            ],
+        )
+        # Edit a source file after test failure — should detect patch-forward
+        state = handle_post_tool_use(
+            state, "",
+            tool_name="Edit", command="", file_path="src/main.py"
+        )
+        assert state.patch_forward_count == 1
