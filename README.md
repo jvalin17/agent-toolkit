@@ -77,7 +77,7 @@ Guardrails and skills are prompts — the model can ignore them. **Structural ho
 | Hook | When | What |
 |------|------|------|
 | `session_init.py` | Session start + after `/compact` | Loads project `.md` rules, init counters, clears stale `.gates/`, HANDOFF.md continuation context injection. |
-| `session_monitor.py` | PreToolUse + PostToolUse + UserPromptSubmit + PostCompact | Context-pressure limits: cumulative output bytes, PostCompact detection, exchange fallback (30). Blocks writes to `.session/` (G-SESSION-1). |
+| `session_monitor.py` | PreToolUse + PostToolUse + UserPromptSubmit + PostCompact | Context-pressure limits: cumulative output bytes, PostCompact detection, exchange fallback (30). Blocks writes to `.session/` (G-SESSION-1). In strict mode: drift detection, periodic integrity checks, patch-forward detection. |
 | `route_to_skill.py` | Every prompt | Intent → skill injection ("fix bug" → `/debug`, "build X" → `/implementation`). |
 | `gate.py` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: block`. Auto-escalates warn→block on first violation. |
 | `skill_passed.py` | After skill completes | Reports gate status (does not issue tokens). |
@@ -197,6 +197,33 @@ python3 scripts/auto_continue.py --headless "Build auth system"
 
 Architecture: [`architecture/auto-continuation.md`](architecture/auto-continuation.md). Requirements: [`requirements/auto-continuation.md`](requirements/auto-continuation.md).
 
+## Strict Mode
+
+Optional mode that trades speed for correctness. Prevents agent faking by making inference-based test fixtures and patch-forward patterns structurally detectable and blockable.
+
+```bash
+# Activate via gates.json
+{ "mode": "strict" }
+
+# Or per-session via env var
+AGENT_TOOLKIT_MODE=strict claude
+
+# Or via auto-continue
+claude-auto --strict "Build the payment system"
+```
+
+**What strict mode adds:**
+
+| Feature | What it does |
+|---------|-------------|
+| **G-IMPL-7** | Test fixtures must cite data source. "I read the code" is not valid. |
+| **DATA step** | Mandatory step in slab cycle: query real system before writing fixtures. |
+| **Drift detection** | Tracks exchanges since last real query, patch-forward incidents, slabs without data. |
+| **Integrity checks** | Every 15 exchanges, injects drift audit with score. Critical drift triggers session restart. |
+| **Evaluate required** | `/evaluate` required before commit (in addition to `/precommit`). |
+
+Normal mode is completely unaffected. Requirements: [`requirements/strict-mode.md`](requirements/strict-mode.md). Rules reference: [`shared/strict-mode.md`](shared/strict-mode.md).
+
 ## Auto Mode
 
 Append `auto` to chain skills without stopping (`/requirements auto my-app`). Opus plans; Sonnet/Haiku implements. **95%** eval gate (default); below **70%** = hard stop. Evidence-first (G-AUTO-1). Protocol: [`shared/orchestrator.md`](shared/orchestrator.md).
@@ -214,13 +241,13 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 
 ## Guardrails
 
-**20 rule groups** (universal + session hooks + precommit). Per-skill rules (G-REQ, G-ARCH, G-IMPL, G-EVAL, G-UPD) in [`shared/guardrails.md`](shared/guardrails.md). When hit: warn, record, continue.
+**21 rule groups** (universal + session hooks + precommit). Per-skill rules (G-REQ, G-ARCH, G-IMPL, G-EVAL, G-UPD) in [`shared/guardrails.md`](shared/guardrails.md). When hit: warn, record, continue.
 
 | Group | IDs | What |
 |-------|-----|------|
 | Universal safety | **G1–G9** | No secrets in output, confirm destructive ops, honest verification, file safety, synthetic PII, LLM data-exit safeguards, … |
 | Docs & workflow | **G10–G14** | README updates, project rules first, branch/PR naming, encrypt PII, project overrides toolkit |
-| Implementation quality | **G-IMPL-6** | No shortcuts — hardcoded returns, magic numbers, swallowed errors, boolean-flag APIs |
+| Implementation quality | **G-IMPL-6, G-IMPL-7** | No shortcuts (G-IMPL-6), ground truth fixtures (G-IMPL-7 — strict mode) |
 | Commit gate | **G-PUSH-1** | No commit/push without `/precommit` |
 | Auto mode | **G-AUTO-1** | Every change cites evidence |
 | Session hooks | **G-SESSION-1** | Never modify `.session/` (structural hook blocks) |

@@ -69,13 +69,19 @@ Derive from architecture + requirements priorities. Dependencies first, must bef
    - Correct → revise mock, then build
    - Skip → build, but STILL show actual output to user before committing. No silent commits.
 1. SETUP — re-read requirements for THIS slab. Copy the spec text. Don't build from memory.
-2. SECURITY — if slab touches auth/data/APIs: read security.md
-3. TDD — meaningful assertions (assertEqual, toBe, toEqual)
-4. INTEGRATE — verify end-to-end
-5. VERIFY — run /verify (output quality + user confirms)
-6. PRE-COMMIT — MUST run /precommit (G-PUSH-1 — non-negotiable)
-7. COMMIT — only after /precommit passes AND user says go
-8. STOP — wait for user before next slab
+2. DATA (strict mode only) — if this slab reads/writes/queries data:
+   - Query the real system (SELECT, curl, API call) and paste the output
+   - Derive test fixtures FROM that output
+   - If no real system exists: state explicitly "fixtures are synthetic (factory)" or "user-provided sample"
+   - "I read the schema/model" is NOT sufficient (G-IMPL-7)
+   - If mode is not strict, this step is optional but recommended
+3. SECURITY — if slab touches auth/data/APIs: read security.md
+4. TDD — meaningful assertions (assertEqual, toBe, toEqual)
+5. INTEGRATE — verify end-to-end
+6. VERIFY — run /verify (output quality + user confirms)
+7. PRE-COMMIT — MUST run /precommit (G-PUSH-1 — non-negotiable)
+8. COMMIT — only after /precommit passes AND user says go
+9. STOP — wait for user before next slab
 ```
 
 **Session limits:** /verify checks these automatically in Step 1. If the slab exceeds thresholds (300 lines, 20 exchanges, 2 failed fixes, 500-line files), it pauses before problems compound.

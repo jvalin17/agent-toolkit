@@ -45,6 +45,8 @@ Read every test file added or modified. See `references/test-quality.md` for slo
 
 Per test: specific assertions, realistic data, would fail if feature deleted, outcome-focused, edge cases, no self-mocking.
 
+**Fixture provenance (G-IMPL-7):** In strict mode, verify test fixtures cite their data source (query output, user sample, spec, or factory). Flag fixtures with specific-looking values and no stated origin. Block if provenance is missing.
+
 **If sloppy:** Fix before commit.
 
 ## Step 2b: Run Test Suite

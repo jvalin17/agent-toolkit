@@ -41,3 +41,4 @@ test("search returns matching recipes", async () => {
 - Would fail if feature code deleted
 - Edge cases: empty, null, unicode, boundaries
 - No mocking the unit under test
+- Fixture provenance: test fixtures cite their data source (query output, user sample, spec, or factory). Flag fixtures that use specific-looking values (real dates, IDs, names) with no stated origin. (G-IMPL-7 — hard blocker in strict mode)

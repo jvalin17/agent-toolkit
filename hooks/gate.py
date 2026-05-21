@@ -220,9 +220,14 @@ def run_gate(
     if profile and "profiles" in config:
         profiles = config["profiles"]
         profile_config = profiles.get(profile, {})
-        required = profile_config.get(f"{action}_requires", [])
+        required = list(profile_config.get(f"{action}_requires", []))
     else:
-        required = config.get(f"{action}_requires", [])
+        required = list(config.get(f"{action}_requires", []))
+
+    # Strict mode: always require evaluate for commit and push
+    mode = config.get("mode", "normal")
+    if mode == "strict" and "evaluate" not in required:
+        required.append("evaluate")
 
     if not required:
         # No config or no jq equivalent — fallback: check precommit for commit
