@@ -52,6 +52,12 @@ if [ -n "$GATES_CONFIG" ] && command -v jq &> /dev/null; then
   ENFORCEMENT=$(jq -r '.enforcement // "warn"' "$GATES_CONFIG" 2>/dev/null)
   GATE_MODE=$(jq -r '.gate_mode // "legacy"' "$GATES_CONFIG" 2>/dev/null)
 fi
+# Override chain: env var > .gates/enforcement-override > gates.json
+if [ -f ".gates/enforcement-override" ]; then
+  FILE_OVERRIDE=$(cat .gates/enforcement-override 2>/dev/null | tr -d '[:space:]')
+  [ -n "$FILE_OVERRIDE" ] && ENFORCEMENT="$FILE_OVERRIDE"
+fi
+[ -n "$AGENT_TOOLKIT_ENFORCEMENT" ] && ENFORCEMENT="$AGENT_TOOLKIT_ENFORCEMENT"
 
 gate_emit() {
   local level="$1"
@@ -76,6 +82,9 @@ gate_finish() {
   if [ "$ENFORCEMENT" = "block" ]; then
     gate_emit block "$msg"
   fi
+  # Auto-escalate: first warn violation → block for rest of session
+  mkdir -p .gates
+  echo "block" > .gates/enforcement-override
   gate_emit warn "$msg"
 }
 

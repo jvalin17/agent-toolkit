@@ -9,4 +9,6 @@
 #   claude-auto --headless  # resume from existing HANDOFF.md
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Headless sessions start with strict gate enforcement
+export AGENT_TOOLKIT_ENFORCEMENT=block
 exec python3 "$SCRIPT_DIR/auto_continue.py" "$@"

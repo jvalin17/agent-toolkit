@@ -510,6 +510,72 @@ cat > gates.json << 'GATEJSON'
 }
 GATEJSON
 
+echo ""
+echo "=== gate.sh enforcement escalation ==="
+
+# Reset to warn mode
+cat > gates.json << 'EOF'
+{
+  "gate_mode": "legacy",
+  "enforcement": "warn",
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate"]
+}
+EOF
+rm -rf .gates
+
+# Test: env var AGENT_TOOLKIT_ENFORCEMENT overrides gates.json
+EXIT_CODE=0
+AGENT_TOOLKIT_ENFORCEMENT=block echo '{"tool_input":{"command":"git commit -m \"test\""}}' | AGENT_TOOLKIT_ENFORCEMENT=block "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "env var AGENT_TOOLKIT_ENFORCEMENT=block overrides warn mode"
+else
+  fail "env var should override to block (exit 2)" "got exit $EXIT_CODE"
+fi
+
+# Test: .gates/enforcement-override file overrides gates.json
+mkdir -p .gates
+echo "block" > .gates/enforcement-override
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass ".gates/enforcement-override=block overrides warn mode"
+else
+  fail "override file should escalate to block (exit 2)" "got exit $EXIT_CODE"
+fi
+rm -f .gates/enforcement-override
+
+# Test: warn mode auto-escalates — first violation writes override file
+rm -rf .gates
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ] && [ -f ".gates/enforcement-override" ] && grep -q "block" .gates/enforcement-override 2>/dev/null; then
+  pass "warn mode auto-escalates: writes enforcement-override on first violation"
+else
+  fail "first violation should create .gates/enforcement-override=block" "exit=$EXIT_CODE, file exists=$([ -f .gates/enforcement-override ] && echo yes || echo no)"
+fi
+
+# Test: subsequent commit after escalation is hard-blocked
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"second attempt\""}}' | "$HOOKS_DIR/gate.sh" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "second commit after escalation is hard-blocked"
+else
+  fail "post-escalation should block (exit 2)" "got exit $EXIT_CODE"
+fi
+
+rm -rf .gates
+
+# Restore block mode for remaining cleanup
+cat > gates.json << 'GATEJSON'
+{
+  "gate_mode": "legacy",
+  "enforcement": "block",
+  "commit_requires": ["precommit"],
+  "push_requires": ["precommit", "evaluate"]
+}
+GATEJSON
+
 # Cleanup
 rm -rf .session
 rm -rf "$TEST_DIR"
