@@ -71,6 +71,11 @@ TEST_FAILURE_PATTERNS = re.compile(
 MAX_TOOL_SEQUENCE_LENGTH = 10
 DRIFT_CHECK_INTERVAL = 15  # Integrity check every N exchanges in strict mode
 
+# Per-counter warning thresholds (strict mode)
+EXCHANGES_WARN_THRESHOLD = 10
+PATCH_FORWARD_WARN_THRESHOLD = 2
+SLABS_WITHOUT_DATA_WARN_THRESHOLD = 1
+
 
 @dataclass
 class SessionState:
@@ -88,6 +93,7 @@ class SessionState:
     patch_forward_count: int = 0
     slabs_without_data: int = 0
     last_tool_sequence: list = field(default_factory=list)
+    has_queried_this_slab: bool = False
 
 
 def load_state(state_file: Path) -> SessionState:
@@ -335,7 +341,7 @@ def handle_user_prompt(state: SessionState) -> tuple:
 
     response = None
 
-    # Strict mode: periodic integrity check
+    # Strict mode: periodic integrity check (takes priority over per-counter)
     if (
         state.mode == "strict"
         and state.exchanges % DRIFT_CHECK_INTERVAL == 0
@@ -371,6 +377,31 @@ def handle_user_prompt(state: SessionState) -> tuple:
             )
 
         return state, response
+
+    # Strict mode: per-counter threshold warnings (between integrity checks)
+    if state.mode == "strict":
+        warnings = []
+        if state.exchanges_since_query > EXCHANGES_WARN_THRESHOLD:
+            warnings.append(
+                f"You haven't queried the real system in "
+                f"{state.exchanges_since_query} exchanges. "
+                f"Are you working from inference?"
+            )
+        if state.patch_forward_count > PATCH_FORWARD_WARN_THRESHOLD:
+            warnings.append(
+                f"Patch-forward pattern detected "
+                f"{state.patch_forward_count} times. "
+                f"Stop and investigate root causes."
+            )
+        if state.slabs_without_data > SLABS_WITHOUT_DATA_WARN_THRESHOLD:
+            warnings.append(
+                f"{state.slabs_without_data} slabs completed with no "
+                f"real-system queries. This slab requires data evidence "
+                f"before continuing."
+            )
+        if warnings:
+            response = "STRICT MODE WARNING:\n- " + "\n- ".join(warnings)
+            return state, response
 
     if should_warn(state):
         state.warned = True
@@ -408,6 +439,8 @@ def handle_post_tool_use(
             if was_query:
                 entry["was_query"] = True
                 state.exchanges_since_query = 0
+                state.slabs_without_data = 0
+                state.has_queried_this_slab = True
         elif tool_name in ("Edit", "Write"):
             entry["file_path"] = file_path
             entry["was_test"] = False
@@ -426,6 +459,12 @@ def handle_post_tool_use(
         if tool_name in ("Edit", "Write") and not is_test_file(file_path):
             if detect_patch_forward(state.last_tool_sequence):
                 state.patch_forward_count += 1
+
+        # Slab boundary: Skill tool (precommit signals slab completion)
+        if tool_name == "Skill":
+            if not state.has_queried_this_slab:
+                state.slabs_without_data += 1
+            state.has_queried_this_slab = False
 
     return state
 

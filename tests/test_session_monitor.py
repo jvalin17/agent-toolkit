@@ -609,6 +609,151 @@ class TestDriftCountersStrictMode:
         assert state.patch_forward_count == 1
 
 
+# --- slabs_without_data tracking ---
+
+
+class TestSlabsWithoutData:
+    def test_slab_completion_without_query_increments(self):
+        """Precommit skill completing without a query increments slabs_without_data."""
+        state = SessionState(session_start=1000, mode="strict")
+        # Simulate precommit skill completing (slab boundary)
+        state = handle_post_tool_use(
+            state, "precommit passed",
+            tool_name="Skill", command="", file_path=""
+        )
+        assert state.slabs_without_data == 1
+
+    def test_slab_completion_with_query_does_not_increment(self):
+        """Precommit after a real-system query doesn't increment."""
+        state = SessionState(
+            session_start=1000, mode="strict",
+            has_queried_this_slab=True,
+        )
+        state = handle_post_tool_use(
+            state, "precommit passed",
+            tool_name="Skill", command="", file_path=""
+        )
+        assert state.slabs_without_data == 0
+
+    def test_query_resets_slabs_without_data(self):
+        """A real-system query resets slabs_without_data to 0."""
+        state = SessionState(
+            session_start=1000, mode="strict",
+            slabs_without_data=2,
+        )
+        state = handle_post_tool_use(
+            state, "query output",
+            tool_name="Bash", command="curl https://api.example.com"
+        )
+        assert state.slabs_without_data == 0
+        assert state.has_queried_this_slab is True
+
+    def test_query_sets_has_queried_flag(self):
+        """Real-system query sets has_queried_this_slab."""
+        state = SessionState(session_start=1000, mode="strict")
+        assert state.has_queried_this_slab is False
+        state = handle_post_tool_use(
+            state, "result",
+            tool_name="Bash", command="psql -c 'SELECT 1'"
+        )
+        assert state.has_queried_this_slab is True
+
+    def test_slab_boundary_resets_has_queried_flag(self):
+        """After slab boundary, has_queried_this_slab resets for next slab."""
+        state = SessionState(
+            session_start=1000, mode="strict",
+            has_queried_this_slab=True,
+        )
+        state = handle_post_tool_use(
+            state, "precommit passed",
+            tool_name="Skill", command="", file_path=""
+        )
+        assert state.has_queried_this_slab is False
+
+    def test_normal_mode_no_slab_tracking(self):
+        """Normal mode doesn't track slabs_without_data."""
+        state = SessionState(session_start=1000, mode="normal")
+        state = handle_post_tool_use(
+            state, "precommit passed",
+            tool_name="Skill", command="", file_path=""
+        )
+        assert state.slabs_without_data == 0
+
+
+# --- Per-counter threshold warnings ---
+
+
+class TestPerCounterThresholdWarnings:
+    def test_warn_at_exchanges_since_query_over_10(self):
+        """Warning injected when exchanges_since_query exceeds 10."""
+        state = SessionState(
+            session_start=1000, mode="strict",
+            exchanges=5,  # Not at integrity check interval
+            exchanges_since_query=10,  # Will become 11 after increment
+        )
+        state, response = handle_user_prompt(state)
+        assert response is not None
+        assert "haven't queried" in response.lower() or "real system" in response.lower()
+
+    def test_no_warn_at_exchanges_10_or_below(self):
+        """No warning when exchanges_since_query is 10 or below."""
+        state = SessionState(
+            session_start=1000, mode="strict",
+            exchanges=5,
+            exchanges_since_query=9,  # Will become 10 — threshold is >10
+        )
+        state, response = handle_user_prompt(state)
+        if response:
+            assert "haven't queried" not in response.lower()
+
+    def test_warn_at_patch_forward_over_2(self):
+        """Warning when patch_forward_count exceeds 2."""
+        state = SessionState(
+            session_start=1000, mode="strict",
+            exchanges=5,
+            patch_forward_count=3,
+        )
+        state, response = handle_user_prompt(state)
+        assert response is not None
+        assert "patch-forward" in response.lower() or "patch_forward" in response.lower()
+
+    def test_warn_at_slabs_without_data_over_1(self):
+        """Warning when slabs_without_data exceeds 1."""
+        state = SessionState(
+            session_start=1000, mode="strict",
+            exchanges=5,
+            slabs_without_data=2,
+        )
+        state, response = handle_user_prompt(state)
+        assert response is not None
+        assert "slab" in response.lower()
+
+    def test_no_per_counter_warn_in_normal_mode(self):
+        """Normal mode never gets per-counter warnings."""
+        state = SessionState(
+            session_start=1000, mode="normal",
+            exchanges=5,
+            exchanges_since_query=20,
+            patch_forward_count=5,
+            slabs_without_data=3,
+        )
+        state, response = handle_user_prompt(state)
+        if response:
+            assert "haven't queried" not in response.lower()
+            assert "patch-forward" not in response.lower()
+
+    def test_per_counter_warn_does_not_fire_at_integrity_interval(self):
+        """At integrity check interval, only the integrity check fires (not both)."""
+        state = SessionState(
+            session_start=1000, mode="strict",
+            exchanges=DRIFT_CHECK_INTERVAL - 1,
+            exchanges_since_query=12,
+        )
+        state, response = handle_user_prompt(state)
+        # Should get integrity check, not per-counter warning
+        assert "INTEGRITY CHECK" in response
+
+
 # --- Drift score computation (Slab 3) ---
 
 
