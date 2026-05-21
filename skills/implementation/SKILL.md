@@ -36,6 +36,7 @@ Read `project-state.md` at start. After each completed slab:
 ## Code Quality
 
 Read `references/coding-standards-index.md` for language-specific standards.
+Read `references/ai-antipatterns.md` for patterns to avoid (kwargs, trivial wrappers, swallowed errors, etc.).
 
 ## Mode Detection (auto-detect from context, don't ask)
 

@@ -73,9 +73,13 @@ Do not install new runners or skip flaky failures.
 
 Read `references/coding-standards-index.md`. Quick scan: naming, no silent catches, no `as unknown as`, components <200 lines, loading try/finally, `.env.example` if new vars, functions <30 lines, no magic numbers.
 
-### 3c: G-IMPL-6
+### 3c: G-IMPL-6 (AI Anti-Patterns)
 
-Block on: hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean flag arguments.
+Read `implementation/references/ai-antipatterns.md`. Scan changed code for:
+
+**Hard blocks (never ship):** kitchen-sink params (`**kwargs`/`any`/`interface{}`), trivial pass-through wrappers, swallowed errors, hardcoded returns/magic values, tests that test mocks, shipped TODOs in error paths, hardcoded secrets.
+
+**Soft blocks (flag, fix before merge):** defensive over-engineering, boolean flag args, copy-paste x3, premature abstraction, options-bag with all-optional fields, god functions, vacuous names (`data`/`result`/`temp`), apologetic comments, ignoring codebase conventions, unnecessary deps, no observability on external calls, type assertions without validation, generating without searching existing code.
 
 ## Step 4: Verify in Running App
 
