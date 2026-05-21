@@ -29,8 +29,7 @@ def runner(project_dir):
         goal="Build auth system",
         max_budget=None,
         project_dir=project_dir,
-        headless=True,
-    )
+            )
 
 
 # --- Goal resolution ---
@@ -46,8 +45,7 @@ class TestResolveGoal:
         (project_dir / "HANDOFF.md").write_text(handoff)
 
         runner = AutoContinue(
-            goal=None, max_budget=None, project_dir=project_dir, headless=True
-        )
+            goal=None, max_budget=None, project_dir=project_dir,         )
         result = runner._resolve_goal()
         assert "login bug" in result
 
@@ -56,15 +54,13 @@ class TestResolveGoal:
         (project_dir / "HANDOFF.md").write_text(handoff)
 
         runner = AutoContinue(
-            goal="New goal", max_budget=None, project_dir=project_dir, headless=True
-        )
+            goal="New goal", max_budget=None, project_dir=project_dir,         )
         result = runner._resolve_goal()
         assert result == "New goal"
 
     def test_goal_from_prompt_when_no_arg_no_handoff(self, project_dir):
         runner = AutoContinue(
-            goal=None, max_budget=None, project_dir=project_dir, headless=True
-        )
+            goal=None, max_budget=None, project_dir=project_dir,         )
         with patch("builtins.input", return_value="User typed goal"):
             result = runner._resolve_goal()
         assert result == "User typed goal"
@@ -200,7 +196,7 @@ class TestLogHistory:
 
 
 class TestLaunchSession:
-    def test_headless_uses_claude_p(self, runner):
+    def test_uses_claude_p(self, runner):
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             runner._launch_session("test prompt")
@@ -215,8 +211,7 @@ class TestLaunchSession:
             goal="Build it",
             max_budget=5.0,
             project_dir=project_dir,
-            headless=True,
-        )
+                    )
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             runner._launch_session("test prompt")
@@ -225,20 +220,18 @@ class TestLaunchSession:
         assert "--max-budget-usd" in cmd
         assert "5.0" in cmd
 
-    def test_interactive_mode_no_p_flag(self, project_dir):
+    def test_dry_run_does_not_call_subprocess(self, project_dir):
         runner = AutoContinue(
             goal="Build it",
             max_budget=None,
             project_dir=project_dir,
-            headless=False,
+            dry_run=True,
         )
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            runner._launch_session("test prompt")
+            exit_code = runner._launch_session("test prompt")
 
-        cmd = mock_run.call_args[0][0]
-        assert "claude" in cmd
-        assert "-p" not in cmd
+        mock_run.assert_not_called()
+        assert exit_code == 0
 
 
 # --- Main run loop ---
@@ -309,9 +302,9 @@ class TestParseArgs:
         args = parse_args(["Build auth system"])
         assert args.goal == "Build auth system"
 
-    def test_headless_flag(self):
-        args = parse_args(["--headless", "Build it"])
-        assert args.headless is True
+    def test_dry_run_flag(self):
+        args = parse_args(["--dry-run", "Build it"])
+        assert args.dry_run is True
 
     def test_budget_flag(self):
         args = parse_args(["--max-budget-usd", "5.0", "Build it"])

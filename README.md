@@ -50,7 +50,7 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 | Refactor | `/implementation refactor auth` |
 | Before release | `/reviewer` + `/evaluate` |
 | Architecture review | `/assess` |
-| Long task, walk away | `claude-auto --headless "goal"` |
+| Long task, walk away | `python3 scripts/auto_continue.py "goal"` |
 
 ## Skills
 
@@ -178,22 +178,30 @@ git push             # → allowed when JWT matches HEAD
 Sessions that hit context limits automatically hand off and relaunch. The wrapper script manages the session lifecycle — detect context exhaustion, write HANDOFF.md, clean `.session/`, relaunch with a fresh context window.
 
 ```bash
-# Headless — fire-and-forget until goal is done
-claude-auto --headless "Build auth system with token refresh"
+# Fire-and-forget until goal is done
+python3 scripts/auto_continue.py "Build auth system with token refresh"
 
-# With budget cap
-claude-auto --headless --max-budget-usd 5.00 "Build auth system"
+# With budget cap (per session)
+python3 scripts/auto_continue.py --max-budget-usd 5.00 "Build auth system"
 
-# Resume (reads goal from existing HANDOFF.md)
-claude-auto --headless
+# Resume from existing HANDOFF.md
+python3 scripts/auto_continue.py
 
-# Or run directly without the symlink
-python3 scripts/auto_continue.py --headless "Build auth system"
+# Verify the CLI command without running (no API calls)
+python3 scripts/auto_continue.py --dry-run "Build auth system"
 ```
 
-**How it works:** `auto_continue.py` launches Claude Code sessions in a loop. Each session runs with `session_monitor.py` tracking context pressure (cumulative output bytes + PostCompact events). When a threshold is hit, the agent writes HANDOFF.md and exits. The wrapper detects the handoff, cleans `.session/`, and relaunches. The new session reads HANDOFF.md via `session_init.py` and continues where the previous one left off.
+If `~/.local/bin` is in your PATH, `install.sh` creates an `agent-toolkit-continue` symlink:
+
+```bash
+agent-toolkit-continue "Build auth system"
+```
+
+**How it works:** `auto_continue.py` launches Claude Code sessions via `claude -p` (headless print mode) in a loop. Each session runs with `session_monitor.py` tracking context pressure (cumulative output bytes + PostCompact events). When a threshold is hit, the agent writes HANDOFF.md and exits. The wrapper detects the handoff, cleans `.session/`, and relaunches. The new session reads HANDOFF.md via `session_init.py` and continues where the previous one left off.
 
 **Completion:** The loop stops when HANDOFF.md contains `## COMPLETE` or is removed by the agent.
+
+**Verify it works:** Run with `--dry-run` first — it seeds HANDOFF.md and prints the exact `claude` command without executing it.
 
 Architecture: [`architecture/auto-continuation.md`](architecture/auto-continuation.md). Requirements: [`requirements/auto-continuation.md`](requirements/auto-continuation.md).
 
@@ -238,7 +246,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 | Debug | `/debug …` or natural language — hypothesis → test → fix |
 | Mid-project install | `./install.sh` → `/explore .` → work (hooks active immediately) |
 | Cleanup pass | `/reviewer` → `/assess` → `/evaluate` → fix findings → `/precommit` |
-| Fire-and-forget | `claude-auto --headless "Build X"` — auto-relaunches on context exhaustion |
+| Fire-and-forget | `python3 scripts/auto_continue.py "Build X"` — auto-relaunches on context exhaustion |
 
 ## Guardrails
 
@@ -264,7 +272,7 @@ shared/          guardrails, orchestrator, gate-unlock, report-format, templates
 hooks/           7 Python structural hook scripts + update.sh (+ gates.json reference copy)
 update.sh        8th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
-scripts/         claude-auto, auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …
+scripts/         agent-toolkit-continue, auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …
 templates/       gates.json, signed example, GitHub workflow template
 ```
 

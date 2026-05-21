@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Auto-continuation wrapper — manages Claude Code session lifecycle.
 
-Outer loop that launches Claude Code sessions, detects when context is
-exhausted (via HANDOFF.md), and relaunches fresh sessions until the goal
-is achieved or marked COMPLETE.
+Outer loop that launches Claude Code sessions in headless mode (claude -p),
+detects when context is exhausted (via HANDOFF.md), and relaunches fresh
+sessions until the goal is achieved or marked COMPLETE.
 
 Usage:
-    python scripts/auto_continue.py "Build auth system"
-    python scripts/auto_continue.py --headless "Build auth system"
-    python scripts/auto_continue.py --max-budget-usd 5.00 "Build auth system"
+    python3 scripts/auto_continue.py "Build auth system"
+    python3 scripts/auto_continue.py --max-budget-usd 5.00 "Build auth system"
+    python3 scripts/auto_continue.py --dry-run "Build auth system"  # verify CLI without running
 
 Goal resolution: CLI arg > HANDOFF.md ## Goal > interactive prompt.
 """
@@ -32,12 +32,12 @@ class AutoContinue:
         goal: Optional[str],
         max_budget: Optional[float],
         project_dir: Path,
-        headless: bool = True,
+        dry_run: bool = False,
     ):
         self.goal = goal
         self.max_budget = max_budget
         self.project_dir = project_dir
-        self.headless = headless
+        self.dry_run = dry_run
         self.handoff_file = project_dir / "HANDOFF.md"
         self.history_log = project_dir / "handoff-history.log"
         self.session_count = 0
@@ -105,14 +105,28 @@ class AutoContinue:
         )
 
     def _launch_session(self, prompt: str) -> int:
-        """Launch a Claude Code session. Returns process exit code."""
-        if self.headless:
-            cmd = ["claude", "-p", prompt, "--output-format", "json"]
-        else:
-            cmd = ["claude", "--resume", prompt]
+        """Launch a Claude Code session in headless mode. Returns process exit code.
+
+        Uses `claude -p` (print mode) which runs non-interactively.
+        --output-format json gives structured output for potential parsing.
+        --max-budget-usd caps spend per session.
+        """
+        cmd = ["claude", "-p", prompt, "--output-format", "json"]
 
         if self.max_budget:
             cmd.extend(["--max-budget-usd", str(self.max_budget)])
+
+        if self.dry_run:
+            print(f"[dry-run] Would execute: {' '.join(cmd)}")
+            # Signal completion so the loop stops after one iteration
+            if self.handoff_file.is_file():
+                content = self.handoff_file.read_text(encoding="utf-8")
+                if "## COMPLETE" not in content:
+                    self.handoff_file.write_text(
+                        content + "\n## COMPLETE\n\nDry run — no session executed.\n",
+                        encoding="utf-8",
+                    )
+            return 0
 
         result = subprocess.run(cmd, cwd=self.project_dir)
         return result.returncode
@@ -188,10 +202,10 @@ def parse_args(argv: Optional[list] = None) -> argparse.Namespace:
         help="Goal description for the task.",
     )
     parser.add_argument(
-        "--headless",
+        "--dry-run",
         action="store_true",
         default=False,
-        help="Run in headless mode (uses claude -p).",
+        help="Print the claude command that would run without executing it.",
     )
     parser.add_argument(
         "--max-budget-usd",
@@ -215,7 +229,7 @@ def main() -> int:
         goal=args.goal,
         max_budget=args.max_budget_usd,
         project_dir=Path(args.project_dir).resolve(),
-        headless=args.headless,
+        dry_run=args.dry_run,
     )
     return runner.run()
 

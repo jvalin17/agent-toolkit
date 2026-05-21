@@ -397,35 +397,40 @@ else
     echo "  [skip] project gates bootstrap (python3 required)"
 fi
 
-# --- claude-auto entry point ---
+# --- agent-toolkit-continue entry point ---
 echo ""
-echo "Setting up claude-auto..."
-CLAUDE_AUTO_SRC="$SCRIPT_DIR/scripts/claude-auto"
+echo "Setting up agent-toolkit-continue..."
+CONTINUE_SRC="$SCRIPT_DIR/scripts/agent-toolkit-continue"
 LOCAL_BIN="$HOME/.local/bin"
 
-if [ -x "$CLAUDE_AUTO_SRC" ]; then
+if [ -x "$CONTINUE_SRC" ]; then
     if [ -d "$LOCAL_BIN" ] || mkdir -p "$LOCAL_BIN" 2>/dev/null; then
+        # Clean up old claude-auto symlink if present
         if [ -L "$LOCAL_BIN/claude-auto" ]; then
-            current="$(readlink "$LOCAL_BIN/claude-auto")"
-            if [ "$current" = "$CLAUDE_AUTO_SRC" ]; then
-                echo "  [skip] claude-auto (already linked in $LOCAL_BIN)"
+            rm "$LOCAL_BIN/claude-auto"
+            echo "  [removed] old claude-auto symlink"
+        fi
+        if [ -L "$LOCAL_BIN/agent-toolkit-continue" ]; then
+            current="$(readlink "$LOCAL_BIN/agent-toolkit-continue")"
+            if [ "$current" = "$CONTINUE_SRC" ]; then
+                echo "  [skip] agent-toolkit-continue (already linked in $LOCAL_BIN)"
             else
-                ln -sf "$CLAUDE_AUTO_SRC" "$LOCAL_BIN/claude-auto"
-                echo "  [updated] claude-auto → $LOCAL_BIN/claude-auto"
+                ln -sf "$CONTINUE_SRC" "$LOCAL_BIN/agent-toolkit-continue"
+                echo "  [updated] agent-toolkit-continue → $LOCAL_BIN/agent-toolkit-continue"
             fi
         else
-            ln -s "$CLAUDE_AUTO_SRC" "$LOCAL_BIN/claude-auto"
-            echo "  [installed] claude-auto → $LOCAL_BIN/claude-auto"
+            ln -s "$CONTINUE_SRC" "$LOCAL_BIN/agent-toolkit-continue"
+            echo "  [installed] agent-toolkit-continue → $LOCAL_BIN/agent-toolkit-continue"
         fi
         if ! echo "$PATH" | grep -q "$LOCAL_BIN"; then
-            echo "  [note] Add $LOCAL_BIN to your PATH to use 'claude-auto' directly"
+            echo "  [note] Add $LOCAL_BIN to your PATH to use 'agent-toolkit-continue' directly"
         fi
     else
-        echo "  [skip] claude-auto symlink (could not create $LOCAL_BIN)"
-        echo "  Run directly: python3 $CLAUDE_AUTO_SRC"
+        echo "  [skip] agent-toolkit-continue symlink (could not create $LOCAL_BIN)"
+        echo "  Run directly: python3 scripts/auto_continue.py"
     fi
 else
-    echo "  [skip] claude-auto (script not found)"
+    echo "  [skip] agent-toolkit-continue (script not found)"
 fi
 
 # --- Summary ---

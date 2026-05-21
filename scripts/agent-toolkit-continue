@@ -1,0 +1,14 @@
+#!/bin/bash
+# agent-toolkit-continue — Session continuation wrapper for Claude Code
+# Launches auto_continue.py which manages session lifecycle:
+# detect context exhaustion, write HANDOFF.md, relaunch.
+#
+# Usage:
+#   agent-toolkit-continue "Build auth system"
+#   agent-toolkit-continue --max-budget-usd 5.00 "Build auth system"
+#   agent-toolkit-continue --dry-run "Build auth system"
+#   agent-toolkit-continue  # resume from existing HANDOFF.md
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export AGENT_TOOLKIT_ENFORCEMENT=block
+exec python3 "$SCRIPT_DIR/auto_continue.py" "$@"
