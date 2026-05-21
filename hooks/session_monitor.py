@@ -108,23 +108,18 @@ def check_thresholds(state: SessionState) -> tuple:
             f"exceeded threshold ({HARD_THRESHOLD_BYTES:,})"
         )
 
-    if state.exchanges >= FALLBACK_MAX_EXCHANGES:
-        return True, (
-            f"Exchange limit reached "
-            f"({state.exchanges}/{FALLBACK_MAX_EXCHANGES})"
-        )
-
     return False, ""
 
 
 def should_warn(state: SessionState) -> bool:
-    """Check if we should emit a warning (approaching limits)."""
+    """Check if we should emit a warning (approaching limits).
+
+    Only bytes and compaction matter — exchange count is tracked
+    for diagnostics but never triggers warnings or hard stops.
+    """
     if state.warned:
         return False
     if state.cumulative_output_bytes > WARN_THRESHOLD_BYTES:
-        return True
-    # Warn at ~75% of fallback exchange limit
-    if state.exchanges >= int(FALLBACK_MAX_EXCHANGES * 0.75):
         return True
     return False
 

@@ -141,11 +141,11 @@ class TestThresholds:
         triggered, reason = check_thresholds(fresh_state)
         assert triggered is False
 
-    def test_exchange_fallback_triggers(self, fresh_state):
+    def test_exchange_count_does_not_trigger(self, fresh_state):
+        """Exchanges alone never trigger — only bytes and compaction matter."""
         fresh_state.exchanges = FALLBACK_MAX_EXCHANGES
         triggered, reason = check_thresholds(fresh_state)
-        assert triggered is True
-        assert "exchange" in reason.lower()
+        assert triggered is False
 
     def test_warn_check_at_70_percent(self, fresh_state):
         """Should warn when bytes exceed warn threshold."""
@@ -241,15 +241,25 @@ class TestHandleUserPrompt:
         result_state, response = handle_user_prompt(fresh_state)
         assert result_state.exchanges == 1
 
-    def test_warns_at_threshold(self):
+    def test_warns_on_bytes_threshold(self):
+        """Warns when bytes exceed threshold, regardless of exchange count."""
         state = SessionState(
             session_start=int(time.time()),
-            exchanges=FALLBACK_MAX_EXCHANGES - 2,  # Will become warn-eligible
+            exchanges=5,
             cumulative_output_bytes=WARN_THRESHOLD_BYTES + 1,
         )
         result_state, response = handle_user_prompt(state)
-        # Should have warned about approaching limit
         assert result_state.warned is True
+
+    def test_no_warn_on_exchanges_alone(self):
+        """High exchange count without high bytes should NOT warn."""
+        state = SessionState(
+            session_start=int(time.time()),
+            exchanges=FALLBACK_MAX_EXCHANGES - 1,
+            cumulative_output_bytes=0,
+        )
+        result_state, response = handle_user_prompt(state)
+        assert result_state.warned is False
 
 
 class TestHandlePostToolUse:
@@ -301,7 +311,7 @@ class TestHandlePreToolUse:
     def test_grace_period_starts_on_threshold(self):
         state = SessionState(
             session_start=int(time.time()),
-            exchanges=FALLBACK_MAX_EXCHANGES,
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
             tool_calls=50,
         )
         result_state, response, blocked = handle_pre_tool_use(
@@ -314,7 +324,7 @@ class TestHandlePreToolUse:
     def test_hard_stop_after_grace_exhausted(self):
         state = SessionState(
             session_start=int(time.time()),
-            exchanges=FALLBACK_MAX_EXCHANGES,
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
             stopped=1,
             tool_calls=60,
             stop_at_tool_call=60,  # Grace exhausted
@@ -328,7 +338,7 @@ class TestHandlePreToolUse:
     def test_allows_handoff_write_after_hard_stop(self):
         state = SessionState(
             session_start=int(time.time()),
-            exchanges=FALLBACK_MAX_EXCHANGES,
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
             stopped=1,
             tool_calls=60,
             stop_at_tool_call=60,
@@ -344,7 +354,7 @@ class TestHandlePreToolUse:
     def test_allows_git_commit_after_hard_stop(self):
         state = SessionState(
             session_start=int(time.time()),
-            exchanges=FALLBACK_MAX_EXCHANGES,
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
             stopped=1,
             tool_calls=60,
             stop_at_tool_call=60,
@@ -360,7 +370,7 @@ class TestHandlePreToolUse:
     def test_blocks_non_handoff_after_hard_stop(self):
         state = SessionState(
             session_start=int(time.time()),
-            exchanges=FALLBACK_MAX_EXCHANGES,
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
             stopped=1,
             tool_calls=60,
             stop_at_tool_call=60,
