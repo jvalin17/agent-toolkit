@@ -121,7 +121,7 @@ HOOKS_SRC="$SCRIPT_DIR/hooks"
 install_hooks() {
     local toolkit_path="$SCRIPT_DIR"
     local update_command="$toolkit_path/update.sh 2>/dev/null || true"
-    local gate_cmd="$toolkit_path/hooks/gate.sh"
+    local gate_cmd="python3 $toolkit_path/hooks/gate.py"
     local skill_passed_cmd="$toolkit_path/hooks/skill-passed.sh"
     local gate_cleanup_cmd="$toolkit_path/hooks/gate-cleanup.sh"
     local route_cmd="$toolkit_path/hooks/route-to-skill.sh"
@@ -262,8 +262,16 @@ HOOKEOF
         echo "  [installed] auto-update hook"
     fi
 
-    # Add gate hook (replaces old precommit-gate)
-    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("gate.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    # Migrate gate.sh → gate.py if needed
+    if jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("gate.sh"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$gate_cmd" '
+            .hooks.PreToolUse = [.hooks.PreToolUse[] | if (.hooks[]? | .command | contains("gate.sh")) then .hooks = [.hooks[] | if (.command | contains("gate.sh")) then .command = $cmd else . end] else . end]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [migrated] gate.sh → gate.py"
+    fi
+
+    # Add gate hook
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("gate.py"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$gate_cmd" '
             .hooks.PreToolUse += [{"matcher": "Bash", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Checking quality gates..."}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"

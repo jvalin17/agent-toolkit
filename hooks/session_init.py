@@ -29,12 +29,12 @@ SCAN_DIRS = ["requirements", "architecture"]
 EXCLUDED_ROOT_FILES = {"README.md", "HANDOFF.md", "project-state.md", "CLAUDE.md", "DECISIONS.md"}
 
 REQUIRED_HOOKS = [
-    "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
+    "gate.py", "skill-passed.sh", "gate-cleanup.sh",
     "route-to-skill.sh", "session_init.py", "session_monitor.py",
     "tdd-enforce.sh",
 ]
 
-SETTINGS_CHECKED_HOOKS = ["gate.sh", "session_monitor.py", "skill-passed.sh"]
+SETTINGS_CHECKED_HOOKS = ["gate.py", "session_monitor.py", "skill-passed.sh"]
 
 
 # --- Core functions ---
@@ -95,7 +95,7 @@ def check_hook_integrity(hooks_dir: Path, settings_path: Optional[Path]) -> List
         hook_path = hooks_dir / hook_name
         if not hook_path.is_file():
             warnings.append(f"MISSING hook: {hook_name}")
-        elif not os.access(hook_path, os.X_OK):
+        elif not hook_name.endswith(".py") and not os.access(hook_path, os.X_OK):
             warnings.append(f"NOT EXECUTABLE: {hook_name}")
 
     # Check settings.json registration

@@ -79,7 +79,7 @@ Guardrails and skills are prompts — the model can ignore them. **Structural ho
 | `session_init.py` | Session start + after `/compact` | Loads project `.md` rules, init counters, clears stale `.gates/`, HANDOFF.md continuation context injection. |
 | `session_monitor.py` | PreToolUse + PostToolUse + UserPromptSubmit + PostCompact | Context-pressure limits: cumulative output bytes, PostCompact detection, exchange fallback (30). Blocks writes to `.session/` (G-SESSION-1). |
 | `route-to-skill.sh` | Every prompt | Intent → skill injection ("fix bug" → `/debug`, "build X" → `/implementation`). |
-| `gate.sh` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: warn`. |
+| `gate.py` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: block`. Auto-escalates warn→block on first violation. |
 | `skill-passed.sh` | After skill completes | Reports gate status (does not issue tokens). |
 | `tdd-enforce.sh` | Before file edit | TDD reminder if no test file exists. |
 | `gate-cleanup.sh` | After commit | Clears flags / token for next cycle. |
@@ -116,12 +116,12 @@ Unlock: run skills → files under `.gates/` with real markers (`READY`, `PASSED
 Default after `./install.sh`:
 
 ```json
-{ "gate_mode": "legacy", "enforcement": "warn", "profile": "minimal", "eval_threshold": 95 }
+{ "gate_mode": "legacy", "enforcement": "block", "profile": "minimal", "eval_threshold": 95 }
 ```
 
 ```bash
-# minimal + warn (default) — missing precommit on commit:
-git commit -m "x"    # → GATE WARNING in context; exit 0
+# minimal + block (default) — missing precommit on commit:
+git commit -m "x"    # → BLOCKED; exit 2
 # After /precommit:
 echo "READY $(date +%F)" > .gates/precommit-passed
 git commit -m "x"    # → allowed
@@ -161,7 +161,7 @@ git push             # → allowed when JWT matches HEAD
 
 | Target config | Command or action |
 |---------------|-------------------|
-| **legacy + warn + minimal** (default) | `./install.sh` only |
+| **legacy + block + minimal** (default) | `./install.sh` only |
 | **legacy + block + any profile** | Edit `gates.json`: `"enforcement": "block"`, set `"profile"` |
 | **signed + block + standard** | `scripts/setup-signed-gates.sh` |
 | **signed + warn + standard** | `scripts/setup-signed-gates.sh --warn` |
@@ -233,7 +233,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 skills/          13 workflows (+ sub-skills & references per skill)
 agents/          9 research sub-agents
 shared/          guardrails, orchestrator, gate-unlock, report-format, templates
-hooks/           5 bash + 2 Python structural hook scripts (+ gates.json reference copy)
+hooks/           4 bash + 3 Python structural hook scripts (+ gates.json reference copy)
 update.sh        8th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
 scripts/         claude-auto, auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …

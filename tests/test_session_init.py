@@ -143,7 +143,7 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
+            "gate.py", "skill-passed.sh", "gate-cleanup.sh",
             "route-to-skill.sh", "session_init.py", "session_monitor.py",
             "tdd-enforce.sh",
         ]
@@ -169,26 +169,26 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
+            "gate.py", "skill-passed.sh", "gate-cleanup.sh",
             "route-to-skill.sh", "session_init.py", "session_monitor.py",
             "tdd-enforce.sh",
         ]
         for hook in required:
             hook_file = hooks_dir / hook
             hook_file.write_text("#!/bin/bash")
-            if hook == "gate.sh":
+            if hook == "skill-passed.sh":
                 hook_file.chmod(0o644)  # Not executable
             else:
                 hook_file.chmod(0o755)
 
         warnings = check_hook_integrity(hooks_dir, settings_path=None)
-        assert any("NOT EXECUTABLE" in w and "gate.sh" in w for w in warnings)
+        assert any("NOT EXECUTABLE" in w and "skill-passed.sh" in w for w in warnings)
 
     def test_settings_missing_hook_registration(self, project_dir):
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
+            "gate.py", "skill-passed.sh", "gate-cleanup.sh",
             "route-to-skill.sh", "session_init.py", "session_monitor.py",
             "tdd-enforce.sh",
         ]
@@ -207,7 +207,7 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.sh", "skill-passed.sh", "gate-cleanup.sh",
+            "gate.py", "skill-passed.sh", "gate-cleanup.sh",
             "route-to-skill.sh", "session_init.py", "session_monitor.py",
             "tdd-enforce.sh",
         ]
@@ -219,7 +219,7 @@ class TestCheckHookIntegrity:
         settings_content = json.dumps({
             "hooks": {
                 "PreToolUse": [
-                    {"hooks": [{"command": "gate.sh"}]},
+                    {"hooks": [{"command": "gate.py"}]},
                     {"hooks": [{"command": "session_monitor.py"}]},
                 ],
                 "PostToolUse": [
