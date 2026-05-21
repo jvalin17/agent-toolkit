@@ -6,7 +6,7 @@
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. 13 skills, 9 agents, 20 guardrail groups, 8 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 21 guardrail groups, 8 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
 
 Built for **Claude Code** (structural hooks + gates). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (skills + guardrails via `AGENTS.md`; no structural hooks).
 
@@ -29,14 +29,14 @@ In any project:
 
 Re-run `./install.sh` once if hooks were missing on first install; `update.sh` auto-pulls the toolkit before each skill after that.
 
-In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.json`, optional signing key + CI workflow). Default: **legacy + warn + minimal**. Details: [`shared/gate-unlock.md`](shared/gate-unlock.md).
+In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.json`, optional signing key + CI workflow). Default: **legacy + block + minimal**. Details: [`shared/gate-unlock.md`](shared/gate-unlock.md).
 
 ## How It Works
 
 | Layer | What |
 |-------|------|
 | **Skills (13)** | Workflows — `/implementation`, `/debug`, `/precommit`, … Interactive or `auto` (chains until ambiguity or failure). |
-| **Guardrails (19 groups)** | Rules every skill follows — see [Guardrails](#guardrails) and [`shared/guardrails.md`](shared/guardrails.md). |
+| **Guardrails (21 groups)** | Rules every skill follows — see [Guardrails](#guardrails) and [`shared/guardrails.md`](shared/guardrails.md). |
 | **Structural hooks (8)** | Runtime enforcement the model cannot bypass — routing, TDD reminders, session limits, commit/push gates. |
 
 ### When to use what
@@ -96,7 +96,7 @@ scripts/setup-signed-gates.sh          # optional: enable signed + smoke test
 
 Three knobs in `gates.json`: **`gate_mode`** (`legacy` | `signed`), **`enforcement`** (`warn` | `block`), **`profile`** (`minimal` | `standard` | `strict` | `paranoid`). Full reference: [`shared/gate-unlock.md`](shared/gate-unlock.md).
 
-**How to read the table:** *Commit* / *Push* = what `gate.sh` checks for that action. *If missing* = behavior when requirements are not met (`warn` → GATE WARNING, exit 0; `block` → exit 2).
+**How to read the table:** *Commit* / *Push* = what `gate.py` checks for that action. *If missing* = behavior when requirements are not met (`warn` → GATE WARNING, exit 0; `block` → exit 2).
 
 #### Legacy (`gate_mode: "legacy"`)
 
@@ -201,15 +201,16 @@ Architecture: [`architecture/auto-continuation.md`](architecture/auto-continuati
 
 Optional mode that trades speed for correctness. Prevents agent faking by making inference-based test fixtures and patch-forward patterns structurally detectable and blockable.
 
-```bash
-# Activate via gates.json
+Activate in `gates.json`:
+
+```json
 { "mode": "strict" }
+```
 
-# Or per-session via env var
+Or per-session via env var:
+
+```bash
 AGENT_TOOLKIT_MODE=strict claude
-
-# Or via auto-continue
-claude-auto --strict "Build the payment system"
 ```
 
 **What strict mode adds:**
