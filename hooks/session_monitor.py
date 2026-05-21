@@ -69,6 +69,7 @@ TEST_FAILURE_PATTERNS = re.compile(
 )
 
 MAX_TOOL_SEQUENCE_LENGTH = 10
+DRIFT_CHECK_INTERVAL = 15  # Integrity check every N exchanges in strict mode
 
 
 @dataclass
@@ -304,6 +305,23 @@ def detect_patch_forward(sequence: list) -> bool:
     return False
 
 
+def compute_drift_score(
+    exchanges_since_query: int,
+    patch_forward_count: int,
+    slabs_without_data: int,
+) -> float:
+    """Compute drift score from counters. Returns 0.0 to 1.0.
+
+    Formula from requirements/strict-mode.md:
+      min(exchanges/10, 1.0) * 0.4 + min(patches/3, 1.0) * 0.4 + min(slabs/2, 1.0) * 0.2
+    """
+    return (
+        min(exchanges_since_query / 10, 1.0) * 0.4
+        + min(patch_forward_count / 3, 1.0) * 0.4
+        + min(slabs_without_data / 2, 1.0) * 0.2
+    )
+
+
 # --- Event handlers ---
 
 
@@ -316,6 +334,44 @@ def handle_user_prompt(state: SessionState) -> tuple:
         state.exchanges_since_query += 1
 
     response = None
+
+    # Strict mode: periodic integrity check
+    if (
+        state.mode == "strict"
+        and state.exchanges % DRIFT_CHECK_INTERVAL == 0
+    ):
+        drift = compute_drift_score(
+            state.exchanges_since_query,
+            state.patch_forward_count,
+            state.slabs_without_data,
+        )
+        response = (
+            f"STRICT MODE INTEGRITY CHECK (exchange {state.exchanges}):\n"
+            f"- Exchanges since last real-system query: {state.exchanges_since_query}\n"
+            f"- Patch-forward incidents this session: {state.patch_forward_count}\n"
+            f"- Slabs without data queries: {state.slabs_without_data}\n"
+            f"- Drift score: {drift:.2f}\n"
+        )
+        if drift > 0.8:
+            response += (
+                "\nCRITICAL DRIFT: Score exceeds 0.8. SESSION RESTART required.\n"
+                "Write HANDOFF.md immediately and exit. "
+                "The auto-continuation wrapper will relaunch a fresh session."
+            )
+            state.stopped = 2
+        elif drift > 0.6:
+            response += (
+                "\nHIGH DRIFT: Score exceeds 0.6. "
+                "Do NOT start new slabs. Query the real system before continuing."
+            )
+        elif drift > 0.3:
+            response += (
+                "\nMODERATE DRIFT: Score exceeds 0.3. "
+                "Consider querying the real system to ground your work."
+            )
+
+        return state, response
+
     if should_warn(state):
         state.warned = True
         response = (

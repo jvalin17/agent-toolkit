@@ -15,6 +15,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
 
 from session_monitor import (
+    DRIFT_CHECK_INTERVAL,
     FALLBACK_MAX_EXCHANGES,
     GRACE_TOOL_CALLS,
     HARD_THRESHOLD_BYTES,
@@ -23,6 +24,7 @@ from session_monitor import (
     SessionState,
     check_session_blocked,
     check_thresholds,
+    compute_drift_score,
     detect_patch_forward,
     handle_post_compact,
     handle_post_tool_use,
@@ -605,3 +607,175 @@ class TestDriftCountersStrictMode:
             tool_name="Edit", command="", file_path="src/main.py"
         )
         assert state.patch_forward_count == 1
+
+
+# --- Drift score computation (Slab 3) ---
+
+
+class TestComputeDriftScore:
+    def test_zero_counters_gives_zero(self):
+        score = compute_drift_score(
+            exchanges_since_query=0,
+            patch_forward_count=0,
+            slabs_without_data=0,
+        )
+        assert score == 0.0
+
+    def test_max_counters_gives_one(self):
+        score = compute_drift_score(
+            exchanges_since_query=10,
+            patch_forward_count=3,
+            slabs_without_data=2,
+        )
+        assert score == 1.0
+
+    def test_counters_beyond_max_capped(self):
+        """Values beyond the divisor are capped at 1.0 per component."""
+        score = compute_drift_score(
+            exchanges_since_query=100,
+            patch_forward_count=100,
+            slabs_without_data=100,
+        )
+        assert score == 1.0
+
+    def test_only_exchanges_component(self):
+        """exchanges_since_query=5 → 0.5/10 * 0.4 = 0.2"""
+        score = compute_drift_score(
+            exchanges_since_query=5,
+            patch_forward_count=0,
+            slabs_without_data=0,
+        )
+        assert abs(score - 0.2) < 0.001
+
+    def test_only_patch_forward_component(self):
+        """patch_forward_count=3 → 1.0 * 0.4 = 0.4"""
+        score = compute_drift_score(
+            exchanges_since_query=0,
+            patch_forward_count=3,
+            slabs_without_data=0,
+        )
+        assert abs(score - 0.4) < 0.001
+
+    def test_only_slabs_component(self):
+        """slabs_without_data=1 → 0.5 * 0.2 = 0.1"""
+        score = compute_drift_score(
+            exchanges_since_query=0,
+            patch_forward_count=0,
+            slabs_without_data=1,
+        )
+        assert abs(score - 0.1) < 0.001
+
+    def test_warning_threshold(self):
+        """Score of 0.3 should be at warning level."""
+        # exchanges=7.5 → 0.75*0.4=0.3, rest 0 → 0.3
+        # Use exchanges=8 → 0.8*0.4=0.32
+        score = compute_drift_score(
+            exchanges_since_query=8,
+            patch_forward_count=0,
+            slabs_without_data=0,
+        )
+        assert score >= 0.3
+
+
+# --- Periodic integrity check (Slab 3) ---
+
+
+class TestPeriodicIntegrityCheck:
+    def test_check_fires_at_interval(self):
+        """Integrity check injects context at exchange 15."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges=DRIFT_CHECK_INTERVAL - 1,  # Will become 15 after increment
+        )
+        state, response = handle_user_prompt(state)
+        assert state.exchanges == DRIFT_CHECK_INTERVAL
+        assert response is not None
+        assert "INTEGRITY CHECK" in response
+
+    def test_check_fires_at_multiples(self):
+        """Integrity check also fires at exchange 30."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges=(DRIFT_CHECK_INTERVAL * 2) - 1,
+        )
+        state, response = handle_user_prompt(state)
+        assert "INTEGRITY CHECK" in response
+
+    def test_no_check_between_intervals(self):
+        """No integrity check at non-interval exchanges."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges=10,  # Will become 11
+        )
+        state, response = handle_user_prompt(state)
+        # Should not contain integrity check (may be None or session warning)
+        if response:
+            assert "INTEGRITY CHECK" not in response
+
+    def test_no_check_in_normal_mode(self):
+        """Normal mode never gets integrity checks."""
+        state = SessionState(
+            session_start=1000,
+            mode="normal",
+            exchanges=DRIFT_CHECK_INTERVAL - 1,
+        )
+        state, response = handle_user_prompt(state)
+        if response:
+            assert "INTEGRITY CHECK" not in response
+
+    def test_check_includes_drift_score(self):
+        """Integrity check output includes computed drift score."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges=DRIFT_CHECK_INTERVAL - 1,
+            exchanges_since_query=5,
+            patch_forward_count=1,
+        )
+        state, response = handle_user_prompt(state)
+        assert "Drift score" in response
+
+    def test_check_includes_counter_values(self):
+        """Integrity check shows current counter values."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges=DRIFT_CHECK_INTERVAL - 1,
+            exchanges_since_query=7,  # becomes 8 after increment
+            patch_forward_count=2,
+            slabs_without_data=1,
+        )
+        state, response = handle_user_prompt(state)
+        assert "8" in response  # exchanges_since_query (incremented before check)
+        assert "2" in response  # patch_forward_count
+
+    def test_critical_drift_triggers_restart(self):
+        """Drift score > 0.8 sets stopped=2 (session restart)."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges=DRIFT_CHECK_INTERVAL - 1,
+            exchanges_since_query=10,
+            patch_forward_count=3,
+            slabs_without_data=2,
+        )
+        state, response = handle_user_prompt(state)
+        assert state.stopped == 2
+        assert "HANDOFF" in response or "restart" in response.lower()
+
+    def test_moderate_drift_does_not_restart(self):
+        """Drift score 0.3-0.6 warns but does not restart."""
+        state = SessionState(
+            session_start=1000,
+            mode="strict",
+            exchanges=DRIFT_CHECK_INTERVAL - 1,
+            exchanges_since_query=8,  # 0.8*0.4=0.32
+            patch_forward_count=0,
+            slabs_without_data=0,
+        )
+        state, response = handle_user_prompt(state)
+        assert state.stopped == 0
+        assert "INTEGRITY CHECK" in response
