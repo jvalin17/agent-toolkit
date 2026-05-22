@@ -270,8 +270,8 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 skills/          13 workflows (+ sub-skills & references per skill)
 agents/          9 research sub-agents
 shared/          guardrails, orchestrator, gate-unlock, report-format, templates
-hooks/           7 Python + 1 bash structural hook scripts + update.sh (+ gates.json reference copy)
-update.sh        8th hook — auto-pull before skills
+hooks/           7 Python + 1 bash structural hook scripts + 2 library modules + update.sh
+update.sh        9th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
 scripts/         agent-toolkit-continue, auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …
 templates/       gates.json, signed example, GitHub workflow template
