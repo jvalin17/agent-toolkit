@@ -2,11 +2,11 @@
 
 [![Skills: 13](https://img.shields.io/badge/Skills-13-blue?style=for-the-badge)](skills/)
 [![Agents: 9](https://img.shields.io/badge/Agents-9-green?style=for-the-badge)](agents/)
-[![Structural hooks: 8](https://img.shields.io/badge/Structural_hooks-8-purple?style=for-the-badge)](hooks/)
+[![Structural hooks: 9](https://img.shields.io/badge/Structural_hooks-9-purple?style=for-the-badge)](hooks/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow?style=for-the-badge)](LICENSE)
 [![Health Check](https://img.shields.io/badge/Health_Check-twice_monthly-brightgreen?style=for-the-badge)](.github/workflows/updater.yml)
 
-Production-ready skills for AI coding agents. 13 skills, 9 agents, 21 guardrail groups, 8 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
+Production-ready skills for AI coding agents. 13 skills, 9 agents, 21 guardrail groups, 9 structural hooks. Plan, build, test, debug, and ship — any repo, any language.
 
 Built for **Claude Code** (structural hooks + gates). Portable to Codex, Cursor, Gemini CLI, Windsurf, Aider (skills + guardrails via `AGENTS.md`; no structural hooks).
 
@@ -37,7 +37,7 @@ In a **git project**, install also bootstraps gates (`.agent-toolkit/`, `gates.j
 |-------|------|
 | **Skills (13)** | Workflows — `/implementation`, `/debug`, `/precommit`, … Interactive or `auto` (chains until ambiguity or failure). |
 | **Guardrails (21 groups)** | Rules every skill follows — see [Guardrails](#guardrails) and [`shared/guardrails.md`](shared/guardrails.md). |
-| **Structural hooks (8)** | Runtime enforcement the model cannot bypass — routing, TDD reminders, session limits, commit/push gates. |
+| **Structural hooks (9)** | Runtime enforcement the model cannot bypass — routing, TDD reminders, session limits, commit/push gates, doc-guard. |
 
 ### When to use what
 
@@ -82,6 +82,7 @@ Guardrails and skills are prompts — the model can ignore them. **Structural ho
 | `gate.py` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: block`. Auto-escalates warn→block on first violation. |
 | `skill_passed.py` | After skill completes | Reports gate status (does not issue tokens). |
 | `tdd_enforce.py` | Before file edit | TDD reminder if no test file exists. |
+| `check_doc_write.sh` | Before file write | Blocks writes outside project directory. User confirms cross-project writes. |
 | `gate_cleanup.py` | After commit | Clears flags / token for next cycle. |
 | `update.sh` | Before each skill | Auto-pull toolkit. |
 
@@ -256,7 +257,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 |-------|-----|------|
 | Universal safety | **G1–G9** | No secrets in output, confirm destructive ops, honest verification, file safety, synthetic PII, LLM data-exit safeguards, … |
 | Docs & workflow | **G10–G14** | README updates, project rules first, branch/PR naming, encrypt PII, project overrides toolkit |
-| Implementation quality | **G-IMPL-6, G-IMPL-7** | No shortcuts (G-IMPL-6), ground truth fixtures (G-IMPL-7 — strict mode) |
+| Implementation quality | **G-IMPL-6, G-IMPL-7** | No shortcuts (G-IMPL-6: 20 AI anti-patterns — [`ai-antipatterns.md`](skills/implementation/references/ai-antipatterns.md)), ground truth fixtures (G-IMPL-7 — strict mode) |
 | Commit gate | **G-PUSH-1** | No commit/push without `/precommit` |
 | Auto mode | **G-AUTO-1** | Every change cites evidence |
 | Session hooks | **G-SESSION-1** | Never modify `.session/` (structural hook blocks) |
@@ -269,7 +270,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 skills/          13 workflows (+ sub-skills & references per skill)
 agents/          9 research sub-agents
 shared/          guardrails, orchestrator, gate-unlock, report-format, templates
-hooks/           7 Python structural hook scripts + update.sh (+ gates.json reference copy)
+hooks/           7 Python + 1 bash structural hook scripts + update.sh (+ gates.json reference copy)
 update.sh        8th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
 scripts/         agent-toolkit-continue, auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …
