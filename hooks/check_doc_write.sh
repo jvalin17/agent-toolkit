@@ -1,7 +1,7 @@
 #!/bin/bash
 # Hook: Block writes outside the current working directory
 # Triggered by PreToolUse on Write tool
-# Part of agent-toolkit doc-guard feature (install with --with-doc-guard)
+# Part of agent-toolkit doc-guard feature (installed by default via install.sh)
 #
 # Policy: the agent should only write files within the project it's working on.
 # Writes to ~/.claude/ (toolkit, memory, settings) are also allowed.
@@ -13,8 +13,13 @@ FILE_PATH=$(jq -r '.tool_input.file_path // empty')
 [ -z "$FILE_PATH" ] && exit 0
 
 # Resolve to absolute paths for reliable comparison
-RESOLVED=$(cd "$(dirname "$FILE_PATH" 2>/dev/null)" 2>/dev/null && pwd)/$(basename "$FILE_PATH") 2>/dev/null
-[ -z "$RESOLVED" ] && RESOLVED="$FILE_PATH"
+# Only resolve if parent directory exists; otherwise use raw path
+PARENT_DIR=$(dirname "$FILE_PATH" 2>/dev/null)
+if [ -d "$PARENT_DIR" ]; then
+    RESOLVED=$(cd "$PARENT_DIR" && pwd)/$(basename "$FILE_PATH")
+else
+    RESOLVED="$FILE_PATH"
+fi
 
 CWD=$(pwd)
 

@@ -131,7 +131,7 @@ class TestLoadGateConfig:
 
     def test_returns_defaults_when_no_config(self, tmp_path):
         config = load_gate_config(tmp_path)
-        assert config["enforcement"] == "warn"
+        assert config["enforcement"] == "block"
         assert config["gate_mode"] == "legacy"
 
 

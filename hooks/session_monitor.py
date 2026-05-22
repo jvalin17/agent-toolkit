@@ -21,6 +21,20 @@ import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
+from auto_handoff import (
+    parse_handoff_header,
+    trigger_auto_handoff,
+    write_auto_handoff,
+)
+from strict_mode import (
+    compute_drift_score,
+    detect_patch_forward,
+    is_real_system_query,
+    is_test_command,
+    is_test_failure,
+    is_test_file,
+)
+
 # --- Configuration ---
 
 WARN_THRESHOLD_BYTES = 500_000  # ~70% of 200K token window → warning
@@ -37,36 +51,6 @@ BASH_WRITE_PATTERNS = re.compile(
     r".*\.session"
 )
 BASH_SESSION_REF = re.compile(r"\.session(/|\s|$)")
-
-# Real-system query patterns (strict mode drift detection)
-REAL_SYSTEM_QUERY_PATTERNS = re.compile(
-    r"\b(curl|wget|httpie|grpcurl|postman)\b"
-    r"|\bhttp\s+(GET|POST|PUT|DELETE|PATCH)\b"
-    r"|\b(psql|mysql|sqlite3|mongosh)\b"
-    r"|\b(SELECT|INSERT|UPDATE|DELETE)\s+"
-    r"|\bdocker\s+exec\b.*\b(psql|mysql|mongo|redis)",
-    re.IGNORECASE,
-)
-
-# Test runner patterns
-TEST_RUNNER_PATTERNS = re.compile(
-    r"\b(pytest|py\.test|python3?\s+-m\s+pytest)\b"
-    r"|\b(jest|vitest|mocha)\b"
-    r"|\bgo\s+test\b"
-    r"|\bcargo\s+test\b"
-    r"|\bnpm\s+(run\s+)?test\b"
-    r"|\byarn\s+test\b",
-    re.IGNORECASE,
-)
-
-# Test failure indicators in output
-TEST_FAILURE_PATTERNS = re.compile(
-    r"\bFAILED\b|\bFAILURE\b|\bERROR\b.*test"
-    r"|\bfailed\b.*\btests?\b"
-    r"|\bAssertionError\b"
-    r"|\bExpect.*received\b",
-    re.IGNORECASE,
-)
 
 MAX_TOOL_SEQUENCE_LENGTH = 10
 DRIFT_CHECK_INTERVAL = 15  # Integrity check every N exchanges in strict mode
@@ -229,103 +213,8 @@ def is_handoff_allowed(tool_name: str, file_path: str, command: str) -> bool:
     return False
 
 
-# --- Drift detection (strict mode) ---
+# --- Drift detection + auto-handoff: imported from strict_mode.py, auto_handoff.py ---
 
-
-def is_real_system_query(command: str) -> bool:
-    """Check if a Bash command is a real-system query (curl, psql, SELECT, etc.)."""
-    if not command:
-        return False
-    return bool(REAL_SYSTEM_QUERY_PATTERNS.search(command))
-
-
-def is_test_command(command: str) -> bool:
-    """Check if a Bash command runs a test suite."""
-    if not command:
-        return False
-    return bool(TEST_RUNNER_PATTERNS.search(command))
-
-
-def is_test_failure(output: str) -> bool:
-    """Check if tool output indicates test failure."""
-    if not output:
-        return False
-    return bool(TEST_FAILURE_PATTERNS.search(output))
-
-
-def is_test_file(file_path: str) -> bool:
-    """Check if a file path is a test file."""
-    if not file_path:
-        return False
-    name = Path(file_path).name
-    return (
-        name.startswith("test_")
-        or name.endswith("_test.py")
-        or name.endswith(".test.ts")
-        or name.endswith(".test.js")
-        or name.endswith(".spec.ts")
-        or name.endswith(".spec.js")
-        or "/tests/" in file_path
-        or "/test/" in file_path
-        or "/__tests__/" in file_path
-    )
-
-
-def detect_patch_forward(sequence: list) -> bool:
-    """Detect patch-forward pattern in tool sequence.
-
-    Pattern: test failure → Edit/Write source file with no investigation between.
-    Investigation = Read, Grep, or real-system query (Bash with query pattern).
-    """
-    if len(sequence) < 2:
-        return False
-
-    # Walk backward from the last entry
-    last = sequence[-1]
-    if last.get("tool") not in ("Edit", "Write"):
-        return False
-
-    # If editing a test file, not patch-forward
-    if is_test_file(last.get("file_path", "")):
-        return False
-
-    # Look backward for test failure, checking for investigation between
-    for i in range(len(sequence) - 2, -1, -1):
-        entry = sequence[i]
-
-        # Found investigation — not patch-forward
-        if entry.get("tool") in ("Read", "Grep"):
-            return False
-        if entry.get("was_query"):
-            return False
-
-        # Found test failure — this is patch-forward
-        if entry.get("was_test") and entry.get("failed"):
-            return True
-
-        # Found non-test, non-investigation tool — stop searching
-        # (the test failure must be adjacent-ish)
-        if entry.get("tool") not in ("Edit", "Write"):
-            return False
-
-    return False
-
-
-def compute_drift_score(
-    exchanges_since_query: int,
-    patch_forward_count: int,
-    slabs_without_data: int,
-) -> float:
-    """Compute drift score from counters. Returns 0.0 to 1.0.
-
-    Formula from requirements/strict-mode.md:
-      min(exchanges/10, 1.0) * 0.4 + min(patches/3, 1.0) * 0.4 + min(slabs/2, 1.0) * 0.2
-    """
-    return (
-        min(exchanges_since_query / 10, 1.0) * 0.4
-        + min(patch_forward_count / 3, 1.0) * 0.4
-        + min(slabs_without_data / 2, 1.0) * 0.2
-    )
 
 
 # --- Event handlers ---
@@ -470,13 +359,21 @@ def handle_post_tool_use(
 
 
 def handle_post_compact(state: SessionState) -> tuple:
-    """Handle PostCompact event. Context was compressed — trigger handoff."""
+    """Handle PostCompact event. Context was compressed — trigger auto-handoff."""
     state.compactions += 1
+
+    # Compaction = immediate hard stop. Hook writes HANDOFF.md.
+    stop_reason = (
+        f"Context compacted ({state.compactions} time(s)) "
+        f"— context window is full"
+    )
+    trigger_auto_handoff(state, stop_reason)
+    state.stopped = 2
+
     response = (
         "CONTEXT COMPACTED: Context window was compressed by Claude Code. "
-        "This means context pressure is critical. "
-        "Finish your current task, then IMMEDIATELY write HANDOFF.md "
-        "and commit. The auto-continuation wrapper will relaunch a fresh session."
+        "HANDOFF.md has been written automatically by the hook. "
+        "The auto-continuation wrapper will relaunch a fresh session."
     )
     return state, response
 
@@ -524,18 +421,22 @@ def handle_pre_tool_use(
         # Grace period active — check if exhausted
         grace_remaining = state.stop_at_tool_call - state.tool_calls
         if grace_remaining <= 0:
-            # Hard stop — only handoff operations allowed
-            if is_handoff_allowed(tool_name, file_path, command):
+            # Hard stop — hook writes the handoff automatically
+            if state.stopped != 2:
+                # First transition to hard stop — write handoff
                 state.stopped = 2
+                trigger_auto_handoff(state, stop_reason)
+
+            # After hook-written handoff, only git operations allowed
+            # (so the agent can commit but NOT overwrite HANDOFF.md)
+            if is_handoff_allowed(tool_name, file_path, command):
                 return state, "", False
 
-            state.stopped = 2
             response = (
                 f"HARD STOP: Grace period exhausted. {stop_reason}.\n\n"
-                f"ONLY allowed operations: Write HANDOFF.md, "
-                f"update project-state.md, git commit.\n"
-                f"Everything else is blocked. Write the handoff NOW "
-                f"and tell the user to start a new session."
+                f"HANDOFF.md has been written automatically by the hook.\n"
+                f"ONLY allowed operations: git commit.\n"
+                f"Everything else is blocked."
             )
             return state, response, True
         else:

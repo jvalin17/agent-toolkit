@@ -14,26 +14,33 @@ import pytest
 # Add hooks/ to path so we can import the module
 sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
 
+from auto_handoff import (
+    parse_handoff_header,
+    trigger_auto_handoff,
+    write_auto_handoff,
+)
 from session_monitor import (
     DRIFT_CHECK_INTERVAL,
     FALLBACK_MAX_EXCHANGES,
     GRACE_TOOL_CALLS,
     HARD_THRESHOLD_BYTES,
-    REAL_SYSTEM_QUERY_PATTERNS,
     WARN_THRESHOLD_BYTES,
     SessionState,
     check_session_blocked,
     check_thresholds,
-    compute_drift_score,
-    detect_patch_forward,
     handle_post_compact,
     handle_post_tool_use,
     handle_pre_tool_use,
     handle_user_prompt,
-    is_real_system_query,
     load_state,
     make_hook_response,
     save_state,
+)
+from strict_mode import (
+    REAL_SYSTEM_QUERY_PATTERNS,
+    compute_drift_score,
+    detect_patch_forward,
+    is_real_system_query,
 )
 
 
@@ -924,3 +931,266 @@ class TestPeriodicIntegrityCheck:
         state, response = handle_user_prompt(state)
         assert state.stopped == 0
         assert "INTEGRITY CHECK" in response
+
+
+# --- Auto-handoff (hook-written HANDOFF.md) ---
+
+
+class TestWriteAutoHandoff:
+    """Tests for write_auto_handoff() — hook writes HANDOFF.md on hard stop."""
+
+    def test_writes_handoff_file(self, tmp_path):
+        """write_auto_handoff creates a HANDOFF.md file."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        state = SessionState(session_start=1000, cumulative_output_bytes=800_000)
+        write_auto_handoff(
+            handoff_path=handoff_path,
+            state=state,
+            stop_reason="bytes threshold exceeded",
+            previous_handoff="",
+            git_log="abc1234 Some commit",
+        )
+        assert handoff_path.exists()
+        content = handoff_path.read_text()
+        assert len(content) > 0
+
+    def test_preserves_goal_from_previous_handoff(self, tmp_path):
+        """Goal from previous HANDOFF.md is carried forward."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        previous = (
+            "# HANDOFF\n\n"
+            "## Goal\n\n"
+            "Build the payment system\n\n"
+            "## Session\n\nNumber: 3\n"
+        )
+        state = SessionState(session_start=1000, compactions=1)
+        write_auto_handoff(
+            handoff_path=handoff_path,
+            state=state,
+            stop_reason="compaction",
+            previous_handoff=previous,
+            git_log="abc1234 Some commit",
+        )
+        content = handoff_path.read_text()
+        assert "Build the payment system" in content
+
+    def test_increments_session_number(self, tmp_path):
+        """Session number is incremented from previous handoff."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        previous = (
+            "# HANDOFF\n\n"
+            "## Goal\n\nSome goal\n\n"
+            "## Session\n\nNumber: 3\n"
+        )
+        state = SessionState(session_start=1000, compactions=1)
+        write_auto_handoff(
+            handoff_path=handoff_path,
+            state=state,
+            stop_reason="compaction",
+            previous_handoff=previous,
+            git_log="",
+        )
+        content = handoff_path.read_text()
+        assert "Number: 4" in content
+
+    def test_includes_stop_reason(self, tmp_path):
+        """Stop reason is included in the handoff."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        state = SessionState(session_start=1000, compactions=1)
+        write_auto_handoff(
+            handoff_path=handoff_path,
+            state=state,
+            stop_reason="Context compacted (1 time(s))",
+            previous_handoff="",
+            git_log="",
+        )
+        content = handoff_path.read_text()
+        assert "compacted" in content.lower()
+
+    def test_includes_git_log(self, tmp_path):
+        """Recent commits are included in the handoff."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        state = SessionState(session_start=1000, compactions=1)
+        git_log = "abc1234 Fix payment validation\ndef5678 Add cart endpoint"
+        write_auto_handoff(
+            handoff_path=handoff_path,
+            state=state,
+            stop_reason="compaction",
+            previous_handoff="",
+            git_log=git_log,
+        )
+        content = handoff_path.read_text()
+        assert "abc1234" in content
+        assert "Fix payment validation" in content
+
+    def test_includes_session_counters(self, tmp_path):
+        """Session state counters are included for diagnostics."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        state = SessionState(
+            session_start=1000,
+            exchanges=25,
+            tool_calls=142,
+            cumulative_output_bytes=750_000,
+            compactions=1,
+        )
+        write_auto_handoff(
+            handoff_path=handoff_path,
+            state=state,
+            stop_reason="compaction",
+            previous_handoff="",
+            git_log="",
+        )
+        content = handoff_path.read_text()
+        assert "25" in content  # exchanges
+        assert "142" in content  # tool_calls
+
+    def test_defaults_session_number_to_1_when_no_previous(self, tmp_path):
+        """When there's no previous handoff, session number defaults to 1 (next=2)."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        state = SessionState(session_start=1000, compactions=1)
+        write_auto_handoff(
+            handoff_path=handoff_path,
+            state=state,
+            stop_reason="compaction",
+            previous_handoff="",
+            git_log="",
+        )
+        content = handoff_path.read_text()
+        assert "Number: 2" in content
+
+    def test_includes_last_tool_sequence(self, tmp_path):
+        """Last tool sequence from state is included (shows in-progress work)."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        state = SessionState(
+            session_start=1000,
+            compactions=1,
+            last_tool_sequence=[
+                {"tool": "Edit", "file_path": "src/main.py"},
+                {"tool": "Bash", "command": "pytest tests/"},
+            ],
+        )
+        write_auto_handoff(
+            handoff_path=handoff_path,
+            state=state,
+            stop_reason="compaction",
+            previous_handoff="",
+            git_log="",
+        )
+        content = handoff_path.read_text()
+        assert "src/main.py" in content or "Edit" in content
+
+
+class TestParseHandoffGoalAndSession:
+    """Tests for parsing goal and session number from existing HANDOFF.md."""
+
+    def test_extracts_goal(self):
+        handoff = (
+            "# HANDOFF\n\n"
+            "## Goal\n\n"
+            "Build the payment system\n\n"
+            "## Session\n\nNumber: 3\n"
+        )
+        goal, session_number = parse_handoff_header(handoff)
+        assert goal == "Build the payment system"
+
+    def test_extracts_session_number(self):
+        handoff = (
+            "# HANDOFF\n\n"
+            "## Goal\n\nSome goal\n\n"
+            "## Session\n\nNumber: 5\n"
+        )
+        goal, session_number = parse_handoff_header(handoff)
+        assert session_number == 5
+
+    def test_defaults_on_empty_string(self):
+        goal, session_number = parse_handoff_header("")
+        assert goal == ""
+        assert session_number == 1
+
+    def test_defaults_on_malformed_input(self):
+        goal, session_number = parse_handoff_header("random text with no structure")
+        assert session_number == 1
+
+
+class TestAutoHandoffWiring:
+    """Tests that trigger_auto_handoff is called at the right times."""
+
+    def test_compaction_writes_handoff(self, tmp_path, monkeypatch):
+        """PostCompact event triggers auto-handoff write."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        # Pre-populate a previous handoff
+        handoff_path.write_text(
+            "# HANDOFF\n\n## Goal\n\nBuild feature X\n\n"
+            "## Session\n\nNumber: 2\n"
+        )
+
+        # Monkey-patch Path("HANDOFF.md") to use tmp_path
+        monkeypatch.chdir(tmp_path)
+
+        state = SessionState(
+            session_start=1000,
+            exchanges=20,
+            tool_calls=100,
+            cumulative_output_bytes=600_000,
+        )
+        state, response = handle_post_compact(state)
+        assert state.stopped == 2
+        assert "automatically" in response.lower()
+        # Verify handoff was written
+        content = handoff_path.read_text()
+        assert "Number: 3" in content
+        assert "Build feature X" in content
+
+    def test_grace_exhausted_writes_handoff(self, tmp_path, monkeypatch):
+        """Grace period exhaustion triggers auto-handoff write."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        handoff_path.write_text(
+            "# HANDOFF\n\n## Goal\n\nSome goal\n\n"
+            "## Session\n\nNumber: 1\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        state = SessionState(
+            session_start=1000,
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
+            stopped=1,
+            tool_calls=60,
+            stop_at_tool_call=60,  # Grace exhausted
+        )
+        # Non-handoff tool should be blocked, but handoff should be written
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Read", file_path="/project/src/main.py", command=""
+        )
+        assert blocked is True
+        assert state.stopped == 2
+        content = handoff_path.read_text()
+        assert "Number: 2" in content
+        assert "Some goal" in content
+
+    def test_handoff_written_once_not_repeatedly(self, tmp_path, monkeypatch):
+        """Auto-handoff is written once, not on every subsequent blocked tool."""
+        handoff_path = tmp_path / "HANDOFF.md"
+        handoff_path.write_text(
+            "# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n"
+        )
+        monkeypatch.chdir(tmp_path)
+
+        state = SessionState(
+            session_start=1000,
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
+            stopped=1,
+            tool_calls=60,
+            stop_at_tool_call=60,
+        )
+        # First call — triggers handoff write
+        state, _, _ = handle_pre_tool_use(
+            state, tool_name="Read", file_path="foo.py", command=""
+        )
+        first_content = handoff_path.read_text()
+
+        # Second call — already stopped=2, should not rewrite
+        state, _, _ = handle_pre_tool_use(
+            state, tool_name="Read", file_path="bar.py", command=""
+        )
+        second_content = handoff_path.read_text()
+        assert first_content == second_content

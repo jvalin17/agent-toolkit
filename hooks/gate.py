@@ -67,7 +67,7 @@ def load_gate_config(project_dir: Path) -> dict:
                 return json.loads(candidate.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
                 pass
-    return {"enforcement": "warn", "gate_mode": "legacy"}
+    return {"enforcement": "block", "gate_mode": "legacy"}
 
 
 def resolve_enforcement(

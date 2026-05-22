@@ -7,7 +7,7 @@ Check `gates.json` → `gate_mode` (default: **`legacy`** for daily work; **`sig
 | **legacy** | Skills write `.gates/<skill>-passed` | Solo dev, sessions up to ~50 min, prototypes |
 | **signed** | Skills write `reports/` → attest → `.gate/gate-token.jwt` | 2+ hour sessions, HANDOFF resume, team `main`, regulated work |
 
-**`enforcement`:** default **`warn`** — hook reminds without blocking. Use **`block`** for a hard stop.
+**`enforcement`:** default **`block`** — hook blocks commit/push when required gates are missing. Use **`warn`** to remind without blocking.
 
 **`AGENT_TOOLKIT_GATE_SECRET`:** optional. Not needed for legacy or single-job CI (bootstrap creates `.gate/signing.key`). Use `scripts/setup-signed-gates.sh --upload-github-secret` only when GitHub and your laptop must share one key.
 

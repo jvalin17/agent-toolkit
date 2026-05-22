@@ -128,6 +128,7 @@ install_hooks() {
     local session_init_cmd="python3 $toolkit_path/hooks/session_init.py"
     local tdd_cmd="python3 $toolkit_path/hooks/tdd_enforce.py"
     local monitor_cmd="python3 $toolkit_path/hooks/session_monitor.py"
+    local doc_guard_cmd="bash $toolkit_path/hooks/check_doc_write.sh"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
         cat > "$SETTINGS_FILE" << HOOKEOF
@@ -163,6 +164,17 @@ install_hooks() {
             "type": "command",
             "command": "$tdd_cmd",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$doc_guard_cmd",
+            "timeout": 5,
+            "statusMessage": "Checking write path..."
           }
         ]
       },
@@ -320,6 +332,16 @@ HOOKEOF
         echo "  [installed] TDD enforcement hook (reminds about test-first on source edits)"
     else
         echo "  [skip] TDD enforcement hook (already installed)"
+    fi
+
+    # Add doc-guard hook (PreToolUse on Write — blocks writes outside project dir)
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("check_doc_write"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$doc_guard_cmd" '
+            .hooks.PreToolUse += [{"matcher": "Write", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Checking write path..."}]}]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] doc-guard hook (blocks writes outside project directory)"
+    else
+        echo "  [skip] doc-guard hook (already installed)"
     fi
 
     # Add route-to-skill hook (UserPromptSubmit)
