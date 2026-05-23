@@ -20,7 +20,11 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-from hooks.session_monitor import SessionState, save_state
+# Ensure sibling modules are importable regardless of CWD
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from session_monitor import SessionState, save_state
 
 # --- Configuration ---
 
