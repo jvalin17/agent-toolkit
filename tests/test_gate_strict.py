@@ -63,7 +63,8 @@ class TestStrictModeGateEnforcement:
         exit_code, output = run_gate(stdin, project_dir)
 
         # Should be blocked — evaluate missing
-        assert exit_code == 2
+        assert exit_code == 0  # Blocking via JSON decision
+        assert "block" in output
         assert "evaluate" in output.lower()
 
     def test_strict_mode_allows_commit_with_both(self, project_dir):
@@ -85,7 +86,8 @@ class TestStrictModeGateEnforcement:
         stdin = make_hook_input("git push origin main")
         exit_code, output = run_gate(stdin, project_dir)
 
-        assert exit_code == 2
+        assert exit_code == 0  # Blocking via JSON decision
+        assert "block" in output
         assert "evaluate" in output.lower()
 
     def test_normal_mode_minimal_does_not_require_evaluate(self, project_dir):
@@ -107,7 +109,8 @@ class TestStrictModeGateEnforcement:
         stdin = make_hook_input("git commit -m 'test'")
         exit_code, output = run_gate(stdin, project_dir)
 
-        assert exit_code == 2
+        assert exit_code == 0  # Blocking via JSON decision
+        assert "block" in output
         assert "80" in output or "below" in output.lower()
 
     def test_no_mode_field_treated_as_normal(self, project_dir):

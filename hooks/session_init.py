@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from gate import get_config_value, load_gate_config
 from session_monitor import SessionState, save_state
 
 # --- Configuration ---
@@ -46,24 +47,18 @@ DEFAULT_MODE = "normal"
 # --- Core functions ---
 
 
-def detect_mode(project_dir: Path) -> str:
-    """Detect agent toolkit mode from gates.json or env var.
-
-    Priority: AGENT_TOOLKIT_MODE env var > gates.json "mode" field > "normal".
-    """
-    env_mode = os.environ.get("AGENT_TOOLKIT_MODE")
-    if env_mode:
-        return env_mode
-
-    gates_path = project_dir / "gates.json"
-    if gates_path.is_file():
-        try:
-            data = json.loads(gates_path.read_text(encoding="utf-8"))
-            return data.get("mode", DEFAULT_MODE)
-        except (json.JSONDecodeError, OSError):
-            return DEFAULT_MODE
-
-    return DEFAULT_MODE
+def load_session_config(project_dir: Path) -> dict:
+    """Load all session-relevant settings from gates.json with env overrides."""
+    config = load_gate_config(project_dir)
+    return {
+        "mode": get_config_value(config, "mode", "normal"),
+        "max_session_minutes": get_config_value(config, "max_session_minutes", 0),
+        "tdd": get_config_value(config, "tdd", True),
+        "skill_routing": get_config_value(config, "skill_routing", True),
+        "auto": get_config_value(config, "auto", False),
+        "continue": get_config_value(config, "continue", False),
+        "model": get_config_value(config, "model", "auto"),
+    }
 
 
 def scan_project_files(project_dir: Path) -> Tuple[List[str], int]:
@@ -101,10 +96,16 @@ def scan_project_files(project_dir: Path) -> Tuple[List[str], int]:
     return files, report_count
 
 
-def init_session_state(session_dir: Path, mode: str = "normal") -> SessionState:
+def init_session_state(
+    session_dir: Path, mode: str = "normal", max_session_minutes: int = 0
+) -> SessionState:
     """Initialize .session/state.json with fresh counters."""
     session_dir.mkdir(parents=True, exist_ok=True)
-    state = SessionState(session_start=int(time.time()), mode=mode)
+    state = SessionState(
+        session_start=int(time.time()),
+        mode=mode,
+        max_session_minutes=max_session_minutes,
+    )
     state_file = session_dir / "state.json"
     save_state(state, state_file)
     return state
@@ -200,6 +201,7 @@ def build_context(
     warnings: List[str],
     continuation: Optional[Dict[str, object]],
     mode: Optional[str] = None,
+    session_config: Optional[Dict[str, object]] = None,
 ) -> str:
     """Build the full context string for SessionStart.
 
@@ -209,8 +211,19 @@ def build_context(
         warnings: List of integrity warning strings
         continuation: Dict with 'goal' and 'session_number', or None
         mode: Agent toolkit mode ("normal", "strict", or None for default)
+        session_config: Full config dict from load_session_config
     """
     parts = ["AGENT TOOLKIT ACTIVE — You must follow skill workflows for all tasks."]
+
+    # Config summary
+    if session_config:
+        cfg_items = [
+            f"tdd={session_config.get('tdd', True)}",
+            f"skill_routing={session_config.get('skill_routing', True)}",
+            f"max_session_minutes={session_config.get('max_session_minutes', 0)}",
+            f"model={session_config.get('model', 'auto')}",
+        ]
+        parts.append(f"Config: {', '.join(cfg_items)}")
 
     # Strict mode banner
     if mode == "strict":
@@ -321,11 +334,16 @@ def main() -> int:
     settings_path = get_settings_path()
     session_dir = project_dir / ".session"
 
-    # 1. Detect mode (needed for session state init)
-    mode = detect_mode(project_dir)
+    # 1. Load config from gates.json
+    session_config = load_session_config(project_dir)
+    mode = session_config["mode"]
 
-    # 2. Initialize session state with mode
-    init_session_state(session_dir, mode=mode)
+    # 2. Initialize session state with config
+    init_session_state(
+        session_dir,
+        mode=mode,
+        max_session_minutes=session_config["max_session_minutes"],
+    )
 
     # 3. Clear stale gates
     gate_warnings = clear_stale_gates(project_dir)
@@ -344,7 +362,10 @@ def main() -> int:
         continuation = {"goal": goal, "session_number": session_number}
 
     # 7. Build context
-    context = build_context(files, report_count, all_warnings, continuation, mode=mode)
+    context = build_context(
+        files, report_count, all_warnings, continuation,
+        mode=mode, session_config=session_config,
+    )
 
     # 8. Output JSON
     output = json.dumps({

@@ -1,0 +1,15 @@
+#!/bin/bash
+# agent-toolkit-setup — Configure agent toolkit modes and settings
+# Interactive wizard or CLI one-liners.
+#
+# Usage:
+#   agent-toolkit-setup                        # interactive wizard
+#   agent-toolkit-setup --quick                # prototype mode
+#   agent-toolkit-setup --balanced             # daily dev mode
+#   agent-toolkit-setup --guarded              # production mode
+#   agent-toolkit-setup --lockdown             # full review mode
+#   agent-toolkit-setup --tdd off --model sonnet  # individual settings
+#   agent-toolkit-setup --status               # show current config
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+exec python3 "$SCRIPT_DIR/setup_modes.py" "$@"

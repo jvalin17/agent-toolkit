@@ -70,6 +70,26 @@ def load_gate_config(project_dir: Path) -> dict:
     return {"enforcement": "block", "gate_mode": "legacy"}
 
 
+def get_config_value(config: dict, key: str, default=None):
+    """Get config value with AGENT_TOOLKIT_* env var override.
+
+    Env var name: AGENT_TOOLKIT_{KEY_UPPER} (e.g. tdd → AGENT_TOOLKIT_TDD).
+    Type coercion: bool if default is bool, int if default is int, else string.
+    """
+    env_key = f"AGENT_TOOLKIT_{key.upper()}"
+    env_val = os.environ.get(env_key)
+    if env_val is not None:
+        if isinstance(default, bool):
+            return env_val.lower() in ("true", "1", "yes")
+        if isinstance(default, int):
+            try:
+                return int(env_val)
+            except ValueError:
+                pass
+        return env_val
+    return config.get(key, default)
+
+
 def resolve_enforcement(
     config_enforcement: str,
     project_dir: Path,
@@ -131,7 +151,7 @@ def check_gate_flags(
 
 
 def make_hook_response(message: str) -> str:
-    """Build Claude Code hook JSON response."""
+    """Build Claude Code hook JSON response (context injection, non-blocking)."""
     return json.dumps(
         {
             "hookSpecificOutput": {
@@ -140,6 +160,11 @@ def make_hook_response(message: str) -> str:
             }
         }
     )
+
+
+def make_block_response(reason: str) -> str:
+    """Build Claude Code hook JSON response that blocks the tool."""
+    return json.dumps({"decision": "block", "reason": reason})
 
 
 def run_gate(
@@ -182,7 +207,7 @@ def run_gate(
     def gate_finish(msg: str) -> tuple:
         """Emit gate result based on enforcement level."""
         if enforcement == "block":
-            return 2, make_hook_response(f"BLOCKED: {msg}")
+            return 0, make_block_response(f"BLOCKED: {msg}")
         # Auto-escalate: first warn → block for rest of session
         gates_dir = project_dir / ".gates"
         gates_dir.mkdir(exist_ok=True)

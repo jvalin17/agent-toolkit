@@ -1201,7 +1201,7 @@ class TestAutoHandoffWiring:
 
 # --- Time-based session limit (F1) ---
 
-DEFAULT_MAX_SESSION_MINUTES = 70
+DEFAULT_MAX_SESSION_MINUTES = 0
 
 
 class TestTimeLimitInCheckThresholds:

@@ -20,7 +20,7 @@ from hooks.session_init import (
     check_hook_integrity,
     clear_stale_gates,
     detect_continuation,
-    detect_mode,
+    load_session_config,
     init_session_state,
     main,
     scan_project_files,
@@ -316,30 +316,34 @@ Previous sessions: 6
         assert session_number == 7
 
 
-# --- detect_mode ---
+# --- load_session_config ---
 
 
-class TestDetectMode:
+class TestLoadSessionConfig:
     def test_reads_mode_from_gates_json(self, project_dir):
-        """detect_mode reads the 'mode' field from gates.json."""
+        """load_session_config reads the 'mode' field from gates.json."""
         gates = {"gate_mode": "legacy", "mode": "strict"}
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
-        mode = detect_mode(project_dir)
-        assert mode == "strict"
+        config = load_session_config(project_dir)
+        assert config["mode"] == "strict"
 
     def test_missing_mode_field_returns_normal(self, project_dir):
         """If gates.json has no 'mode' field, default to 'normal'."""
         gates = {"gate_mode": "legacy"}
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
-        mode = detect_mode(project_dir)
-        assert mode == "normal"
+        config = load_session_config(project_dir)
+        assert config["mode"] == "normal"
 
-    def test_missing_gates_json_returns_normal(self, project_dir):
-        """If gates.json doesn't exist, default to 'normal'."""
-        mode = detect_mode(project_dir)
-        assert mode == "normal"
+    def test_missing_gates_json_returns_defaults(self, project_dir):
+        """If gates.json doesn't exist, return defaults."""
+        config = load_session_config(project_dir)
+        assert config["mode"] == "normal"
+        assert config["max_session_minutes"] == 0
+        assert config["tdd"] is True
+        assert config["skill_routing"] is True
+        assert config["model"] == "auto"
 
     def test_env_var_overrides_gates_json(self, project_dir):
         """AGENT_TOOLKIT_MODE env var overrides gates.json."""
@@ -347,21 +351,38 @@ class TestDetectMode:
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
         with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "strict"}):
-            mode = detect_mode(project_dir)
-        assert mode == "strict"
+            config = load_session_config(project_dir)
+        assert config["mode"] == "strict"
 
-    def test_env_var_without_gates_json(self, project_dir):
-        """AGENT_TOOLKIT_MODE works even without gates.json."""
-        with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "strict"}):
-            mode = detect_mode(project_dir)
-        assert mode == "strict"
+    def test_max_session_minutes_from_config(self, project_dir):
+        """max_session_minutes is read from gates.json."""
+        gates = {"max_session_minutes": 45}
+        (project_dir / "gates.json").write_text(json.dumps(gates))
 
-    def test_corrupt_gates_json_returns_normal(self, project_dir):
-        """Corrupt gates.json should not crash, returns 'normal'."""
-        (project_dir / "gates.json").write_text("not valid json {{{")
+        config = load_session_config(project_dir)
+        assert config["max_session_minutes"] == 45
 
-        mode = detect_mode(project_dir)
-        assert mode == "normal"
+    def test_all_fields_from_config(self, project_dir):
+        """All config fields are read from gates.json."""
+        gates = {
+            "mode": "strict",
+            "max_session_minutes": 30,
+            "tdd": False,
+            "skill_routing": False,
+            "auto": True,
+            "continue": True,
+            "model": "gpt-4o",
+        }
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        config = load_session_config(project_dir)
+        assert config["mode"] == "strict"
+        assert config["max_session_minutes"] == 30
+        assert config["tdd"] is False
+        assert config["skill_routing"] is False
+        assert config["auto"] is True
+        assert config["continue"] is True
+        assert config["model"] == "gpt-4o"
 
 
 # --- build_context ---

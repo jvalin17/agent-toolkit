@@ -14,6 +14,11 @@ import sys
 from pathlib import Path
 from typing import Optional, Tuple
 
+# Ensure sibling modules are importable regardless of CWD
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from gate import get_config_value, load_gate_config
+
 # Intent patterns — order matters (first match wins).
 # Each entry: (compiled_regex, skill_context_builder)
 
@@ -200,6 +205,10 @@ def run_route_to_skill(
     project_dir: Path,
 ) -> Tuple[int, str]:
     """Detect intent and inject skill routing. Returns (exit_code, output)."""
+    config = load_gate_config(project_dir)
+    if not get_config_value(config, "skill_routing", True):
+        return 0, ""
+
     try:
         hook_input = json.loads(stdin_input)
         prompt = hook_input.get("prompt", "")

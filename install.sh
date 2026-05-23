@@ -455,6 +455,33 @@ else
     echo "  [skip] agent-toolkit-continue (script not found)"
 fi
 
+# --- agent-toolkit-setup entry point ---
+echo ""
+echo "Setting up agent-toolkit-setup..."
+SETUP_SRC="$SCRIPT_DIR/scripts/agent-toolkit-setup"
+
+if [ -x "$SETUP_SRC" ]; then
+    if [ -d "$LOCAL_BIN" ] || mkdir -p "$LOCAL_BIN" 2>/dev/null; then
+        if [ -L "$LOCAL_BIN/agent-toolkit-setup" ]; then
+            current="$(readlink "$LOCAL_BIN/agent-toolkit-setup")"
+            if [ "$current" = "$SETUP_SRC" ]; then
+                echo "  [skip] agent-toolkit-setup (already linked in $LOCAL_BIN)"
+            else
+                ln -sf "$SETUP_SRC" "$LOCAL_BIN/agent-toolkit-setup"
+                echo "  [updated] agent-toolkit-setup → $LOCAL_BIN/agent-toolkit-setup"
+            fi
+        else
+            ln -s "$SETUP_SRC" "$LOCAL_BIN/agent-toolkit-setup"
+            echo "  [installed] agent-toolkit-setup → $LOCAL_BIN/agent-toolkit-setup"
+        fi
+    else
+        echo "  [skip] agent-toolkit-setup symlink (could not create $LOCAL_BIN)"
+        echo "  Run directly: python3 scripts/setup_modes.py"
+    fi
+else
+    echo "  [skip] agent-toolkit-setup (script not found)"
+fi
+
 # --- Summary ---
 echo ""
 echo "Done. Installed: $installed, Skipped: $skipped, Cleaned: $cleaned"

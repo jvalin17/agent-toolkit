@@ -15,6 +15,11 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
+# Ensure sibling modules are importable regardless of CWD
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from gate import get_config_value, load_gate_config
+
 # File extensions that are not code — skip these
 NON_CODE_EXTENSIONS = {
     ".md", ".json", ".yml", ".yaml", ".toml", ".cfg", ".ini",
@@ -84,6 +89,10 @@ def run_tdd_enforce(
     project_dir: Path,
 ) -> Tuple[int, str]:
     """Check for TDD compliance before file edit. Returns (exit_code, output)."""
+    config = load_gate_config(project_dir)
+    if not get_config_value(config, "tdd", True):
+        return 0, ""
+
     try:
         hook_input = json.loads(stdin_input)
         file_path_str = hook_input.get("tool_input", {}).get("file_path", "")

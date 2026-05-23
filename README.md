@@ -82,7 +82,7 @@ Guardrails and skills are prompts — the model can ignore them. **Structural ho
 | `gate.py` | Before `git commit` / `git push` | Legacy: `.gates/*-passed`. Signed: JWT. Default `enforcement: block`. Auto-escalates warn→block on first violation. |
 | `skill_passed.py` | After skill completes | Reports gate status (does not issue tokens). |
 | `tdd_enforce.py` | Before file edit | TDD reminder if no test file exists. |
-| `check_doc_write.sh` | Before file write | Blocks writes outside project directory. User confirms cross-project writes. |
+| `check_doc_write.sh` | Before file write | Blocks writes outside git repository root (monorepo-safe). User confirms cross-repo writes. |
 | `gate_cleanup.py` | After commit | Clears flags / token for next cycle. |
 | `update.sh` | Before each skill | Auto-pull toolkit. |
 

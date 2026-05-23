@@ -41,7 +41,7 @@ WARN_THRESHOLD_BYTES = 500_000  # ~70% of 200K token window → warning
 HARD_THRESHOLD_BYTES = 700_000  # ~85% → handoff trigger
 FALLBACK_MAX_EXCHANGES = 30  # Raised from 20
 GRACE_TOOL_CALLS = 10  # Tool calls allowed after stop triggers
-DEFAULT_MAX_SESSION_MINUTES = 70  # Time-based hard stop (0 = disabled)
+DEFAULT_MAX_SESSION_MINUTES = 0  # Time-based hard stop (0 = disabled, set in gates.json)
 
 SESSION_DIR = ".session"
 STATE_FILENAME = "state.json"
@@ -79,7 +79,7 @@ class SessionState:
     slabs_without_data: int = 0
     last_tool_sequence: list = field(default_factory=list)
     has_queried_this_slab: bool = False
-    max_session_minutes: int = 70  # 0 = disabled
+    max_session_minutes: int = 0  # 0 = disabled, set via gates.json
 
 
 def load_state(state_file: Path) -> SessionState:

@@ -16,7 +16,7 @@ from unittest.mock import patch
 
 import pytest
 
-from hooks.session_init import detect_mode, init_session_state, build_context
+from hooks.session_init import load_session_config, init_session_state, build_context
 from hooks.session_monitor import (
     DRIFT_CHECK_INTERVAL,
     SessionState,
@@ -43,11 +43,11 @@ class TestStrictModeSessionLifecycle:
         gates = {"gate_mode": "legacy", "mode": "strict"}
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
-        mode = detect_mode(project_dir)
-        assert mode == "strict"
+        config = load_session_config(project_dir)
+        assert config["mode"] == "strict"
 
         session_dir = project_dir / ".session"
-        init_session_state(session_dir, mode=mode)
+        init_session_state(session_dir, mode=config["mode"])
 
         state_file = session_dir / "state.json"
         data = json.loads(state_file.read_text())
@@ -224,8 +224,8 @@ class TestStrictModeContextInjection:
     def test_env_var_activates_strict(self, project_dir):
         """AGENT_TOOLKIT_MODE=strict works even without gates.json."""
         with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "strict"}):
-            mode = detect_mode(project_dir)
-        assert mode == "strict"
+            config = load_session_config(project_dir)
+        assert config["mode"] == "strict"
 
 
 class TestDriftScoreEdgeCases:

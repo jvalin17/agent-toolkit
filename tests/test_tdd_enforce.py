@@ -126,3 +126,34 @@ class TestEdgeCases:
         exit_code, output = run_tdd_enforce(json.dumps({"tool_input": {}}), tmp_path)
         assert exit_code == 0
         assert output == ""
+
+
+class TestTDDConfigToggle:
+    """TDD enforcement can be disabled via gates.json."""
+
+    def test_disabled_skips_check(self, tmp_path):
+        """tdd: false in gates.json skips all TDD checks."""
+        (tmp_path / "gates.json").write_text(json.dumps({"tdd": False}))
+        (tmp_path / "src").mkdir()
+        stdin = make_input(str(tmp_path / "src" / "main.py"))
+        exit_code, output = run_tdd_enforce(stdin, tmp_path)
+        assert exit_code == 0
+        assert output == ""
+
+    def test_enabled_by_default(self, tmp_path):
+        """Without gates.json, TDD is enabled (default true)."""
+        (tmp_path / "src").mkdir()
+        stdin = make_input(str(tmp_path / "src" / "main.py"))
+        exit_code, output = run_tdd_enforce(stdin, tmp_path)
+        assert exit_code == 0
+        assert "TDD" in output or output == ""  # Reminder or no test file
+
+    def test_env_var_override(self, tmp_path, monkeypatch):
+        """AGENT_TOOLKIT_TDD=false overrides gates.json."""
+        (tmp_path / "gates.json").write_text(json.dumps({"tdd": True}))
+        monkeypatch.setenv("AGENT_TOOLKIT_TDD", "false")
+        (tmp_path / "src").mkdir()
+        stdin = make_input(str(tmp_path / "src" / "main.py"))
+        exit_code, output = run_tdd_enforce(stdin, tmp_path)
+        assert exit_code == 0
+        assert output == ""

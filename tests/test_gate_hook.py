@@ -13,6 +13,7 @@ import pytest
 from hooks.gate import (
     detect_git_action,
     check_gate_flags,
+    get_config_value,
     load_gate_config,
     resolve_enforcement,
     run_gate,
@@ -167,7 +168,8 @@ class TestRunGate:
             '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
         )
-        assert exit_code == 2
+        assert exit_code == 0  # Blocking via JSON decision, not exit code
+        assert "block" in output
         assert "BLOCKED" in output
 
     def test_commit_allowed_with_precommit(self, project_dir, gates_dir):
@@ -184,7 +186,8 @@ class TestRunGate:
             '{"tool_input":{"command":"git push origin main"}}',
             project_dir,
         )
-        assert exit_code == 2
+        assert exit_code == 0  # Blocking via JSON decision
+        assert "block" in output
 
     def test_push_allowed_with_all_flags(self, project_dir, gates_dir):
         (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
@@ -245,7 +248,8 @@ class TestRunGate:
             '{"tool_input":{"command":"git commit -m \\"second\\""}}',
             project_dir,
         )
-        assert exit_code == 2
+        assert exit_code == 0  # Blocking via JSON decision, not exit code
+        assert "block" in output
         assert "BLOCKED" in output
 
     def test_env_var_enforcement_override(self, project_dir):
@@ -259,7 +263,8 @@ class TestRunGate:
             project_dir,
             env_enforcement="block",
         )
-        assert exit_code == 2
+        assert exit_code == 0  # Blocking via JSON decision
+        assert "block" in output
 
     def test_profile_based_gates(self, project_dir, gates_dir):
         """Profile-based config resolves correct requirements."""
@@ -281,4 +286,44 @@ class TestRunGate:
             '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
         )
-        assert exit_code == 2  # Missing evaluate for strict commit
+        assert exit_code == 0  # Blocking via JSON decision
+        assert "block" in output  # Missing evaluate for strict commit
+
+
+class TestGetConfigValue:
+    """get_config_value reads from config dict with env var override."""
+
+    def test_reads_from_config(self):
+        config = {"tdd": True, "model": "opus"}
+        assert get_config_value(config, "tdd", False) is True
+        assert get_config_value(config, "model", "auto") == "opus"
+
+    def test_returns_default_when_missing(self):
+        config = {}
+        assert get_config_value(config, "tdd", True) is True
+        assert get_config_value(config, "max_session_minutes", 0) == 0
+        assert get_config_value(config, "model", "auto") == "auto"
+
+    def test_env_var_overrides_config(self, monkeypatch):
+        config = {"tdd": True}
+        monkeypatch.setenv("AGENT_TOOLKIT_TDD", "false")
+        assert get_config_value(config, "tdd", True) is False
+
+    def test_bool_coercion_from_env(self, monkeypatch):
+        config = {}
+        for truthy in ("true", "1", "yes"):
+            monkeypatch.setenv("AGENT_TOOLKIT_AUTO", truthy)
+            assert get_config_value(config, "auto", False) is True
+        for falsy in ("false", "0", "no"):
+            monkeypatch.setenv("AGENT_TOOLKIT_AUTO", falsy)
+            assert get_config_value(config, "auto", False) is False
+
+    def test_int_coercion_from_env(self, monkeypatch):
+        config = {}
+        monkeypatch.setenv("AGENT_TOOLKIT_MAX_SESSION_MINUTES", "30")
+        assert get_config_value(config, "max_session_minutes", 0) == 30
+
+    def test_string_passthrough_from_env(self, monkeypatch):
+        config = {"model": "opus"}
+        monkeypatch.setenv("AGENT_TOOLKIT_MODEL", "sonnet")
+        assert get_config_value(config, "model", "auto") == "sonnet"

@@ -23,6 +23,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
+# Add hooks/ to path for gate imports
+sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
+from gate import get_config_value, load_gate_config  # noqa: E402
+
 
 class AutoContinue:
     """Manages Claude Code session lifecycle for multi-session tasks."""
@@ -33,6 +37,7 @@ class AutoContinue:
         max_budget: Optional[float],
         project_dir: Path,
         dry_run: bool = False,
+        model: Optional[str] = None,
     ):
         self.goal = goal
         self.max_budget = max_budget
@@ -41,6 +46,9 @@ class AutoContinue:
         self.handoff_file = project_dir / "HANDOFF.md"
         self.history_log = project_dir / "handoff-history.log"
         self.session_count = 0
+        # Model: CLI arg > gates.json > "auto"
+        config = load_gate_config(project_dir)
+        self.model = model or get_config_value(config, "model", "auto")
 
     def run(self) -> int:
         """Main loop. Returns 0 on success, 1 on failure."""
@@ -116,6 +124,9 @@ class AutoContinue:
             "--output-format", "json",
             "--dangerously-skip-permissions",
         ]
+
+        if self.model and self.model != "auto":
+            cmd.extend(["--model", self.model])
 
         if self.max_budget:
             cmd.extend(["--max-budget-usd", str(self.max_budget)])
@@ -224,6 +235,12 @@ def parse_args(argv: Optional[list] = None) -> argparse.Namespace:
         default=".",
         help="Project directory (default: current directory).",
     )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default=None,
+        help="Model to use (overrides gates.json). 'auto' = no override.",
+    )
     return parser.parse_args(argv)
 
 
@@ -235,6 +252,7 @@ def main() -> int:
         max_budget=args.max_budget_usd,
         project_dir=Path(args.project_dir).resolve(),
         dry_run=args.dry_run,
+        model=args.model,
     )
     return runner.run()
 

@@ -183,3 +183,31 @@ class TestEdgeCases:
         _, output = run_route_to_skill(make_input("FIX THE BUG"), tmp_path)
         context = parse_context(output)
         assert "/debug" in context
+
+
+class TestSkillRoutingConfigToggle:
+    """Skill routing can be disabled via gates.json."""
+
+    def test_disabled_skips_routing(self, tmp_path):
+        """skill_routing: false in gates.json skips all routing."""
+        (tmp_path / "gates.json").write_text(json.dumps({"skill_routing": False}))
+        stdin = make_input("fix the bug")
+        exit_code, output = run_route_to_skill(stdin, tmp_path)
+        assert exit_code == 0
+        assert output == ""
+
+    def test_enabled_by_default(self, tmp_path):
+        """Without gates.json, skill routing is enabled."""
+        stdin = make_input("fix the bug")
+        exit_code, output = run_route_to_skill(stdin, tmp_path)
+        assert exit_code == 0
+        assert "/debug" in output
+
+    def test_env_var_override(self, tmp_path, monkeypatch):
+        """AGENT_TOOLKIT_SKILL_ROUTING=false overrides gates.json."""
+        (tmp_path / "gates.json").write_text(json.dumps({"skill_routing": True}))
+        monkeypatch.setenv("AGENT_TOOLKIT_SKILL_ROUTING", "false")
+        stdin = make_input("fix the bug")
+        exit_code, output = run_route_to_skill(stdin, tmp_path)
+        assert exit_code == 0
+        assert output == ""

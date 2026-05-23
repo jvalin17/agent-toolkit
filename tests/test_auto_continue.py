@@ -317,3 +317,50 @@ class TestParseArgs:
     def test_project_dir_default(self):
         args = parse_args([])
         assert args.project_dir == "."
+
+    def test_model_arg(self):
+        args = parse_args(["--model", "sonnet", "Build it"])
+        assert args.model == "sonnet"
+
+    def test_model_default_none(self):
+        args = parse_args([])
+        assert args.model is None
+
+
+class TestModelConfig:
+    """Model config from gates.json and CLI."""
+
+    def test_model_from_gates_json(self, project_dir):
+        (project_dir / "gates.json").write_text(json.dumps({"model": "gpt-4o"}))
+        runner = AutoContinue(goal="test", max_budget=None, project_dir=project_dir)
+        assert runner.model == "gpt-4o"
+
+    def test_model_auto_default(self, project_dir):
+        runner = AutoContinue(goal="test", max_budget=None, project_dir=project_dir)
+        assert runner.model == "auto"
+
+    def test_model_cli_overrides_config(self, project_dir):
+        (project_dir / "gates.json").write_text(json.dumps({"model": "gpt-4o"}))
+        runner = AutoContinue(goal="test", max_budget=None, project_dir=project_dir, model="sonnet")
+        assert runner.model == "sonnet"
+
+    def test_model_auto_not_passed_to_cli(self, project_dir):
+        """model=auto should not add --model to the command."""
+        (project_dir / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\ntest\n")
+        runner = AutoContinue(goal="test", max_budget=None, project_dir=project_dir, dry_run=True)
+        with patch("builtins.print") as mock_print:
+            runner._launch_session("test prompt")
+        printed = mock_print.call_args[0][0]
+        assert "--model" not in printed
+
+    def test_model_specific_passed_to_cli(self, project_dir):
+        """Non-auto model should add --model to the command."""
+        (project_dir / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\ntest\n")
+        runner = AutoContinue(
+            goal="test", max_budget=None, project_dir=project_dir,
+            model="opus", dry_run=True,
+        )
+        with patch("builtins.print") as mock_print:
+            runner._launch_session("test prompt")
+        printed = mock_print.call_args[0][0]
+        assert "--model opus" in printed

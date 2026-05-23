@@ -4,6 +4,12 @@
   "profile": "minimal",
   "mode": "normal",
   "eval_threshold": 95,
+  "max_session_minutes": 0,
+  "auto": false,
+  "continue": false,
+  "tdd": true,
+  "skill_routing": true,
+  "model": "auto",
   "profiles": {
     "minimal": {
       "commit_requires": ["precommit"],
