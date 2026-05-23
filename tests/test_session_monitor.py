@@ -1194,3 +1194,127 @@ class TestAutoHandoffWiring:
         )
         second_content = handoff_path.read_text()
         assert first_content == second_content
+
+
+# --- Time-based session limit (F1) ---
+
+DEFAULT_MAX_SESSION_MINUTES = 70
+
+
+class TestTimeLimitInCheckThresholds:
+    """F1: check_thresholds detects elapsed time exceeding max_session_minutes."""
+
+    def test_time_limit_triggers_at_70_minutes(self):
+        """Session running for 70+ min triggers hard stop."""
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (70 * 60 + 1),  # 70 min 1 sec ago
+            max_session_minutes=70,
+        )
+        triggered, reason = check_thresholds(state)
+        assert triggered is True
+        assert "70" in reason or "time" in reason.lower()
+
+    def test_time_limit_does_not_trigger_before_70_minutes(self):
+        """Session under 70 min does not trigger."""
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (69 * 60),  # 69 min ago
+            max_session_minutes=70,
+        )
+        triggered, reason = check_thresholds(state)
+        assert triggered is False
+
+    def test_time_limit_configurable(self):
+        """max_session_minutes can be set to custom value."""
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (31 * 60),  # 31 min ago
+            max_session_minutes=30,
+        )
+        triggered, reason = check_thresholds(state)
+        assert triggered is True
+
+    def test_time_limit_priority_after_compaction(self):
+        """Compaction still takes priority over time."""
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (80 * 60),
+            max_session_minutes=70,
+            compactions=1,
+        )
+        triggered, reason = check_thresholds(state)
+        assert triggered is True
+        assert "compacted" in reason.lower()
+
+    def test_time_limit_priority_before_bytes(self):
+        """Time triggers before bytes threshold."""
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (71 * 60),
+            max_session_minutes=70,
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
+        )
+        triggered, reason = check_thresholds(state)
+        assert triggered is True
+        assert "time" in reason.lower() or "minute" in reason.lower()
+
+    def test_default_max_session_minutes_is_70(self):
+        """Default value for max_session_minutes is 70."""
+        state = SessionState(session_start=1000)
+        assert state.max_session_minutes == DEFAULT_MAX_SESSION_MINUTES
+
+
+class TestTimeLimitHardStop:
+    """F1: Time limit triggers immediate hard stop — no grace period."""
+
+    def test_time_limit_skips_grace_goes_to_hard_stop(self, tmp_path, monkeypatch):
+        """Time limit goes directly to stopped=2, no grace (stopped=1)."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
+
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (71 * 60),
+            max_session_minutes=70,
+        )
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Read", file_path="foo.py", command=""
+        )
+        # Should go directly to stopped=2 (hard stop), never stopped=1 (grace)
+        assert state.stopped == 2
+        assert blocked is True
+
+    def test_time_limit_writes_auto_handoff(self, tmp_path, monkeypatch):
+        """Time limit triggers auto-handoff write."""
+        monkeypatch.chdir(tmp_path)
+        handoff_path = tmp_path / "HANDOFF.md"
+        handoff_path.write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
+
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (71 * 60),
+            max_session_minutes=70,
+        )
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Read", file_path="foo.py", command=""
+        )
+        content = handoff_path.read_text()
+        assert "Number: 2" in content
+        assert "time" in content.lower() or "minute" in content.lower()
+
+    def test_time_limit_allows_git_after_stop(self, tmp_path, monkeypatch):
+        """After time-based hard stop, git commit is still allowed."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
+
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (71 * 60),
+            max_session_minutes=70,
+            stopped=2,
+        )
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Bash", file_path="", command="git commit -m 'wip'"
+        )
+        assert blocked is False

@@ -41,6 +41,7 @@ WARN_THRESHOLD_BYTES = 500_000  # ~70% of 200K token window → warning
 HARD_THRESHOLD_BYTES = 700_000  # ~85% → handoff trigger
 FALLBACK_MAX_EXCHANGES = 30  # Raised from 20
 GRACE_TOOL_CALLS = 10  # Tool calls allowed after stop triggers
+DEFAULT_MAX_SESSION_MINUTES = 70  # Time-based hard stop (0 = disabled)
 
 SESSION_DIR = ".session"
 STATE_FILENAME = "state.json"
@@ -78,6 +79,7 @@ class SessionState:
     slabs_without_data: int = 0
     last_tool_sequence: list = field(default_factory=list)
     has_queried_this_slab: bool = False
+    max_session_minutes: int = 70  # 0 = disabled
 
 
 def load_state(state_file: Path) -> SessionState:
@@ -130,13 +132,22 @@ def check_thresholds(state: SessionState) -> tuple:
     """Check if any hard-stop threshold is met.
 
     Returns (triggered: bool, reason: str).
-    Priority: compaction > bytes > exchanges.
+    Priority: compaction > time > bytes.
     """
     if state.compactions >= 1:
         return True, (
             f"Context compacted ({state.compactions} time(s)) "
             f"— context window is full"
         )
+
+    if state.max_session_minutes > 0:
+        elapsed_seconds = int(time.time()) - state.session_start
+        elapsed_minutes = elapsed_seconds / 60
+        if elapsed_minutes >= state.max_session_minutes:
+            return True, (
+                f"Session time ({int(elapsed_minutes)} minutes) "
+                f"exceeded limit ({state.max_session_minutes} minutes)"
+            )
 
     if state.cumulative_output_bytes > HARD_THRESHOLD_BYTES:
         return True, (
@@ -399,7 +410,25 @@ def handle_pre_tool_use(
     triggered, stop_reason = check_thresholds(state)
 
     if triggered:
-        # First time hitting threshold → start grace period
+        is_time_triggered = "minutes" in stop_reason
+
+        # Time-based limit: immediate hard stop, no grace period
+        if is_time_triggered and state.stopped < 2:
+            state.stopped = 2
+            trigger_auto_handoff(state, stop_reason)
+
+            if is_handoff_allowed(tool_name, file_path, command):
+                return state, "", False
+
+            response = (
+                f"SESSION TIME LIMIT: {stop_reason}.\n\n"
+                f"HANDOFF.md has been written automatically by the hook.\n"
+                f"The auto-continuation wrapper will relaunch a fresh session.\n"
+                f"ONLY allowed operations: git commit. Everything else is blocked."
+            )
+            return state, response, True
+
+        # Other limits: first time hitting threshold → start grace period
         if state.stopped == 0:
             state.stopped = 1
             state.stop_at_tool_call = state.tool_calls + GRACE_TOOL_CALLS
