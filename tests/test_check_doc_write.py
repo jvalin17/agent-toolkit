@@ -73,6 +73,30 @@ class TestDocGuardHook:
         )
         assert result.returncode == 0
 
+    def test_allows_write_in_git_root_from_subdirectory(self, tmp_path):
+        """Writes to sibling dirs within git root are allowed (monorepo)."""
+        # Set up a real git repo with a subdirectory
+        subprocess.run(["git", "init", str(tmp_path)], capture_output=True)
+        (tmp_path / "frontend").mkdir()
+        (tmp_path / "tests" / "agents").mkdir(parents=True)
+        target = str(tmp_path / "tests" / "agents" / "test_thing.py")
+        # CWD is the subdirectory, target is sibling — should be allowed
+        result = run_hook(target, cwd=str(tmp_path / "frontend"))
+        assert result.returncode == 0
+        assert "block" not in result.stdout
+
+    def test_blocks_write_outside_git_root(self, tmp_path):
+        """Writes outside git root are still blocked even with git detection."""
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", str(repo)], capture_output=True)
+        (repo / "frontend").mkdir()
+        outside = str(tmp_path / "other" / "file.txt")
+        result = run_hook(outside, cwd=str(repo / "frontend"))
+        assert result.returncode == 0
+        output = json.loads(result.stdout)
+        assert output["decision"] == "block"
+
     def test_block_message_includes_file_path(self, tmp_path):
         """Block reason mentions the offending path for user clarity."""
         project_dir = tmp_path / "myproject"

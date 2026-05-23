@@ -26,6 +26,10 @@ CWD=$(pwd)
 # Allow: files within current working directory
 echo "$RESOLVED" | grep -q "^$CWD/" && exit 0
 
+# Allow: files within git repository root (monorepo support)
+GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+[ -n "$GIT_ROOT" ] && echo "$RESOLVED" | grep -q "^$GIT_ROOT/" && exit 0
+
 # Allow: ~/.claude/ internal files (memory, plans, settings, hooks)
 echo "$RESOLVED" | grep -q "^$HOME/.claude/" && exit 0
 

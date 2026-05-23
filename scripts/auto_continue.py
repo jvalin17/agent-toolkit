@@ -108,10 +108,14 @@ class AutoContinue:
         """Launch a Claude Code session in headless mode. Returns process exit code.
 
         Uses `claude -p` (print mode) which runs non-interactively.
-        --output-format json gives structured output for potential parsing.
+        --dangerously-skip-permissions allows autonomous file operations.
         --max-budget-usd caps spend per session.
         """
-        cmd = ["claude", "-p", prompt, "--output-format", "json"]
+        cmd = [
+            "claude", "-p", prompt,
+            "--output-format", "json",
+            "--dangerously-skip-permissions",
+        ]
 
         if self.max_budget:
             cmd.extend(["--max-budget-usd", str(self.max_budget)])
@@ -135,12 +139,13 @@ class AutoContinue:
         """Check if the goal is complete.
 
         Complete if: HANDOFF.md doesn't exist (agent cleaned up)
-        or contains ## COMPLETE marker.
+        or contains ## COMPLETE as a standalone section header (not inside goal text).
         """
         if not self.handoff_file.is_file():
             return True
         content = self.handoff_file.read_text(encoding="utf-8")
-        return "## COMPLETE" in content
+        # Match ## COMPLETE only at start of a line (section header)
+        return bool(re.search(r"^## COMPLETE\s*$", content, re.MULTILINE))
 
     def _seed_handoff(self) -> None:
         """Write initial HANDOFF.md with goal so first session has context.

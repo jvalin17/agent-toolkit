@@ -95,7 +95,13 @@ def load_state(state_file: Path) -> SessionState:
         # Filter to only known fields for forward compatibility
         valid_fields = {f.name for f in SessionState.__dataclass_fields__.values()}
         filtered = {k: v for k, v in data.items() if k in valid_fields}
-        return SessionState(**filtered)
+        state = SessionState(**filtered)
+        # Self-heal stale session_start (e.g. session_init didn't run)
+        if state.max_session_minutes > 0:
+            elapsed = int(time.time()) - state.session_start
+            if elapsed > state.max_session_minutes * 60 * 2:
+                state.session_start = int(time.time())
+        return state
     except (json.JSONDecodeError, TypeError, KeyError):
         return SessionState(session_start=int(time.time()))
 
@@ -205,23 +211,12 @@ def check_session_blocked(
 
 
 def is_handoff_allowed(tool_name: str, file_path: str, command: str) -> bool:
-    """During hard stop, only handoff operations are allowed."""
-    if tool_name in ("Write", "Edit"):
-        return "HANDOFF.md" in file_path or "project-state.md" in file_path
+    """During hard stop, all operations are allowed so agent can finish current task.
 
-    if tool_name == "Bash":
-        allowed_prefixes = (
-            "git commit",
-            "git add",
-            "git status",
-            "git diff",
-            "git log",
-            "git stash",
-            "mkdir",
-        )
-        return any(command.strip().startswith(prefix) for prefix in allowed_prefixes)
-
-    return False
+    The stop messages tell the agent to wrap up — enforcement is via messaging,
+    not blocking. Blocking tools caused agents to panic-commit partial work.
+    """
+    return True
 
 
 # --- Drift detection + auto-handoff: imported from strict_mode.py, auto_handoff.py ---
@@ -384,7 +379,7 @@ def handle_post_compact(state: SessionState) -> tuple:
     response = (
         "CONTEXT COMPACTED: Context window was compressed by Claude Code. "
         "HANDOFF.md has been written automatically by the hook. "
-        "The auto-continuation wrapper will relaunch a fresh session."
+        "Finish your current task, then write HANDOFF.md."
     )
     return state, response
 
@@ -417,16 +412,13 @@ def handle_pre_tool_use(
             state.stopped = 2
             trigger_auto_handoff(state, stop_reason)
 
-            if is_handoff_allowed(tool_name, file_path, command):
-                return state, "", False
-
             response = (
                 f"SESSION TIME LIMIT: {stop_reason}.\n\n"
                 f"HANDOFF.md has been written automatically by the hook.\n"
                 f"The auto-continuation wrapper will relaunch a fresh session.\n"
-                f"ONLY allowed operations: git commit. Everything else is blocked."
+                f"Finish your current task, then write HANDOFF.md."
             )
-            return state, response, True
+            return state, response, False
 
         # Other limits: first time hitting threshold → start grace period
         if state.stopped == 0:
@@ -440,10 +432,9 @@ def handle_pre_tool_use(
                 f"what's next (spec text copied, not summarized), decisions, "
                 f"code change plan for next slab\n"
                 f"2. Update project-state.md Resume section\n"
-                f"3. git add + git commit all work\n"
-                f"4. Tell user: 'Session limit reached. "
-                f"Start a new session — I will read HANDOFF.md to continue.'\n\n"
-                f"Do NOT start new tasks. Wrap up and hand off."
+                f"3. Tell user: 'Session limit reached. "
+                f"Start a new session — it will read HANDOFF.md to continue.'\n\n"
+                f"Do NOT start new tasks. Finish current task and hand off."
             )
             return state, response, False  # Allow — grace period
 
@@ -456,18 +447,12 @@ def handle_pre_tool_use(
                 state.stopped = 2
                 trigger_auto_handoff(state, stop_reason)
 
-            # After hook-written handoff, only git operations allowed
-            # (so the agent can commit but NOT overwrite HANDOFF.md)
-            if is_handoff_allowed(tool_name, file_path, command):
-                return state, "", False
-
             response = (
                 f"HARD STOP: Grace period exhausted. {stop_reason}.\n\n"
                 f"HANDOFF.md has been written automatically by the hook.\n"
-                f"ONLY allowed operations: git commit.\n"
-                f"Everything else is blocked."
+                f"Finish your current task, then write HANDOFF.md."
             )
-            return state, response, True
+            return state, response, False
         else:
             # Still in grace — remind but allow
             response = (
@@ -482,8 +467,8 @@ def handle_pre_tool_use(
         response = (
             f"SESSION WARNING: {state.exchanges}/{FALLBACK_MAX_EXCHANGES} exchanges, "
             f"{state.cumulative_output_bytes:,}/{HARD_THRESHOLD_BYTES:,} bytes. "
-            f"You are approaching the hard stop. Finish current work, commit, "
-            f"and prepare HANDOFF.md. Do not start new slabs or features."
+            f"You are approaching the session limit. Finish current work "
+            f"and do not start new slabs or features."
         )
         return state, response, False
 

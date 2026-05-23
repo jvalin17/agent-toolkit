@@ -93,12 +93,13 @@ class TestSessionState:
 
 class TestStatePersistence:
     def test_save_and_load(self, tmp_session_dir):
-        state = SessionState(session_start=1000, exchanges=3, tool_calls=10)
+        now = int(time.time())
+        state = SessionState(session_start=now, exchanges=3, tool_calls=10)
         state_file = tmp_session_dir / "state.json"
         save_state(state, state_file)
 
         loaded = load_state(state_file)
-        assert loaded.session_start == 1000
+        assert loaded.session_start == now
         assert loaded.exchanges == 3
         assert loaded.tool_calls == 10
 
@@ -344,7 +345,7 @@ class TestHandlePreToolUse:
         result_state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="/project/src/main.py", command=""
         )
-        assert blocked is True
+        assert blocked is False  # No longer blocks — messages only
         assert "HARD STOP" in response
 
     def test_allows_handoff_write_after_hard_stop(self):
@@ -379,7 +380,8 @@ class TestHandlePreToolUse:
         )
         assert blocked is False
 
-    def test_blocks_non_handoff_after_hard_stop(self):
+    def test_does_not_block_after_hard_stop(self):
+        """Hard stop no longer blocks — it messages the agent to wrap up."""
         state = SessionState(
             session_start=int(time.time()),
             cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
@@ -393,7 +395,8 @@ class TestHandlePreToolUse:
             file_path="",
             command="npm run build",
         )
-        assert blocked is True
+        assert blocked is False
+        assert "HARD STOP" in response
 
 
 # --- JSON output format ---
@@ -1157,11 +1160,11 @@ class TestAutoHandoffWiring:
             tool_calls=60,
             stop_at_tool_call=60,  # Grace exhausted
         )
-        # Non-handoff tool should be blocked, but handoff should be written
+        # Tool is not blocked, but handoff should be written
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="/project/src/main.py", command=""
         )
-        assert blocked is True
+        assert blocked is False  # No longer blocks — messages only
         assert state.stopped == 2
         content = handoff_path.read_text()
         assert "Number: 2" in content
@@ -1265,6 +1268,62 @@ class TestTimeLimitInCheckThresholds:
         assert state.max_session_minutes == DEFAULT_MAX_SESSION_MINUTES
 
 
+class TestStaleSessionStartSelfHeal:
+    """load_state resets session_start when it's older than max_session_minutes."""
+
+    def test_stale_session_start_is_reset(self, tmp_path):
+        """session_start from a previous session (hours ago) gets reset to now."""
+        state_file = tmp_path / "state.json"
+        now = int(time.time())
+        stale_start = now - (48 * 3600)  # 48 hours ago
+        state_file.write_text(json.dumps({
+            "session_start": stale_start,
+            "max_session_minutes": 70,
+            "exchanges": 5,
+        }))
+        state = load_state(state_file)
+        # session_start should be reset to approximately now, not 48h ago
+        assert abs(state.session_start - now) < 5
+        # other fields preserved
+        assert state.exchanges == 5
+
+    def test_fresh_session_start_is_preserved(self, tmp_path):
+        """session_start within max_session_minutes is not touched."""
+        state_file = tmp_path / "state.json"
+        now = int(time.time())
+        recent_start = now - (30 * 60)  # 30 min ago
+        state_file.write_text(json.dumps({
+            "session_start": recent_start,
+            "max_session_minutes": 70,
+        }))
+        state = load_state(state_file)
+        assert state.session_start == recent_start
+
+    def test_stale_detection_uses_max_session_minutes(self, tmp_path):
+        """Stale threshold adapts to configured max_session_minutes."""
+        state_file = tmp_path / "state.json"
+        now = int(time.time())
+        # 5 hours ago, max is 120 min — so 300 min > 120*2=240 = stale
+        state_file.write_text(json.dumps({
+            "session_start": now - (5 * 3600),
+            "max_session_minutes": 120,
+        }))
+        state = load_state(state_file)
+        assert abs(state.session_start - now) < 5
+
+    def test_disabled_time_limit_skips_stale_check(self, tmp_path):
+        """max_session_minutes=0 means no stale detection."""
+        state_file = tmp_path / "state.json"
+        now = int(time.time())
+        old_start = now - (48 * 3600)
+        state_file.write_text(json.dumps({
+            "session_start": old_start,
+            "max_session_minutes": 0,
+        }))
+        state = load_state(state_file)
+        assert state.session_start == old_start
+
+
 class TestTimeLimitHardStop:
     """F1: Time limit triggers immediate hard stop — no grace period."""
 
@@ -1283,7 +1342,8 @@ class TestTimeLimitHardStop:
         )
         # Should go directly to stopped=2 (hard stop), never stopped=1 (grace)
         assert state.stopped == 2
-        assert blocked is True
+        assert blocked is False  # No longer blocks — messages only
+        assert "TIME LIMIT" in response
 
     def test_time_limit_writes_auto_handoff(self, tmp_path, monkeypatch):
         """Time limit triggers auto-handoff write."""

@@ -6,13 +6,15 @@ detect_continuation, build_context, main (JSON output).
 
 import json
 import os
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-# Import will work after implementation exists
+# Add hooks/ to path so session_monitor's sibling imports resolve
+sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
 from hooks.session_init import (
     build_context,
     check_hook_integrity,
