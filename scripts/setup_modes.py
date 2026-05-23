@@ -94,6 +94,14 @@ SETTINGS = [
         "options": None,
     },
     {
+        "key": "gate_protect",
+        "label": "Gate protection",
+        "description": "Blocks the agent from writing gate files directly (prevents bypassing /precommit)",
+        "example": "on = only skill hooks can write .gates/ files, off = agent can write them",
+        "type": "bool",
+        "options": ["off", "on"],
+    },
+    {
         "key": "model",
         "label": "Model",
         "description": "Which LLM to use. 'auto' = whatever the tool defaults to",
@@ -117,6 +125,7 @@ PRESETS = {
         "continue": False,
         "max_session_minutes": 0,
         "model": "auto",
+        "gate_protect": False,
     },
     "balanced": {
         "tdd": True,
@@ -129,6 +138,7 @@ PRESETS = {
         "continue": False,
         "max_session_minutes": 0,
         "model": "auto",
+        "gate_protect": False,
     },
     "guarded": {
         "tdd": True,
@@ -141,6 +151,7 @@ PRESETS = {
         "continue": False,
         "max_session_minutes": 70,
         "model": "auto",
+        "gate_protect": True,
     },
     "lockdown": {
         "tdd": True,
@@ -153,6 +164,7 @@ PRESETS = {
         "continue": False,
         "max_session_minutes": 70,
         "model": "auto",
+        "gate_protect": True,
     },
 }
 
@@ -235,6 +247,7 @@ def build_full_config(settings: dict) -> dict:
         "tdd": settings.get("tdd", True),
         "skill_routing": settings.get("skill_routing", True),
         "model": settings.get("model", "auto"),
+        "gate_protect": settings.get("gate_protect", False),
         "profiles": PROFILES,
     }
     return config
@@ -442,6 +455,7 @@ def parse_args(argv=None):
     parser.add_argument("--time-limit", type=int, default=None, help="Session time limit in minutes (0=none)")
     parser.add_argument("--model", type=str, default=None, help="LLM model (auto/claude-opus/gpt-4o/...)")
     parser.add_argument("--eval-threshold", type=int, default=None, help="Minimum eval score (0-100)")
+    parser.add_argument("--gate-protect", choices=["on", "off"], default=None, help="Block agent from writing gate files directly")
 
     # Meta
     parser.add_argument("--status", action="store_true", help="Show current configuration")
@@ -473,6 +487,8 @@ def args_to_overrides(args) -> dict:
         overrides["model"] = args.model
     if args.eval_threshold is not None:
         overrides["eval_threshold"] = args.eval_threshold
+    if args.gate_protect is not None:
+        overrides["gate_protect"] = args.gate_protect == "on"
     return overrides
 
 

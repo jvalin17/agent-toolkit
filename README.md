@@ -95,13 +95,13 @@ scripts/setup-signed-gates.sh          # optional: enable signed + smoke test
 
 ### Gate mode examples
 
-Three knobs in `gates.json`: **`gate_mode`** (`legacy` | `signed`), **`enforcement`** (`warn` | `block`), **`profile`** (`minimal` | `standard` | `strict` | `paranoid`). Full reference: [`shared/gate-unlock.md`](shared/gate-unlock.md).
+Knobs in `gates.json`: **`gate_mode`** (`legacy` | `signed`), **`enforcement`** (`warn` | `block`), **`profile`** (`minimal` | `standard` | `strict` | `paranoid`), plus configurable toggles for TDD, routing, time limits, model, and more. Full reference: [`shared/gate-unlock.md`](shared/gate-unlock.md).
 
-**How to read the table:** *Commit* / *Push* = what `gate.py` checks for that action. *If missing* = behavior when requirements are not met (`warn` → GATE WARNING, exit 0; `block` → exit 2).
+**How to read the table:** *Commit* / *Push* = what `gate.py` checks for that action. *If missing* = behavior when requirements are not met (`warn` → GATE WARNING; `block` → tool call blocked via `{"decision":"block"}`).
 
 #### Legacy (`gate_mode: "legacy"`)
 
-Unlock: run skills → files under `.gates/` with real markers (`READY`, `PASSED 96%`, …). Weaker than signed (agent could `echo` flags).
+Unlock: run skills → files under `.gates/` with real markers (`READY`, `PASSED 96%`, …). Enable `gate_protect: true` to block agents from forging gate files (G-GATE-1).
 
 | Profile | `gates.json` | Commit requires | Push requires | If missing (`warn`) | If missing (`block`) |
 |---------|--------------|-----------------|---------------|---------------------|----------------------|
@@ -117,7 +117,7 @@ Unlock: run skills → files under `.gates/` with real markers (`READY`, `PASSED
 Default after `./install.sh`:
 
 ```json
-{ "gate_mode": "legacy", "enforcement": "block", "profile": "minimal", "eval_threshold": 95 }
+{ "gate_mode": "legacy", "enforcement": "block", "profile": "minimal", "eval_threshold": 95, "tdd": true, "skill_routing": true, "max_session_minutes": 0, "model": "auto", "gate_protect": false }
 ```
 
 ```bash
@@ -238,6 +238,36 @@ Normal mode is completely unaffected. Requirements: [`requirements/strict-mode.m
 
 Append `auto` to chain skills without stopping (`/requirements auto my-app`). Opus plans; Sonnet/Haiku implements. **95%** eval gate (default); below **70%** = hard stop. Evidence-first (G-AUTO-1). Protocol: [`shared/orchestrator.md`](shared/orchestrator.md).
 
+## Configurable Modes
+
+All settings live in `gates.json`. Use the setup wizard or CLI one-liners:
+
+```bash
+agent-toolkit-setup                        # interactive wizard
+agent-toolkit-setup --quick                # prototype — no TDD, no routing, warnings only
+agent-toolkit-setup --balanced             # daily dev — TDD + routing + commit gate
+agent-toolkit-setup --guarded              # production — eval on push, time-limited, gate protection
+agent-toolkit-setup --lockdown             # full review — strict mode, all gates, gate protection
+agent-toolkit-setup --tdd off --model sonnet  # toggle individual settings
+agent-toolkit-setup --status               # show current config
+```
+
+| Setting | Values | Default | Env var override |
+|---------|--------|---------|-----------------|
+| `tdd` | `true` / `false` | `true` | `AGENT_TOOLKIT_TDD` |
+| `skill_routing` | `true` / `false` | `true` | `AGENT_TOOLKIT_SKILL_ROUTING` |
+| `max_session_minutes` | `0` (none) / int | `0` | `AGENT_TOOLKIT_MAX_SESSION_MINUTES` |
+| `model` | `auto` / any string | `auto` | `AGENT_TOOLKIT_MODEL` |
+| `auto` | `true` / `false` | `false` | `AGENT_TOOLKIT_AUTO` |
+| `continue` | `true` / `false` | `false` | `AGENT_TOOLKIT_CONTINUE` |
+| `gate_protect` | `true` / `false` | `false` | `AGENT_TOOLKIT_GATE_PROTECT` |
+
+**Gate protection (G-GATE-1):** When `gate_protect: true`, agents cannot write to `.gates/` directly — only skill hooks can create gate files. Prevents agents from bypassing `/precommit` by forging gate files. Enabled by default in `guarded` and `lockdown` presets.
+
+**Demo:** `scripts/demo-modes.sh` builds the same Todo API in all 4 modes so you can compare agent behavior side by side.
+
+Troubleshooting: [`shared/troubleshooting.md`](shared/troubleshooting.md).
+
 ## Example Workflows
 
 | Goal | Flow |
@@ -261,6 +291,7 @@ Append `auto` to chain skills without stopping (`/requirements auto my-app`). Op
 | Commit gate | **G-PUSH-1** | No commit/push without `/precommit` |
 | Auto mode | **G-AUTO-1** | Every change cites evidence |
 | Session hooks | **G-SESSION-1** | Never modify `.session/` (structural hook blocks) |
+| Gate protection | **G-GATE-1** | Never modify `.gates/` directly (when `gate_protect: true`) |
 | Precommit | **G-PC-1–5** | Meaningful tests, all instructions addressed, verify in app, ask on ambiguity |
 | Per-skill | **G-REQ**, **G-ARCH**, **G-EVAL**, **G-UPD** | See `guardrails.md` |
 
@@ -273,7 +304,7 @@ shared/          guardrails, orchestrator, gate-unlock, report-format, templates
 hooks/           7 Python + 1 bash structural hook scripts + 2 library modules + update.sh
 update.sh        9th hook — auto-pull before skills
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
-scripts/         agent-toolkit-continue, auto_continue.py, bootstrap, set-gate-mode, setup-signed-gates, …
+scripts/         agent-toolkit-setup, agent-toolkit-continue, setup_modes.py, auto_continue.py, demo-modes.sh, …
 templates/       gates.json, signed example, GitHub workflow template
 ```
 

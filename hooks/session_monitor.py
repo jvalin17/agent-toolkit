@@ -53,6 +53,13 @@ BASH_WRITE_PATTERNS = re.compile(
 )
 BASH_SESSION_REF = re.compile(r"\.session(/|\s|$)")
 
+# .gates/ protection patterns
+BASH_GATES_WRITE = re.compile(
+    r"(rm|mv|cp|echo|tee|sed\s+-i|chmod|chown|mkdir)"
+    r".*\.gates"
+)
+BASH_GATES_REF = re.compile(r"\.gates(/|\s|$)")
+
 MAX_TOOL_SEQUENCE_LENGTH = 10
 DRIFT_CHECK_INTERVAL = 15  # Integrity check every N exchanges in strict mode
 
@@ -80,6 +87,7 @@ class SessionState:
     last_tool_sequence: list = field(default_factory=list)
     has_queried_this_slab: bool = False
     max_session_minutes: int = 0  # 0 = disabled, set via gates.json
+    gate_protect: bool = False  # G-GATE-1: block agent writes to .gates/
 
 
 def load_state(state_file: Path) -> SessionState:
@@ -204,6 +212,41 @@ def check_session_blocked(
                 return True, (
                     "BLOCKED: Agent must not modify .session/ files "
                     "(G-SESSION-1). Session state is managed by hooks only."
+                )
+        return False, ""
+
+    return False, ""
+
+
+def check_gates_blocked(
+    tool_name: str, file_path: str, command: str
+) -> tuple:
+    """G-GATE-1: Block agent writes to .gates/ directory.
+
+    Prevents agents from forging gate files (echo READY > .gates/precommit-passed).
+    Only skill hooks should write gate files. Activated via gate_protect in gates.json.
+
+    Returns (blocked: bool, message: str).
+    """
+    if tool_name in ("Write", "Edit"):
+        if ".gates/" in file_path or file_path.endswith(".gates"):
+            return True, (
+                "BLOCKED: Agent must not modify .gates/ files "
+                "(G-GATE-1). Gate files are written by skill hooks only."
+            )
+        return False, ""
+
+    if tool_name == "Bash" and command:
+        if BASH_GATES_REF.search(command):
+            if BASH_GATES_WRITE.search(command):
+                return True, (
+                    "BLOCKED: Agent must not modify .gates/ files "
+                    "(G-GATE-1). Gate files are written by skill hooks only."
+                )
+            if ">" in command and ".gates" in command:
+                return True, (
+                    "BLOCKED: Agent must not modify .gates/ files "
+                    "(G-GATE-1). Gate files are written by skill hooks only."
                 )
         return False, ""
 
@@ -400,6 +443,12 @@ def handle_pre_tool_use(
     blocked, block_msg = check_session_blocked(tool_name, file_path, command)
     if blocked:
         return state, block_msg, True
+
+    # G-GATE-1: block writes to .gates/ (when gate_protect is on)
+    if state.gate_protect:
+        blocked, block_msg = check_gates_blocked(tool_name, file_path, command)
+        if blocked:
+            return state, block_msg, True
 
     # Check hard-stop thresholds
     triggered, stop_reason = check_thresholds(state)

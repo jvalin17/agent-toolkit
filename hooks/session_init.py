@@ -58,6 +58,7 @@ def load_session_config(project_dir: Path) -> dict:
         "auto": get_config_value(config, "auto", False),
         "continue": get_config_value(config, "continue", False),
         "model": get_config_value(config, "model", "auto"),
+        "gate_protect": get_config_value(config, "gate_protect", False),
     }
 
 
@@ -97,7 +98,10 @@ def scan_project_files(project_dir: Path) -> Tuple[List[str], int]:
 
 
 def init_session_state(
-    session_dir: Path, mode: str = "normal", max_session_minutes: int = 0
+    session_dir: Path,
+    mode: str = "normal",
+    max_session_minutes: int = 0,
+    gate_protect: bool = False,
 ) -> SessionState:
     """Initialize .session/state.json with fresh counters."""
     session_dir.mkdir(parents=True, exist_ok=True)
@@ -105,6 +109,7 @@ def init_session_state(
         session_start=int(time.time()),
         mode=mode,
         max_session_minutes=max_session_minutes,
+        gate_protect=gate_protect,
     )
     state_file = session_dir / "state.json"
     save_state(state, state_file)
@@ -343,6 +348,7 @@ def main() -> int:
         session_dir,
         mode=mode,
         max_session_minutes=session_config["max_session_minutes"],
+        gate_protect=session_config["gate_protect"],
     )
 
     # 3. Clear stale gates
