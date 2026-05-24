@@ -121,7 +121,7 @@ HOOKS_SRC="$SCRIPT_DIR/hooks"
 install_hooks() {
     local toolkit_path="$SCRIPT_DIR"
     local update_command="$toolkit_path/update.sh 2>/dev/null || true"
-    local gate_cmd="python3 $toolkit_path/hooks/gate.py"
+    local gate_cmd="python3 $toolkit_path/hooks/gate_hook.py"
     local skill_passed_cmd="python3 $toolkit_path/hooks/skill_passed.py"
     local gate_cleanup_cmd="python3 $toolkit_path/hooks/gate_cleanup.py"
     local route_cmd="python3 $toolkit_path/hooks/route_to_skill.py"
@@ -276,7 +276,8 @@ HOOKEOF
 
     # Migrate bash hooks → Python hooks
     local bash_py_migrations=(
-        "gate.sh:gate.py:PreToolUse"
+        "gate.sh:gate_hook.py:PreToolUse"
+        "gate.py:gate_hook.py:PreToolUse"
         "skill-passed.sh:skill_passed.py:PostToolUse"
         "gate-cleanup.sh:gate_cleanup.py:PostToolUse"
         "tdd-enforce.sh:tdd_enforce.py:PreToolUse"
@@ -294,7 +295,7 @@ HOOKEOF
     done
 
     # Add gate hook
-    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("gate.py"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("gate_hook.py"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$gate_cmd" '
             .hooks.PreToolUse += [{"matcher": "Bash", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Checking quality gates..."}]}]
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"

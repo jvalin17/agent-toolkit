@@ -26,6 +26,8 @@ from session_monitor import (
     HARD_THRESHOLD_BYTES,
     WARN_THRESHOLD_BYTES,
     SessionState,
+    check_gates_blocked,
+    check_reports_blocked,
     check_session_blocked,
     check_thresholds,
     handle_post_compact,
@@ -244,6 +246,212 @@ class TestSessionBlocking:
             command="mkdir .session/foo",
         )
         assert blocked is True
+
+
+# --- G-GATE-1: protect .gates/ from agent writes ---
+
+
+class TestGateProtection:
+    """When gate_protect is on, agent cannot write to .gates/ directly."""
+
+    def test_blocks_write_to_gates_dir(self):
+        blocked, msg = check_gates_blocked(
+            tool_name="Write",
+            file_path="/project/.gates/precommit-passed",
+            command="",
+        )
+        assert blocked is True
+        assert "G-GATE-1" in msg
+
+    def test_blocks_bash_echo_to_gates(self):
+        blocked, msg = check_gates_blocked(
+            tool_name="Bash",
+            file_path="",
+            command='echo "READY" > .gates/precommit-passed',
+        )
+        assert blocked is True
+
+    def test_blocks_bash_mkdir_gates(self):
+        blocked, msg = check_gates_blocked(
+            tool_name="Bash",
+            file_path="",
+            command="mkdir -p .gates && echo READY > .gates/precommit-passed",
+        )
+        assert blocked is True
+
+    def test_allows_read_of_gates(self):
+        blocked, _ = check_gates_blocked(
+            tool_name="Bash",
+            file_path="",
+            command="cat .gates/precommit-passed",
+        )
+        assert blocked is False
+
+    def test_allows_write_to_non_gates_file(self):
+        blocked, _ = check_gates_blocked(
+            tool_name="Write",
+            file_path="/project/src/main.py",
+            command="",
+        )
+        assert blocked is False
+
+    def test_allows_bash_without_gates_ref(self):
+        blocked, _ = check_gates_blocked(
+            tool_name="Bash",
+            file_path="",
+            command="git status",
+        )
+        assert blocked is False
+
+
+# --- G-REPORT-1: protect reports/ from agent writes ---
+
+
+class TestReportProtection:
+    """When report_protect is on, agent cannot write to reports/ directly.
+
+    Reports are the toolkit's source of truth. They must be produced by
+    skill hooks, not by free-form agent output (Write tool or echo > path).
+    """
+
+    def test_blocks_write_to_reports_dir(self):
+        blocked, msg = check_reports_blocked(
+            tool_name="Write",
+            file_path="/project/reports/precommit/pc_foo_abc123.md",
+            command="",
+        )
+        assert blocked is True
+        assert "G-REPORT-1" in msg
+
+    def test_blocks_edit_to_reports_dir(self):
+        blocked, msg = check_reports_blocked(
+            tool_name="Edit",
+            file_path="reports/evaluate/eval_repo_deadbeef.md",
+            command="",
+        )
+        assert blocked is True
+        assert "G-REPORT-1" in msg
+
+    def test_blocks_write_to_any_reports_subdir(self):
+        for path in (
+            "reports/reviewer/r.md",
+            "reports/assess/a.md",
+            "/tmp/work/reports/evaluate/e.md",
+        ):
+            blocked, _ = check_reports_blocked(
+                tool_name="Write",
+                file_path=path,
+                command="",
+            )
+            assert blocked is True, path
+
+    def test_blocks_bash_echo_to_reports(self):
+        blocked, msg = check_reports_blocked(
+            tool_name="Bash",
+            file_path="",
+            command='echo "READY" > reports/precommit/pc_x.md',
+        )
+        assert blocked is True
+        assert "G-REPORT-1" in msg
+
+    def test_blocks_bash_append_to_reports(self):
+        blocked, _ = check_reports_blocked(
+            tool_name="Bash",
+            file_path="",
+            command='echo "more" >> reports/evaluate/eval.md',
+        )
+        assert blocked is True
+
+    def test_blocks_bash_tee_into_reports(self):
+        blocked, _ = check_reports_blocked(
+            tool_name="Bash",
+            file_path="",
+            command='echo body | tee reports/reviewer/r.md',
+        )
+        assert blocked is True
+
+    def test_blocks_bash_cp_into_reports(self):
+        blocked, _ = check_reports_blocked(
+            tool_name="Bash",
+            file_path="",
+            command="cp /tmp/forged.md reports/precommit/pc_y.md",
+        )
+        assert blocked is True
+
+    def test_blocks_bash_mkdir_reports(self):
+        blocked, _ = check_reports_blocked(
+            tool_name="Bash",
+            file_path="",
+            command="mkdir -p reports/precommit && echo READY > reports/precommit/pc.md",
+        )
+        assert blocked is True
+
+    def test_blocks_bash_heredoc_into_reports(self):
+        blocked, _ = check_reports_blocked(
+            tool_name="Bash",
+            file_path="",
+            command="cat <<EOF > reports/precommit/pc_z.md\nREADY\nEOF",
+        )
+        assert blocked is True
+
+    def test_allows_read_of_reports(self):
+        for cmd in (
+            "cat reports/precommit/pc_x.md",
+            "ls reports/",
+            "head reports/evaluate/eval.md",
+            "grep -r READY reports/",
+        ):
+            blocked, _ = check_reports_blocked(
+                tool_name="Bash",
+                file_path="",
+                command=cmd,
+            )
+            assert blocked is False, cmd
+
+    def test_allows_write_to_non_report_file(self):
+        blocked, _ = check_reports_blocked(
+            tool_name="Write",
+            file_path="/project/src/main.py",
+            command="",
+        )
+        assert blocked is False
+
+    def test_allows_bash_without_reports_ref(self):
+        blocked, _ = check_reports_blocked(
+            tool_name="Bash",
+            file_path="",
+            command="git status",
+        )
+        assert blocked is False
+
+    def test_pretooluse_blocks_when_report_protect_on(self):
+        """Integration: PreToolUse honors state.report_protect."""
+        state = SessionState(
+            session_start=int(time.time()),
+            report_protect=True,
+        )
+        _, msg, blocked = handle_pre_tool_use(
+            state,
+            tool_name="Write",
+            file_path="reports/precommit/pc_a.md",
+            command="",
+        )
+        assert blocked is True
+        assert "G-REPORT-1" in msg
+
+    def test_pretooluse_allows_when_report_protect_off(self):
+        """Integration: PreToolUse skips report block when flag is off."""
+        state = SessionState(
+            session_start=int(time.time()),
+            report_protect=False,
+        )
+        _, _, blocked = handle_pre_tool_use(
+            state,
+            tool_name="Write",
+            file_path="reports/precommit/pc_a.md",
+            command="",
+        )
+        assert blocked is False
 
 
 # --- Event handlers ---

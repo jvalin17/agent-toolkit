@@ -1,7 +1,7 @@
 #!/bin/bash
 # test-hooks.sh — Tests for harness hooks
 #
-# Runs gate.py, skill_passed.py, gate_cleanup.py, route_to_skill.py, tdd_enforce.py
+# Runs gate_hook.py, skill_passed.py, gate_cleanup.py, route_to_skill.py, tdd_enforce.py
 # with fixture JSON inputs and verifies correct behavior.
 #
 # Usage: ./tests/test-hooks.sh
@@ -14,6 +14,7 @@ HOOKS_DIR="$(dirname "$SCRIPT_DIR")/hooks"
 PASS=0
 FAIL=0
 TEST_DIR=$(mktemp -d)
+GATE_RUNNER="$TEST_DIR/gate_hook_runner.py"
 
 # Colors
 GREEN='\033[0;32m'
@@ -22,6 +23,28 @@ NC='\033[0m'
 
 pass() { echo -e "  ${GREEN}PASS${NC}: $1"; PASS=$((PASS + 1)); }
 fail() { echo -e "  ${RED}FAIL${NC}: $1 — $2"; FAIL=$((FAIL + 1)); }
+
+cat > "$GATE_RUNNER" << EOF
+#!/usr/bin/env python3
+import subprocess
+import sys
+
+hook_path = r"$HOOKS_DIR/gate_hook.py"
+hook_input = sys.stdin.read()
+proc = subprocess.run(
+    [sys.executable, hook_path],
+    input=hook_input,
+    capture_output=True,
+    text=True,
+)
+if proc.stdout:
+    sys.stdout.write(proc.stdout)
+if proc.stderr:
+    sys.stderr.write(proc.stderr)
+if '"decision": "block"' in proc.stdout:
+    sys.exit(2)
+sys.exit(proc.returncode)
+EOF
 
 # Setup: working directory with gates.json
 cd "$TEST_DIR"
@@ -34,11 +57,11 @@ cat > gates.json << 'EOF'
 }
 EOF
 
-echo "=== gate.py ==="
+echo "=== gate_hook.py ==="
 
 # Test 1: git commit without precommit-passed → BLOCKED (exit 2)
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "git commit blocked without precommit"
 else
@@ -48,7 +71,7 @@ fi
 # Test 2: git commit with valid precommit-passed → ALLOWED (exit 0)
 mkdir -p .gates && echo "READY 2026-05-20-1200" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "git commit allowed with precommit-passed"
 else
@@ -58,7 +81,7 @@ fi
 # Test 3: git push without evaluate-passed → BLOCKED
 rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "git push blocked without evaluate-passed"
 else
@@ -68,7 +91,7 @@ fi
 # Test 4: git push with both valid flags → ALLOWED
 echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "git push allowed with all flags"
 else
@@ -78,7 +101,7 @@ fi
 # Test 4b: git commit && git push — must enforce push gates (not commit-only)
 rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "commit && push blocked without evaluate (push gates enforced)"
 else
@@ -88,7 +111,7 @@ fi
 # Test 4c: git -C subdir push — still enforces push gates
 rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git -C /tmp/repo push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git -C /tmp/repo push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "git -C dir push blocked without evaluate"
 else
@@ -97,7 +120,7 @@ fi
 
 # Test 4d: commit; push (semicolon) — push gates
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"x\"; git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"x\"; git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "commit; push blocked without evaluate"
 else
@@ -107,7 +130,7 @@ fi
 # Test 4e: commit && push allowed when all flags present
 echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\" && git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "commit && push allowed with all flags"
 else
@@ -116,7 +139,7 @@ fi
 
 # Test 5: non-git command → ALLOWED (exit 0)
 EXIT_CODE=0
-echo '{"tool_input":{"command":"ls -la"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"ls -la"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "non-git command allowed"
 else
@@ -134,7 +157,7 @@ cat > gates.json << 'EOF'
 }
 EOF
 EXIT_CODE=0
-OUT=$(echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" 2>&1) || EXIT_CODE=$?
+OUT=$(echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" 2>&1) || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ] && echo "$OUT" | grep -q "GATE WARNING"; then
   pass "warn mode: commit without flags exits 0 with warning"
 else
@@ -152,7 +175,7 @@ EOF
 # Test 5c: commit message mentioning git push — must not require push gates
 mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"docs: how to git push safely\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"docs: how to git push safely\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "commit message with git push text does not trigger push gate"
 else
@@ -162,7 +185,7 @@ fi
 # Test 6: precommit flag without READY marker → BLOCKED
 rm -rf .gates && mkdir -p .gates && touch .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "empty precommit flag (no READY) blocked"
 else
@@ -174,7 +197,7 @@ rm -rf .gates && mkdir -p .gates
 echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 40% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "evaluate flag with 40% score blocked for push"
 else
@@ -186,7 +209,7 @@ rm -rf .gates && mkdir -p .gates
 echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 94% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "evaluate at 94% blocked (below 95% threshold)"
 else
@@ -198,7 +221,7 @@ rm -rf .gates && mkdir -p .gates
 echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 95% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "evaluate at 95% allowed (meets threshold)"
 else
@@ -219,7 +242,7 @@ echo "READY 2026-05-20" > .gates/precommit-passed
 echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
 touch .gates/reviewer-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "reviewer flag without PASSED marker blocked"
 else
@@ -229,7 +252,7 @@ fi
 # Test 7e: reviewer flag with PASSED marker → ALLOWED
 echo "PASSED 2026-05-20" > .gates/reviewer-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass "reviewer flag with PASSED marker allowed"
 else
@@ -262,7 +285,7 @@ cat > gates.json << 'EOF'
 EOF
 rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "strict profile: commit blocked without evaluate"
 else
@@ -432,7 +455,7 @@ else
 fi
 
 echo ""
-echo "=== gate.py (signed mode smoke) ==="
+echo "=== gate_hook.py (signed mode smoke) ==="
 
 TOOLKIT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 git init -q 2>/dev/null || true
@@ -485,20 +508,20 @@ write_token(root / ".gate" / "gate-token.jwt", token)
 PY
 
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"signed ok\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"signed ok\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
-  pass "signed gate.py allows commit with valid JWT"
+  pass "signed gate_hook.py allows commit with valid JWT"
 else
-  fail "signed gate.py should allow commit with valid token" "exit=$EXIT_CODE"
+  fail "signed gate_hook.py should allow commit with valid token" "exit=$EXIT_CODE"
 fi
 
 rm -f .gate/gate-token.jwt
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"no token\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"no token\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
-  pass "signed gate.py blocks commit without JWT"
+  pass "signed gate_hook.py blocks commit without JWT"
 else
-  fail "signed gate.py should block without token" "exit=$EXIT_CODE"
+  fail "signed gate_hook.py should block without token" "exit=$EXIT_CODE"
 fi
 
 cat > gates.json << 'GATEJSON'
@@ -511,7 +534,7 @@ cat > gates.json << 'GATEJSON'
 GATEJSON
 
 echo ""
-echo "=== gate.py enforcement escalation ==="
+echo "=== gate_hook.py enforcement escalation ==="
 
 # Reset to warn mode
 cat > gates.json << 'EOF'
@@ -526,7 +549,7 @@ rm -rf .gates
 
 # Test: env var AGENT_TOOLKIT_ENFORCEMENT overrides gates.json
 EXIT_CODE=0
-AGENT_TOOLKIT_ENFORCEMENT=block echo '{"tool_input":{"command":"git commit -m \"test\""}}' | AGENT_TOOLKIT_ENFORCEMENT=block python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+AGENT_TOOLKIT_ENFORCEMENT=block echo '{"tool_input":{"command":"git commit -m \"test\""}}' | AGENT_TOOLKIT_ENFORCEMENT=block python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "env var AGENT_TOOLKIT_ENFORCEMENT=block overrides warn mode"
 else
@@ -537,7 +560,7 @@ fi
 mkdir -p .gates
 echo "block" > .gates/enforcement-override
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass ".gates/enforcement-override=block overrides warn mode"
 else
@@ -548,7 +571,7 @@ rm -f .gates/enforcement-override
 # Test: warn mode auto-escalates — first violation writes override file
 rm -rf .gates
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ] && [ -f ".gates/enforcement-override" ] && grep -q "block" .gates/enforcement-override 2>/dev/null; then
   pass "warn mode auto-escalates: writes enforcement-override on first violation"
 else
@@ -557,7 +580,7 @@ fi
 
 # Test: subsequent commit after escalation is hard-blocked
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"second attempt\""}}' | python3 "$HOOKS_DIR/gate.py" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git commit -m \"second attempt\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "second commit after escalation is hard-blocked"
 else

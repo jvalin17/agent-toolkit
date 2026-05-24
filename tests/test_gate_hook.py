@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from hooks.gate import (
+from hooks.gate_hook import (
     detect_git_action,
     check_gate_flags,
     get_config_value,

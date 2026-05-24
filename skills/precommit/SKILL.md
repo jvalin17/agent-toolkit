@@ -95,27 +95,45 @@ Grep CLAUDE.md, project-state.md, DECISIONS.md, architecture docs. BLOCKED on co
 
 See `references/readme-validation.md`.
 
-## Step 6: Final Gate
+## Step 6: Submit Findings (do NOT write the report yourself)
+
+Reports/ is owned by hooks (G-REPORT-1). Do not `Write reports/...` or
+`echo > reports/...` — both are blocked when `report_protect: true`.
+
+Instead, write **findings.json** to `.scratch/precommit_<slug>/findings.json`
+and let the finalize hook produce the canonical report.
+
+Findings schema (all keys required):
+
+```json
+{
+  "skill": "precommit",
+  "slug": "kebab-case-slug",
+  "instructions": { "addressed": <int>, "total": <int>, "items": [] },
+  "rules":        { "violations": <int>, "items": [] },
+  "readme":       { "passed": <bool>, "details": "<string>" },
+  "tests_meaningful": { "result": "verified|sloppy|skipped",
+                        "evidence": "<string>" },
+  "app_verification": { "status": "done|pending|na",
+                        "notes": "<string>" },
+  "summary": "<optional agent narrative>"
+}
+```
+
+Then run:
 
 ```
-Pre-commit report:
-Instructions: [X]/[Y] addressed
-Test suite: [X passed / N failed / skipped]
-Test quality: [N] meaningful, [0] sloppy
-Principles: SOLID [ok] DRY [ok] KISS [ok] YAGNI [ok]
-Standards: [X]/[Y] passed
-Rules: [0] violations
-G-IMPL-6: [0] shortcuts
-README: [PASS / FAIL / SKIPPED]
-App verification: [done / pending / N/A]
-
-[x] READY TO COMMIT
-[ ] BLOCKED — [reason]
+python3 hooks/finalize_report.py precommit .scratch/precommit_<slug>/findings.json
 ```
 
-**Always** write `reports/precommit/pc_<slug>_<uuid8>.md` (per `shared/report-format.md`) with the final gate section above.
+The hook re-runs `test_command` and `lint_command` from `gates.json` itself —
+you cannot fake those results. It writes `reports/precommit/pc_<slug>_<id>.md`
+and prints a JSON response with `ready_to_commit` and the report path. Exit
+code 0 = ready, 1 = BLOCKED, 2 = invalid findings.
 
-**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: report + `attest`/`issue_token` (or CI artifact). Legacy: `echo "READY ..." > .gates/precommit-passed`.
+**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: refresh gate token
+after the report is written. Legacy: `echo "READY ..." > .gates/precommit-passed`
+(or have the unlock hook do it).
 
 **Do NOT commit automatically.** Wait for user to say "commit" or "go ahead."
 

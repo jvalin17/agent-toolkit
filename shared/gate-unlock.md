@@ -71,7 +71,7 @@ Legacy is weaker (agent can `echo` flags). With `enforcement: warn`, skills and 
 |-------|------|
 | Skills | Run workflows; write reports under `reports/` |
 | Attestation | Tests/lint + report validation → `.gate/attestation.json` |
-| JWT | `.gate/gate-token.jwt` — `gate.sh` checks via `verify_gate.py` |
+| JWT | `.gate/gate-token.jwt` — `gate_hook.py` checks via `verify_gate.py` |
 | GitHub (optional) | Workflow `agent-toolkit-gate`; branch protection on that check |
 
 HS256 + `.gate/signing.key` (PyJWT only — no `cryptography` wheel).

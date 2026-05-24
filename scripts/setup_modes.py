@@ -102,6 +102,14 @@ SETTINGS = [
         "options": ["off", "on"],
     },
     {
+        "key": "report_protect",
+        "label": "Report protection",
+        "description": "Blocks the agent from writing reports/ directly (prevents forged skill reports)",
+        "example": "on = only hooks/finalize_report.py can write reports/, off = agent can write them",
+        "type": "bool",
+        "options": ["off", "on"],
+    },
+    {
         "key": "model",
         "label": "Model",
         "description": "Which LLM to use. 'auto' = whatever the tool defaults to",
@@ -126,6 +134,7 @@ PRESETS = {
         "max_session_minutes": 0,
         "model": "auto",
         "gate_protect": False,
+        "report_protect": True,
     },
     "balanced": {
         "tdd": True,
@@ -139,6 +148,7 @@ PRESETS = {
         "max_session_minutes": 0,
         "model": "auto",
         "gate_protect": False,
+        "report_protect": True,
     },
     "guarded": {
         "tdd": True,
@@ -152,6 +162,7 @@ PRESETS = {
         "max_session_minutes": 70,
         "model": "auto",
         "gate_protect": True,
+        "report_protect": True,
     },
     "lockdown": {
         "tdd": True,
@@ -165,6 +176,7 @@ PRESETS = {
         "max_session_minutes": 70,
         "model": "auto",
         "gate_protect": True,
+        "report_protect": True,
     },
 }
 
@@ -248,6 +260,7 @@ def build_full_config(settings: dict) -> dict:
         "skill_routing": settings.get("skill_routing", True),
         "model": settings.get("model", "auto"),
         "gate_protect": settings.get("gate_protect", False),
+        "report_protect": settings.get("report_protect", True),
         "profiles": PROFILES,
     }
     return config
@@ -433,6 +446,7 @@ def parse_args(argv=None):
             "  agent-toolkit-setup --tdd off           # toggle single setting\n"
             "  agent-toolkit-setup --model sonnet      # set model\n"
             "  agent-toolkit-setup --auto on --continue on  # autonomous + restart\n"
+            "  agent-toolkit-setup --report-protect off  # allow agent report writes (not recommended)\n"
             "  agent-toolkit-setup --status            # show current config\n"
         ),
     )
@@ -456,6 +470,7 @@ def parse_args(argv=None):
     parser.add_argument("--model", type=str, default=None, help="LLM model (auto/claude-opus/gpt-4o/...)")
     parser.add_argument("--eval-threshold", type=int, default=None, help="Minimum eval score (0-100)")
     parser.add_argument("--gate-protect", choices=["on", "off"], default=None, help="Block agent from writing gate files directly")
+    parser.add_argument("--report-protect", choices=["on", "off"], default=None, help="Block agent from writing reports/ directly")
 
     # Meta
     parser.add_argument("--status", action="store_true", help="Show current configuration")
@@ -489,6 +504,8 @@ def args_to_overrides(args) -> dict:
         overrides["eval_threshold"] = args.eval_threshold
     if args.gate_protect is not None:
         overrides["gate_protect"] = args.gate_protect == "on"
+    if args.report_protect is not None:
+        overrides["report_protect"] = args.report_protect == "on"
     return overrides
 
 

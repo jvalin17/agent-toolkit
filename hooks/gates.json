@@ -12,6 +12,8 @@
   "tdd": true,
   "skill_routing": true,
   "model": "auto",
+  "gate_protect": false,
+  "report_protect": true,
   "profiles": {
     "minimal": {
       "commit_requires": ["precommit"],

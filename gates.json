@@ -10,6 +10,10 @@
   "tdd": true,
   "skill_routing": true,
   "model": "auto",
+  "gate_protect": false,
+  "report_protect": true,
+  "test_command": "python3 -m pytest tests/ -q",
+  "lint_command": "python3 -m compileall -q gate hooks scripts tests",
   "profiles": {
     "minimal": {
       "commit_requires": ["precommit"],

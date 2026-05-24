@@ -108,6 +108,15 @@ def run_command(cmd: list[str], cwd: Path, timeout: int = 600) -> CheckResult:
 
 
 def detect_and_run_tests(cwd: Path, config: dict) -> CheckResult:
+    # Recursion guard: if we're already inside a pytest run, do not re-invoke
+    # pytest from attestation/finalize. Tests that exercise the real flow
+    # should mock this function.
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return CheckResult(
+            name="tests",
+            passed=True,
+            detail="skipped inside pytest to avoid recursive invocation",
+        )
     custom = config.get("test_command")
     if custom:
         return run_command(custom if isinstance(custom, list) else custom.split(), cwd)

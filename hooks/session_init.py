@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Tuple
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from gate import get_config_value, load_gate_config
+from gate_hook import get_config_value, load_gate_config
 from session_monitor import SessionState, save_state
 
 # --- Configuration ---
@@ -34,12 +34,12 @@ SCAN_DIRS = ["requirements", "architecture"]
 EXCLUDED_ROOT_FILES = {"README.md", "HANDOFF.md", "project-state.md", "CLAUDE.md", "DECISIONS.md"}
 
 REQUIRED_HOOKS = [
-    "gate.py", "skill_passed.py", "gate_cleanup.py",
+    "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
     "route_to_skill.py", "session_init.py", "session_monitor.py",
     "tdd_enforce.py",
 ]
 
-SETTINGS_CHECKED_HOOKS = ["gate.py", "session_monitor.py", "skill_passed.py"]
+SETTINGS_CHECKED_HOOKS = ["gate_hook.py", "session_monitor.py", "skill_passed.py"]
 
 DEFAULT_MODE = "normal"
 
@@ -59,6 +59,7 @@ def load_session_config(project_dir: Path) -> dict:
         "continue": get_config_value(config, "continue", False),
         "model": get_config_value(config, "model", "auto"),
         "gate_protect": get_config_value(config, "gate_protect", False),
+        "report_protect": get_config_value(config, "report_protect", True),
     }
 
 
@@ -102,6 +103,7 @@ def init_session_state(
     mode: str = "normal",
     max_session_minutes: int = 0,
     gate_protect: bool = False,
+    report_protect: bool = True,
 ) -> SessionState:
     """Initialize .session/state.json with fresh counters."""
     session_dir.mkdir(parents=True, exist_ok=True)
@@ -110,6 +112,7 @@ def init_session_state(
         mode=mode,
         max_session_minutes=max_session_minutes,
         gate_protect=gate_protect,
+        report_protect=report_protect,
     )
     state_file = session_dir / "state.json"
     save_state(state, state_file)
@@ -227,6 +230,8 @@ def build_context(
             f"skill_routing={session_config.get('skill_routing', True)}",
             f"max_session_minutes={session_config.get('max_session_minutes', 0)}",
             f"model={session_config.get('model', 'auto')}",
+            f"gate_protect={session_config.get('gate_protect', False)}",
+            f"report_protect={session_config.get('report_protect', True)}",
         ]
         parts.append(f"Config: {', '.join(cfg_items)}")
 
@@ -349,6 +354,7 @@ def main() -> int:
         mode=mode,
         max_session_minutes=session_config["max_session_minutes"],
         gate_protect=session_config["gate_protect"],
+        report_protect=session_config["report_protect"],
     )
 
     # 3. Clear stale gates

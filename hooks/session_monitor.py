@@ -60,6 +60,13 @@ BASH_GATES_WRITE = re.compile(
 )
 BASH_GATES_REF = re.compile(r"\.gates(/|\s|$)")
 
+# reports/ protection patterns (G-REPORT-1)
+BASH_REPORTS_WRITE = re.compile(
+    r"(rm|mv|cp|echo|tee|sed\s+-i|chmod|chown|mkdir|cat\s*<<|printf)"
+    r".*\breports(/|\b)"
+)
+BASH_REPORTS_REF = re.compile(r"\breports(/|\s|$)")
+
 MAX_TOOL_SEQUENCE_LENGTH = 10
 DRIFT_CHECK_INTERVAL = 15  # Integrity check every N exchanges in strict mode
 
@@ -88,6 +95,7 @@ class SessionState:
     has_queried_this_slab: bool = False
     max_session_minutes: int = 0  # 0 = disabled, set via gates.json
     gate_protect: bool = False  # G-GATE-1: block agent writes to .gates/
+    report_protect: bool = True  # G-REPORT-1: block agent writes to reports/
 
 
 def load_state(state_file: Path) -> SessionState:
@@ -253,13 +261,39 @@ def check_gates_blocked(
     return False, ""
 
 
-def is_handoff_allowed(tool_name: str, file_path: str, command: str) -> bool:
-    """During hard stop, all operations are allowed so agent can finish current task.
+def check_reports_blocked(
+    tool_name: str, file_path: str, command: str
+) -> tuple:
+    """G-REPORT-1: Block agent writes to reports/ directory.
 
-    The stop messages tell the agent to wrap up — enforcement is via messaging,
-    not blocking. Blocking tools caused agents to panic-commit partial work.
+    Prevents agents from forging skill reports directly (Write tool or shell
+    redirection like `echo "READY" > reports/precommit/pc_x.md`). Reports are
+    the toolkit's source of truth — they must be produced by skill hooks, not
+    by free-form agent output. Activated via report_protect in gates.json.
+
+    Returns (blocked: bool, message: str).
     """
-    return True
+    msg = (
+        "BLOCKED: Agent must not write to reports/ "
+        "(G-REPORT-1). Reports are produced by skill hooks only."
+    )
+
+    if tool_name in ("Write", "Edit"):
+        # Match reports/, ./reports/, /path/to/reports/, anywhere in path.
+        if "reports/" in file_path or file_path.rstrip("/").endswith("/reports"):
+            return True, msg
+        return False, ""
+
+    if tool_name == "Bash" and command:
+        if BASH_REPORTS_REF.search(command):
+            if BASH_REPORTS_WRITE.search(command):
+                return True, msg
+            # Catch generic redirection into reports/
+            if (">" in command or ">>" in command) and "reports" in command:
+                return True, msg
+        return False, ""
+
+    return False, ""
 
 
 # --- Drift detection + auto-handoff: imported from strict_mode.py, auto_handoff.py ---
@@ -346,7 +380,7 @@ def handle_user_prompt(state: SessionState) -> tuple:
         response = (
             f"SESSION WARNING: {state.exchanges}/{FALLBACK_MAX_EXCHANGES} exchanges, "
             f"{state.cumulative_output_bytes:,}/{HARD_THRESHOLD_BYTES:,} bytes. "
-            f"Context pressure building. Finish current work, commit, "
+            f"Context pressure building. Finish the current safe stopping point "
             f"and prepare HANDOFF.md. Do not start new slabs or features."
         )
 
@@ -447,6 +481,12 @@ def handle_pre_tool_use(
     # G-GATE-1: block writes to .gates/ (when gate_protect is on)
     if state.gate_protect:
         blocked, block_msg = check_gates_blocked(tool_name, file_path, command)
+        if blocked:
+            return state, block_msg, True
+
+    # G-REPORT-1: block writes to reports/ (when report_protect is on)
+    if state.report_protect:
+        blocked, block_msg = check_reports_blocked(tool_name, file_path, command)
         if blocked:
             return state, block_msg, True
 

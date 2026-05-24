@@ -16,6 +16,9 @@ memory/
 # Session state — per session, managed by hooks only
 .session/
 
+# Scratch dir — agents write findings.json here for hooks/finalize_report.py
+.scratch/
+
 # Signed gate — private key never commit; token refreshed by CI
 .gate/signing.key
 .gate/private.pem

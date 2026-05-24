@@ -25,7 +25,7 @@ from typing import Optional
 
 # Add hooks/ to path for gate imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
-from gate import get_config_value, load_gate_config  # noqa: E402
+from gate_hook import get_config_value, load_gate_config  # noqa: E402
 
 
 class AutoContinue:

@@ -146,7 +146,7 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.py", "skill_passed.py", "gate_cleanup.py",
+            "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
             "route_to_skill.py", "session_init.py", "session_monitor.py",
             "tdd_enforce.py",
         ]
@@ -173,7 +173,7 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.py", "skill_passed.py", "gate_cleanup.py",
+            "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
             "route_to_skill.py", "session_init.py", "session_monitor.py",
             "tdd_enforce.py",
         ]
@@ -190,7 +190,7 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.py", "skill_passed.py", "gate_cleanup.py",
+            "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
             "route_to_skill.py", "session_init.py", "session_monitor.py",
             "tdd_enforce.py",
         ]
@@ -209,7 +209,7 @@ class TestCheckHookIntegrity:
         hooks_dir = project_dir / "hooks"
         hooks_dir.mkdir()
         required = [
-            "gate.py", "skill_passed.py", "gate_cleanup.py",
+            "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
             "route_to_skill.py", "session_init.py", "session_monitor.py",
             "tdd_enforce.py",
         ]
@@ -221,7 +221,7 @@ class TestCheckHookIntegrity:
         settings_content = json.dumps({
             "hooks": {
                 "PreToolUse": [
-                    {"hooks": [{"command": "gate.py"}]},
+                    {"hooks": [{"command": "gate_hook.py"}]},
                     {"hooks": [{"command": "session_monitor.py"}]},
                 ],
                 "PostToolUse": [
@@ -344,6 +344,22 @@ class TestLoadSessionConfig:
         assert config["tdd"] is True
         assert config["skill_routing"] is True
         assert config["model"] == "auto"
+        assert config["report_protect"] is True
+
+    def test_report_protect_defaults_true_when_missing(self, project_dir):
+        gates = {"gate_mode": "legacy"}
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        config = load_session_config(project_dir)
+        assert config["report_protect"] is True
+
+    def test_report_protect_env_override(self, project_dir):
+        gates = {"report_protect": True}
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        with patch.dict(os.environ, {"AGENT_TOOLKIT_REPORT_PROTECT": "false"}):
+            config = load_session_config(project_dir)
+        assert config["report_protect"] is False
 
     def test_env_var_overrides_gates_json(self, project_dir):
         """AGENT_TOOLKIT_MODE env var overrides gates.json."""

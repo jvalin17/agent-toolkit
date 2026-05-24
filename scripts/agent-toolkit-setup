@@ -9,6 +9,7 @@
 #   agent-toolkit-setup --guarded              # production mode
 #   agent-toolkit-setup --lockdown             # full review mode
 #   agent-toolkit-setup --tdd off --model sonnet  # individual settings
+#   agent-toolkit-setup --report-protect off      # allow agent report writes (not recommended)
 #   agent-toolkit-setup --status               # show current config
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

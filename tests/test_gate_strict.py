@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from hooks.gate import run_gate
+from hooks.gate_hook import run_gate
 
 
 @pytest.fixture

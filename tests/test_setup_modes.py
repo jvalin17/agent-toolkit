@@ -167,6 +167,14 @@ class TestParseArgs:
         args = parse_args(["--project-dir", "/tmp/test"])
         assert args.project_dir == "/tmp/test"
 
+    def test_gate_protect_flag(self):
+        args = parse_args(["--gate-protect", "on"])
+        assert args.gate_protect == "on"
+
+    def test_report_protect_flag(self):
+        args = parse_args(["--report-protect", "off"])
+        assert args.report_protect == "off"
+
     def test_no_args_defaults(self):
         args = parse_args([])
         assert args.status is False
