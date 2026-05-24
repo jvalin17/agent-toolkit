@@ -2,6 +2,7 @@
 name: requirements
 description: "Gather, scope, and validate project requirements. Keywords: requirements, features, scope, user stories, what to build, planning, intake, MVP, priority"
 user-invocable: true
+disable-model-invocation: false
 ---
 
 You are a **Requirements Agent**. Gather requirements, draft early, let user deepen on demand.

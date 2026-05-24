@@ -1,35 +1,22 @@
 #!/usr/bin/env bash
-# update.sh — Pull latest and symlink any new skills/agents/shared files
-# Called automatically by the PreToolUse hook before every skill invocation
+# update.sh — Pull latest and sync install state (skills, hooks, project gates)
+# Called automatically:
+#   - SessionStart (session_init.py) when a session loads
+#   - PreToolUse on Skill before every skill invocation
+#
+# Runs git pull (default on) then install.sh --sync-only.
+# Disable pull: AGENT_TOOLKIT_AUTO_PULL=0
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Pull latest
-git -C "$SCRIPT_DIR" pull --ff-only 2>/dev/null || exit 0
+# Auto-pull latest toolkit (default on; set AGENT_TOOLKIT_AUTO_PULL=0 to disable)
+if [ "${AGENT_TOOLKIT_AUTO_PULL:-1}" != "0" ] && \
+   [ "${AGENT_TOOLKIT_AUTO_PULL:-1}" != "false" ] && \
+   [ "${AGENT_TOOLKIT_AUTO_PULL:-1}" != "no" ]; then
+    git -C "$SCRIPT_DIR" pull --ff-only 2>/dev/null || true
+fi
 
-# Symlink any new skill directories
-for skill_dir in "$SCRIPT_DIR"/skills/*/; do
-    [ -d "$skill_dir" ] || continue
-    skill_name="$(basename "$skill_dir")"
-    dest="$HOME/.claude/skills/$skill_name"
-    [ -L "$dest" ] || ln -s "$skill_dir" "$dest" 2>/dev/null
-done
-
-# Symlink any new agent files
-for agent_file in "$SCRIPT_DIR"/agents/*.md; do
-    [ -f "$agent_file" ] || continue
-    filename="$(basename "$agent_file")"
-    dest="$HOME/.claude/agents/$filename"
-    [ -L "$dest" ] || ln -s "$agent_file" "$dest" 2>/dev/null
-done
-
-# Symlink any new shared files
-mkdir -p "$HOME/.claude/shared"
-for shared_file in "$SCRIPT_DIR"/shared/*.md; do
-    [ -f "$shared_file" ] || continue
-    filename="$(basename "$shared_file")"
-    dest="$HOME/.claude/shared/$filename"
-    [ -L "$dest" ] || ln -s "$shared_file" "$dest" 2>/dev/null
-done
+# Full idempotent sync (symlinks + hooks + bootstrap + bin entrypoints)
+bash "$SCRIPT_DIR/install.sh" --sync-only >/dev/null 2>&1 || true

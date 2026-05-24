@@ -3,7 +3,7 @@
 Skills, guardrails, and structural hooks for AI coding agents. Plan, build, test, debug, and ship — any repo, any language.
 
 **Best on:** [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — hooks enforce rules the model cannot bypass.  
-**Also works on:** Cursor, Codex, Gemini CLI, Windsurf, Aider — skills + guardrails only (no structural enforcement).
+**Also works on:** Cursor, Codex, Gemini CLI, Windsurf, Aider — guardrails + workflows via `AGENTS.md` (see [Other LLMs](#other-llms-cursor-gpt-gemini--more)).
 
 | | Count |
 |---|------|
@@ -58,6 +58,8 @@ On session start, hooks inject project context automatically (`HANDOFF.md`, `pro
 
 Natural language works too — e.g. "fix the login bug" routes to `/debug`.
 
+> **Using Cursor, GPT, Gemini, or another LLM?** See [Other LLMs](#other-llms-cursor-gpt-gemini--more) — setup is different (no `./install.sh` required for hooks).
+
 ---
 
 ## How it works
@@ -86,6 +88,145 @@ gate_hook.py on commit     → block until gates pass
 
 ---
 
+## Other LLMs (Cursor, GPT, Gemini, & more)
+
+The toolkit is **full strength on Claude Code** (hooks block bad commits, auto-pull, report protection). On other tools you get **guardrails + workflow rules** baked into the project — the agent follows them by prompt, not by structural enforcement.
+
+### What works where
+
+| Capability | Claude Code | Cursor / GPT / Gemini / others |
+|------------|-------------|--------------------------------|
+| Guardrails & workflow rules | Yes (hooks + skills) | Yes (`AGENTS.md` / `.cursorrules`) |
+| Slash skills (`/precommit`, …) | Yes (`~/.claude/skills/`) | Optional — see Cursor skills below |
+| Auto skill routing | Yes (hook) | No — describe intent in chat |
+| Commit/push gates | Yes (hook blocks) | No — you enforce manually |
+| Report protection (`reports/`) | Yes (hook blocks) | No |
+| Auto `git pull` + sync | Yes (on session start + skills) | No — pull toolkit yourself when you want updates |
+
+### Setup (every non-Claude project)
+
+From **your project root** (not inside the toolkit repo):
+
+```bash
+/path/to/agent-toolkit/generate-project-rules.sh
+```
+
+Creates **`AGENTS.md`** — read by Codex, Gemini CLI, many GPT-based agents, and Claude Code.
+
+For **Cursor**, also generate `.cursorrules`:
+
+```bash
+/path/to/agent-toolkit/generate-project-rules.sh --cursor
+```
+
+Regenerate after toolkit updates if guardrails change. You do **not** need `./install.sh` unless you also use Claude Code on the same machine.
+
+Optional — bootstrap gates in a git repo (manual unlock, no hook blocking):
+
+```bash
+cd /path/to/your-project
+bash /path/to/agent-toolkit/scripts/bootstrap-project-gates.sh /path/to/agent-toolkit
+```
+
+---
+
+### Cursor
+
+1. **Generate rules** (once per project):
+   ```bash
+   cd /path/to/your-project
+   /path/to/agent-toolkit/generate-project-rules.sh --cursor
+   ```
+2. **Open the project** in Cursor.
+3. **Start Agent chat** (Cmd+I / Ctrl+I or the Agent panel).
+4. **Talk normally** — the agent reads `.cursorrules` and `AGENTS.md` automatically.
+
+**Example first messages:**
+
+```
+Explore this codebase and summarize architecture, conventions, and risks.
+```
+
+```
+Gather requirements for a task management API with JWT auth.
+```
+
+```
+Run a precommit-style review: tests, README accuracy, and whether we're ready to commit.
+```
+
+**Optional — full toolkit skills in Cursor:** symlink skills so Cursor exposes them as Agent Skills:
+
+```bash
+mkdir -p ~/.cursor/skills
+for d in /path/to/agent-toolkit/skills/*/; do
+  name=$(basename "$d")
+  ln -sf "$d" ~/.cursor/skills/"$name"
+done
+```
+
+Then you can invoke `@precommit` or reference skills by name depending on your Cursor version. Rules in `AGENTS.md` still apply either way.
+
+**What you must do manually without hooks:** run tests yourself, don't skip `/precommit` discipline before commit, don't trust the agent to write `reports/` — use `hooks/finalize_report.py` if you adopt that flow.
+
+---
+
+### OpenAI Codex / ChatGPT (agent mode)
+
+1. Generate rules:
+   ```bash
+   /path/to/agent-toolkit/generate-project-rules.sh
+   ```
+2. Open the repo in Codex or an IDE with GPT agent support.
+3. Ensure the tool loads **`AGENTS.md`** (Codex and many setups do this by default for the repo root).
+4. Start with a clear task — slash commands are not registered; use plain language:
+
+```
+Follow the precommit workflow in AGENTS.md and review my staged changes.
+```
+
+```
+Debug the failing test in tests/test_auth.py — hypothesis first, then fix.
+```
+
+---
+
+### Google Gemini CLI
+
+1. Generate `AGENTS.md` in the project (same command as above).
+2. Run Gemini from the project directory so it picks up repo context:
+   ```bash
+   cd /path/to/your-project
+   gemini
+   ```
+3. Reference workflows explicitly — Gemini reads project files including `AGENTS.md` when configured for the workspace.
+
+---
+
+### Windsurf, Aider, and other agents
+
+| Tool | Rules file | Notes |
+|------|------------|--------|
+| **Windsurf** | `AGENTS.md` or tool-specific rules | Generate `AGENTS.md`; add to Windsurf rules if the product uses a separate file |
+| **Aider** | `AGENTS.md` or `.aider.conf.yml` | Point aider at the repo; paste key guardrails into chat or config if needed |
+| **Generic** | `AGENTS.md` | Any agent that reads the repo root will pick up the same rules |
+
+**Pattern for all:** generate once → open project in your tool → describe the job in natural language using the same intent as slash skills (`explore`, `requirements`, `implementation`, `precommit`, `debug`).
+
+---
+
+### Keeping rules up to date (non-Claude)
+
+```bash
+cd /path/to/agent-toolkit && git pull
+cd /path/to/your-project
+/path/to/agent-toolkit/generate-project-rules.sh --cursor   # or without --cursor
+```
+
+Claude Code users get pull + sync automatically; other tools need an occasional regenerate after toolkit changes.
+
+---
+
 ## Design
 
 Where things live and how they connect.
@@ -102,54 +243,50 @@ agent-toolkit/                    your-project/
 
 | Component | Install method | Updated how |
 |-----------|----------------|-------------|
-| Skills, agents, shared | Symlink to repo | `git pull` in toolkit repo (auto before each skill via `update.sh`) |
-| Hook scripts | Absolute path in `settings.json` | Same — edit/pull in toolkit repo, takes effect immediately |
-| `gates.json` | Copied once from template | **Not auto-updated** — edit manually or use `agent-toolkit-setup` |
-| `.agent-toolkit/gate/` | Copied on bootstrap | **Not auto-updated** — re-run bootstrap (see [Updates](#updates)) |
+| Skills, agents, shared | Symlink to repo | Auto — `git pull` + sync on session start and before each skill |
+| Hook scripts | Absolute path in `settings.json` | Auto — same sync refreshes paths and merges new hooks |
+| `gates.json` | Copied once from template | Auto — bootstrap merges **missing** top-level keys only |
+| `.agent-toolkit/gate/` | Copied on bootstrap | Auto — re-copied on each sync when run from your project |
 
 **Why two gate copies?** Hooks run from the toolkit repo (always latest). `.agent-toolkit/gate/` is a self-contained copy inside your project so CI and signed attestation work without the full toolkit checkout.
 
-**Why symlinks for skills?** One `git pull` updates every project on your machine. No reinstall per project.
+**Why symlinks for skills?** Auto-pull keeps one clone current for all projects. Sync wires it into Claude automatically.
 
 ---
 
 ## Updates
 
-### What updates automatically
+You never need to run `git pull` or `./install.sh` manually for normal use.
+
+### What runs automatically
+
+| Trigger | Script | What it does |
+|---------|--------|--------------|
+| **Session start** (Claude opens / compacts) | `session_init.py` → `update.sh` | `git pull` + sync |
+| **Every skill** (`/precommit`, `/debug`, …) | `update.sh` | `git pull` + sync |
+
+Sync (`install.sh --sync-only`) after each pull:
+
+- Symlinks new skills/agents/shared
+- Merges new hooks into `settings.json`
+- Refreshes hook paths if you moved the clone
+- Re-syncs `.agent-toolkit/gate/` and merges missing `gates.json` keys
 
 | What | When |
 |------|------|
-| Skill content (`/precommit`, `/debug`, …) | Before every skill — `update.sh` runs `git pull` in the toolkit repo |
-| Hook Python code (`session_monitor.py`, `gate_hook.py`, …) | Immediately after `git pull` — settings point at live files in the repo |
-| New skill directories | Auto-symlinked on next skill run (if `update.sh` pulled them) |
+| Latest toolkit code | Auto — `git pull` on session start and before each skill |
+| Symlinks, settings, bootstrap | Auto — same sync pass |
 
-So for day-to-day work: **`git pull` in the toolkit repo is enough.** You do not need to reinstall for skill or hook code changes.
+Disable auto-pull: `AGENT_TOOLKIT_AUTO_PULL=0`
 
-### What does NOT update automatically
+### When to run `./install.sh` manually
 
-| What | How to update |
-|------|---------------|
-| New hooks added to `settings.json` | Re-run `./install.sh` (merges new hook registrations) |
-| `gates.json` new keys (e.g. `report_protect`) | Edit manually, or `agent-toolkit-setup --status` and adjust |
-| `.agent-toolkit/gate/` module | Re-run bootstrap: `bash scripts/bootstrap-project-gates.sh /path/to/agent-toolkit` from project root |
-| `~/.claude/settings.json` hook paths | Re-run `./install.sh` if toolkit moved to a new directory |
-
-### Quick reference
-
-```bash
-# Normal update (skills + hooks)
-cd /path/to/agent-toolkit && git pull
-
-# After a major toolkit upgrade (new hooks, moved install path)
-./install.sh
-
-# Refresh project's copied gate module
-bash scripts/bootstrap-project-gates.sh "$(pwd)" /path/to/your-project
-
-# Add new config keys to an existing project
-agent-toolkit-setup --status    # see what's set
-# then edit gates.json or use setup flags
-```
+| Situation | Action |
+|-----------|--------|
+| First-time setup | `./install.sh` (once) |
+| Conflict: skill exists as a real directory, not symlink | `./install.sh` — answer prompts to replace |
+| `jq` was missing on first install | Install `jq`, then `./install.sh` |
+| Debugging sync | `AGENT_TOOLKIT_SYNC_VERBOSE=1 ./install.sh --sync-only` |
 
 ---
 
@@ -269,7 +406,7 @@ Registered in `~/.claude/settings.json` by `./install.sh`. Run as subprocesses �
 
 | Hook | Trigger | Purpose |
 |------|---------|---------|
-| `session_init.py` | Session start, after compact | Load project context, init state, clear stale gates |
+| `session_init.py` | Session start, after compact | Load context; triggers `update.sh` (pull + sync) |
 | `session_monitor.py` | Every tool use | Session limits; block `.session/` writes; block `reports/` when `report_protect`; drift checks in strict mode |
 | `route_to_skill.py` | Every prompt | Intent → skill injection |
 | `gate_hook.py` | Before `git commit` / `git push` | Enforce gate profiles |
@@ -277,7 +414,7 @@ Registered in `~/.claude/settings.json` by `./install.sh`. Run as subprocesses �
 | `check_doc_write.sh` | Before Write | Block writes outside repo root |
 | `skill_passed.py` | After skill completes | Report gate status |
 | `gate_cleanup.py` | After commit | Clear gate flags for next cycle |
-| `update.sh` | Before each skill | Auto-pull toolkit |
+| `update.sh` | Session start + before each skill | Auto `git pull` + sync install state |
 
 **Report writer (not a Claude hook — run explicitly):**
 
@@ -335,15 +472,6 @@ scripts/set-gate-mode.sh status
 ```
 
 Replaces `.gates/` marker files with JWT attestation. Details: [`shared/gate-unlock.md`](shared/gate-unlock.md)
-
-### Other LLMs (no hooks)
-
-```bash
-./generate-project-rules.sh              # → AGENTS.md
-./generate-project-rules.sh --cursor     # → AGENTS.md + .cursorrules
-```
-
-Skills and guardrails work; structural enforcement does not.
 
 ---
 

@@ -2,6 +2,7 @@
 name: setup
 description: "Generate install scripts, Docker config, and README for any project. One-command setup, platform agnostic. Keywords: install, setup, deploy, docker, readme, run, start, build"
 user-invocable: true
+disable-model-invocation: false
 ---
 
 You are a **Setup Agent**. Generate a dead-simple install/run experience. One command, platform agnostic, minimum user input.

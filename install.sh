@@ -4,10 +4,25 @@
 # Skills go to:  ~/.claude/skills/
 # Agents go to:  ~/.claude/agents/
 # Old commands:  ~/.claude/commands/ (cleaned up if migrated)
+#
+# Usage:
+#   ./install.sh            # full install (interactive on conflicts)
+#   ./install.sh --sync-only  # quiet idempotent sync (used by update.sh)
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SYNC_ONLY=0
+for arg in "$@"; do
+    case "$arg" in
+        --sync-only) SYNC_ONLY=1 ;;
+    esac
+done
+
+# Quiet sync when invoked from update.sh (set AGENT_TOOLKIT_SYNC_VERBOSE=1 to debug)
+if [ "$SYNC_ONLY" = "1" ] && [ "${AGENT_TOOLKIT_SYNC_VERBOSE:-}" != "1" ]; then
+    exec >/dev/null
+fi
 SKILLS_SRC="$SCRIPT_DIR/skills"
 AGENTS_SRC="$SCRIPT_DIR/agents"
 SHARED_SRC="$SCRIPT_DIR/shared"
@@ -33,12 +48,18 @@ link_item() {
         if [ -L "$dest" ]; then
             current="$(readlink "$dest")"
             if [ "$current" = "$src" ]; then
-                echo "  [skip] $name (already linked)"
+                if [ "$SYNC_ONLY" != "1" ]; then
+                    echo "  [skip] $name (already linked)"
+                fi
                 skipped=$((skipped + 1))
                 return
             fi
             rm "$dest"
         elif [ -d "$dest" ]; then
+            if [ "$SYNC_ONLY" = "1" ]; then
+                skipped=$((skipped + 1))
+                return
+            fi
             echo "  [warn] $name exists as directory. Replace with symlink? (y/n)"
             read -r answer
             [ "$answer" != "y" ] && { skipped=$((skipped + 1)); return; }
@@ -49,12 +70,18 @@ link_item() {
         if [ -L "$dest" ]; then
             current="$(readlink "$dest")"
             if [ "$current" = "$src" ]; then
-                echo "  [skip] $name (already linked)"
+                if [ "$SYNC_ONLY" != "1" ]; then
+                    echo "  [skip] $name (already linked)"
+                fi
                 skipped=$((skipped + 1))
                 return
             fi
             rm "$dest"
         elif [ -f "$dest" ]; then
+            if [ "$SYNC_ONLY" = "1" ]; then
+                skipped=$((skipped + 1))
+                return
+            fi
             echo "  [warn] $name exists as file. Replace? (y/n)"
             read -r answer
             [ "$answer" != "y" ] && { skipped=$((skipped + 1)); return; }
@@ -62,7 +89,9 @@ link_item() {
         fi
         ln -s "$src" "$dest"
     fi
-    echo "  [installed] $name"
+    if [ "$SYNC_ONLY" != "1" ]; then
+        echo "  [installed] $name"
+    fi
     installed=$((installed + 1))
 }
 
@@ -403,6 +432,35 @@ HOOKEOF
     else
         echo "  [skip] session init hook (already installed)"
     fi
+
+    # Refresh all hook command paths to current toolkit (handles moved clone directory)
+    if jq --arg tp "$toolkit_path" '
+      def refresh(cmd):
+        if (cmd | type) != "string" then cmd
+        elif cmd | contains("update.sh") then ($tp + "/update.sh 2>/dev/null || true")
+        elif cmd | contains("gate_hook.py") or cmd | contains("/hooks/gate.py") then "python3 " + $tp + "/hooks/gate_hook.py"
+        elif cmd | contains("skill_passed.py") then "python3 " + $tp + "/hooks/skill_passed.py"
+        elif cmd | contains("gate_cleanup.py") then "python3 " + $tp + "/hooks/gate_cleanup.py"
+        elif cmd | contains("route_to_skill.py") then "python3 " + $tp + "/hooks/route_to_skill.py"
+        elif cmd | contains("session_init.py") then "python3 " + $tp + "/hooks/session_init.py"
+        elif cmd | contains("tdd_enforce.py") then "python3 " + $tp + "/hooks/tdd_enforce.py"
+        elif cmd | contains("session_monitor.py") then "python3 " + $tp + "/hooks/session_monitor.py"
+        elif cmd | contains("check_doc_write") then "bash " + $tp + "/hooks/check_doc_write.sh"
+        else cmd end;
+      walk(
+        if type == "object" and has("command") and (.command | type == "string") then
+          .command = refresh(.command)
+        else .
+        end
+      )
+    ' "$SETTINGS_FILE" > "$tmp_file" 2>/dev/null; then
+        mv "$tmp_file" "$SETTINGS_FILE"
+        if [ "$SYNC_ONLY" != "1" ]; then
+            echo "  [updated] hook paths → $toolkit_path"
+        fi
+    else
+        rm -f "$tmp_file"
+    fi
 }
 
 # Only install if jq is available (needed for safe JSON merging)
@@ -484,6 +542,10 @@ else
 fi
 
 # --- Summary ---
+if [ "$SYNC_ONLY" = "1" ]; then
+    exit 0
+fi
+
 echo ""
 echo "Done. Installed: $installed, Skipped: $skipped, Cleaned: $cleaned"
 echo ""

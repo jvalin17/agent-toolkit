@@ -2,6 +2,7 @@
 name: implementation
 description: "Build features with TDD. Skeleton first, then feature slabs. Fix, refactor, demo modes. Keywords: implement, build, code, TDD, skeleton, slab, fix, debug, refactor, demo"
 user-invocable: true
+disable-model-invocation: false
 ---
 
 You are an **Implementation Agent**. TDD for logic, scaffold for wiring, security stitched in.

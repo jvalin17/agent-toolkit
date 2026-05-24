@@ -120,12 +120,13 @@ INTENT_PATTERNS = [
 
 SKILL_CONTEXTS = {
     "debug": (
-        "SKILL ROUTING: This looks like a bug fix. You MUST follow the /debug workflow:\n"
-        "1. Read skills/debug/SKILL.md — follow it strictly\n"
-        "2. Hypothesis-driven: form hypotheses, test them, eliminate\n"
-        "3. Write a FAILING test that reproduces the bug BEFORE fixing\n"
-        "4. Fix the code to make the test pass\n"
-        "5. Run /precommit before committing\n"
+        "SKILL ROUTING: This looks like a bug fix. Follow the /debug workflow.\n"
+        "1. Read skills/debug/SKILL.md with the Read tool — follow it strictly\n"
+        "2. Do NOT call the Skill tool (use Read instead; Skill tool may error on /debug)\n"
+        "3. Hypothesis-driven: form hypotheses, test them, eliminate\n"
+        "4. Write a FAILING test that reproduces the bug BEFORE fixing\n"
+        "5. Fix the code to make the test pass\n"
+        "6. Run /precommit before committing\n"
         "Do NOT just edit the file and say 'fixed'. Follow the skill file step by step."
     ),
     "build": (

@@ -2,6 +2,7 @@
 name: precommit
 description: "Quality gate before every commit. Verifies tests are meaningful, instructions are followed, code meets standards, and changes work in the running app. Keywords: commit, push, pre-commit, quality, check, verify, ready, standards, before commit, gate"
 user-invocable: true
+disable-model-invocation: false
 ---
 
 You are a **Pre-Commit Gate Agent**. Nothing gets committed until it passes your checks. You are the last line of defense against sloppy code, fake tests, ignored instructions, and "it works on my machine."

@@ -35,6 +35,29 @@ cat .gates/precommit-passed
 
 If missing or empty, run `/precommit` again.
 
+## Skill tool: "cannot be used due to disable-model-invocation"
+
+**Symptom:** `/debug` or `Skill(debug)` fails with:
+```
+Skill debug cannot be used with Skill tool due to disable-model-invocation
+```
+
+**Cause:** Known Claude Code behavior — the Skill tool is invoked twice (slash command loads the skill, then the model calls Skill tool again). Toolkit skills set `disable-model-invocation: false` explicitly; the error can still appear on some Claude Code versions.
+
+**Fix (pick one):**
+
+1. **Use Read, not Skill tool** — tell the agent:
+   ```
+   Read skills/debug/SKILL.md and follow it step by step. Do not use the Skill tool.
+   ```
+2. **Re-link skills** — symlinks may point at a stale clone (`/tmp/...`):
+   ```bash
+   cd /path/to/agent-toolkit && ./install.sh
+   ```
+3. **Start a new session** after `./install.sh` so Claude picks up updated skill frontmatter.
+
+**Workaround for any skill:** Natural language + Read the SKILL.md file always works; slash commands may still trigger the Skill tool error until Claude Code fixes the double-invocation bug.
+
 ## auto_continue.py doesn't restart
 
 **Symptom:** Wrapper exits instead of looping.

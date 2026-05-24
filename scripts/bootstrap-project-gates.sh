@@ -52,7 +52,22 @@ if [ ! -f "$PROJECT_ROOT/gates.json" ]; then
   cp "$TOOLKIT_DIR/templates/gates.json" "$PROJECT_ROOT/gates.json"
   echo "  [installed] gates.json (from template: legacy, warn, minimal — set gate_mode signed if needed)"
 else
-  echo "  [skip] gates.json (already exists)"
+  # Add new top-level keys from template without overwriting user values
+  if command -v jq >/dev/null 2>&1; then
+    tmp_gates="$(mktemp)"
+    if jq -s '
+      .[0] as $cur | .[1] as $tpl |
+      $cur + ($tpl | del(.profiles) | with_entries(select(.key as $k | ($cur | has($k) | not))))
+    ' "$PROJECT_ROOT/gates.json" "$TOOLKIT_DIR/templates/gates.json" > "$tmp_gates" 2>/dev/null; then
+      mv "$tmp_gates" "$PROJECT_ROOT/gates.json"
+      echo "  [merged] gates.json (added missing keys from template)"
+    else
+      rm -f "$tmp_gates"
+      echo "  [skip] gates.json (already exists)"
+    fi
+  else
+    echo "  [skip] gates.json (already exists)"
+  fi
 fi
 
 # Signing keys (gitignored)
@@ -102,6 +117,7 @@ append_ignore ".gate/private.pem"
 append_ignore ".gate/gate-token.jwt"
 append_ignore ".gate/attestation.json"
 append_ignore ".gates/"
+append_ignore ".scratch/"
 
 # Optional: upload signing key to GitHub (only when explicitly requested)
 if [ "${AGENT_TOOLKIT_UPLOAD_GATE_SECRET:-}" = "1" ]; then

@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -328,6 +329,28 @@ def get_settings_path() -> Optional[Path]:
     return settings if settings.is_file() else None
 
 
+def toolkit_root() -> Path:
+    """Directory containing update.sh (parent of hooks/)."""
+    return Path(__file__).resolve().parent.parent
+
+
+def run_toolkit_update() -> None:
+    """Pull latest toolkit and sync install state. Silent; never blocks session."""
+    update_script = toolkit_root() / "update.sh"
+    if not update_script.is_file():
+        return
+    try:
+        subprocess.run(
+            ["bash", str(update_script)],
+            cwd=str(toolkit_root()),
+            capture_output=True,
+            timeout=120,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
 # --- Main entry point ---
 
 
@@ -343,6 +366,9 @@ def main() -> int:
     hooks_dir = project_dir / "hooks"
     settings_path = get_settings_path()
     session_dir = project_dir / ".session"
+
+    # 0. Pull + sync toolkit (session load)
+    run_toolkit_update()
 
     # 1. Load config from gates.json
     session_config = load_session_config(project_dir)
