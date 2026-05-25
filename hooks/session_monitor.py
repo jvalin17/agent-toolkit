@@ -16,6 +16,7 @@ State: .session/state.json
 import json
 import sys
 from pathlib import Path
+from typing import Optional
 
 from auto_handoff import trigger_auto_handoff
 from path_protection import (
@@ -54,6 +55,66 @@ DRIFT_CHECK_INTERVAL = 15  # Integrity check every N exchanges in strict mode
 EXCHANGES_WARN_THRESHOLD = 10
 PATCH_FORWARD_WARN_THRESHOLD = 2
 SLABS_WITHOUT_DATA_WARN_THRESHOLD = 1
+LAST_TEST_EDITS_MAX = 5
+
+
+def _strict_integrity_response(state: SessionState) -> Optional[str]:
+    """Periodic strict-mode integrity check (every DRIFT_CHECK_INTERVAL exchanges)."""
+    drift = compute_drift_score(
+        state.exchanges_since_query,
+        state.patch_forward_count,
+        state.slabs_without_data,
+    )
+    response = (
+        f"STRICT MODE INTEGRITY CHECK (exchange {state.exchanges}):\n"
+        f"- Exchanges since last real-system query: {state.exchanges_since_query}\n"
+        f"- Patch-forward incidents this session: {state.patch_forward_count}\n"
+        f"- Slabs without data queries: {state.slabs_without_data}\n"
+        f"- Drift score: {drift:.2f}\n"
+    )
+    if drift > 0.8:
+        response += (
+            "\nCRITICAL DRIFT: Score exceeds 0.8. SESSION RESTART required.\n"
+            "Write HANDOFF.md immediately and exit. "
+            "The auto-continuation wrapper will relaunch a fresh session."
+        )
+        state.stopped = 2
+    elif drift > 0.6:
+        response += (
+            "\nHIGH DRIFT: Score exceeds 0.6. "
+            "Do NOT start new slabs. Query the real system before continuing."
+        )
+    elif drift > 0.3:
+        response += (
+            "\nMODERATE DRIFT: Score exceeds 0.3. "
+            "Consider querying the real system to ground your work."
+        )
+    return response
+
+
+def _strict_drift_warnings(state: SessionState) -> Optional[str]:
+    warnings = []
+    if state.exchanges_since_query > EXCHANGES_WARN_THRESHOLD:
+        warnings.append(
+            f"You haven't queried the real system in "
+            f"{state.exchanges_since_query} exchanges. "
+            f"Are you working from inference?"
+        )
+    if state.patch_forward_count > PATCH_FORWARD_WARN_THRESHOLD:
+        warnings.append(
+            f"Patch-forward pattern detected "
+            f"{state.patch_forward_count} times. "
+            f"Stop and investigate root causes."
+        )
+    if state.slabs_without_data > SLABS_WITHOUT_DATA_WARN_THRESHOLD:
+        warnings.append(
+            f"{state.slabs_without_data} slabs completed with no "
+            f"real-system queries. This slab requires data evidence "
+            f"before continuing."
+        )
+    if warnings:
+        return "STRICT MODE WARNING:\n- " + "\n- ".join(warnings)
+    return None
 
 
 def handle_user_prompt(state: SessionState) -> tuple:
@@ -63,73 +124,24 @@ def handle_user_prompt(state: SessionState) -> tuple:
     if state.mode == "strict":
         state.exchanges_since_query += 1
 
-    response = None
-
     if state.mode == "strict" and state.exchanges % DRIFT_CHECK_INTERVAL == 0:
-        drift = compute_drift_score(
-            state.exchanges_since_query,
-            state.patch_forward_count,
-            state.slabs_without_data,
-        )
-        response = (
-            f"STRICT MODE INTEGRITY CHECK (exchange {state.exchanges}):\n"
-            f"- Exchanges since last real-system query: {state.exchanges_since_query}\n"
-            f"- Patch-forward incidents this session: {state.patch_forward_count}\n"
-            f"- Slabs without data queries: {state.slabs_without_data}\n"
-            f"- Drift score: {drift:.2f}\n"
-        )
-        if drift > 0.8:
-            response += (
-                "\nCRITICAL DRIFT: Score exceeds 0.8. SESSION RESTART required.\n"
-                "Write HANDOFF.md immediately and exit. "
-                "The auto-continuation wrapper will relaunch a fresh session."
-            )
-            state.stopped = 2
-        elif drift > 0.6:
-            response += (
-                "\nHIGH DRIFT: Score exceeds 0.6. "
-                "Do NOT start new slabs. Query the real system before continuing."
-            )
-        elif drift > 0.3:
-            response += (
-                "\nMODERATE DRIFT: Score exceeds 0.3. "
-                "Consider querying the real system to ground your work."
-            )
-        return state, response
+        return state, _strict_integrity_response(state)
 
     if state.mode == "strict":
-        warnings = []
-        if state.exchanges_since_query > EXCHANGES_WARN_THRESHOLD:
-            warnings.append(
-                f"You haven't queried the real system in "
-                f"{state.exchanges_since_query} exchanges. "
-                f"Are you working from inference?"
-            )
-        if state.patch_forward_count > PATCH_FORWARD_WARN_THRESHOLD:
-            warnings.append(
-                f"Patch-forward pattern detected "
-                f"{state.patch_forward_count} times. "
-                f"Stop and investigate root causes."
-            )
-        if state.slabs_without_data > SLABS_WITHOUT_DATA_WARN_THRESHOLD:
-            warnings.append(
-                f"{state.slabs_without_data} slabs completed with no "
-                f"real-system queries. This slab requires data evidence "
-                f"before continuing."
-            )
-        if warnings:
-            return state, "STRICT MODE WARNING:\n- " + "\n- ".join(warnings)
+        warning = _strict_drift_warnings(state)
+        if warning:
+            return state, warning
 
     if should_warn(state):
         state.warned = True
-        response = (
+        return state, (
             f"SESSION WARNING: {state.exchanges}/{FALLBACK_MAX_EXCHANGES} exchanges, "
             f"{state.cumulative_output_bytes:,}/{HARD_THRESHOLD_BYTES:,} bytes. "
             f"Context pressure building. Finish the current safe stopping point "
             f"and prepare HANDOFF.md. Do not start new slabs or features."
         )
 
-    return state, response
+    return state, None
 
 
 def handle_post_tool_use(
@@ -141,6 +153,10 @@ def handle_post_tool_use(
 ) -> SessionState:
     """Handle PostToolUse event. Tracks cumulative output bytes and drift."""
     state.cumulative_output_bytes += len(tool_result)
+
+    if tool_name in ("Edit", "Write") and is_test_file(file_path):
+        state.last_test_edits.append(file_path)
+        state.last_test_edits = state.last_test_edits[-LAST_TEST_EDITS_MAX:]
 
     if state.mode == "strict":
         entry = {"tool": tool_name}

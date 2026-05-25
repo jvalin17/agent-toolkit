@@ -36,6 +36,7 @@ class SessionState:
     max_session_minutes: int = 0  # 0 = disabled, set via gates.json
     gate_protect: bool = True  # G-GATE-1: block agent writes to .gates/
     report_protect: bool = True  # G-REPORT-1: block agent writes to reports/
+    last_test_edits: list = field(default_factory=list)  # F2.6: recent test file paths
 
 
 def load_state(state_file: Path) -> SessionState:

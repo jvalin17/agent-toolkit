@@ -128,6 +128,48 @@ class TestEdgeCases:
         assert output == ""
 
 
+class TestTDDStrictMode:
+    def test_strict_blocks_source_without_test(self, tmp_path):
+        (tmp_path / "gates.json").write_text(
+            json.dumps({"tdd": True, "tdd_mode": "strict"})
+        )
+        exit_code, output = run_tdd_enforce(
+            make_input(str(tmp_path / "auth.py")), tmp_path
+        )
+        assert exit_code == 0
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert "TDD STRICT" in data["reason"]
+        assert "auth.py" in data["reason"]
+
+    def test_strict_allows_after_recent_test_edit(self, tmp_path):
+        (tmp_path / "gates.json").write_text(
+            json.dumps({"tdd": True, "tdd_mode": "strict"})
+        )
+        session_dir = tmp_path / ".session"
+        session_dir.mkdir()
+        (session_dir / "state.json").write_text(
+            json.dumps({"session_start": 1, "last_test_edits": ["test_auth.py"]})
+        )
+        exit_code, output = run_tdd_enforce(
+            make_input(str(tmp_path / "auth.py")), tmp_path
+        )
+        assert exit_code == 0
+        assert output == ""
+
+    def test_strict_exempts_hooks_dir(self, tmp_path):
+        (tmp_path / "gates.json").write_text(
+            json.dumps({"tdd": True, "tdd_mode": "strict"})
+        )
+        hooks = tmp_path / "hooks"
+        hooks.mkdir()
+        exit_code, output = run_tdd_enforce(
+            make_input(str(hooks / "new_hook.py")), tmp_path
+        )
+        assert exit_code == 0
+        assert output == ""
+
+
 class TestTDDConfigToggle:
     """TDD enforcement can be disabled via gates.json."""
 

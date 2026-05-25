@@ -8,6 +8,7 @@
   "auto": false,
   "continue": false,
   "tdd": true,
+  "tdd_mode": "remind",
   "skill_routing": true,
   "model": "auto",
   "gate_protect": true,

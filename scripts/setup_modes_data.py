@@ -42,6 +42,14 @@ SETTINGS = [
         "options": ["off", "on"],
     },
     {
+        "key": "tdd_mode",
+        "label": "TDD mode",
+        "description": "Remind (default) or block source edits until tests exist",
+        "example": "strict = block edits without tests; remind = advisory only",
+        "type": "choice",
+        "options": ["remind", "strict"],
+    },
+    {
         "key": "eval_threshold",
         "label": "Eval threshold",
         "description": "Minimum /evaluate percentage to pass gate",
@@ -102,6 +110,7 @@ SETTINGS = [
 PRESETS = {
     "quick": {
         "tdd": False,
+        "tdd_mode": "remind",
         "skill_routing": False,
         "enforcement": "warn",
         "profile": "minimal",
@@ -116,6 +125,7 @@ PRESETS = {
     },
     "balanced": {
         "tdd": True,
+        "tdd_mode": "remind",
         "skill_routing": True,
         "enforcement": "block",
         "profile": "minimal",
@@ -130,6 +140,7 @@ PRESETS = {
     },
     "guarded": {
         "tdd": True,
+        "tdd_mode": "remind",
         "skill_routing": True,
         "enforcement": "block",
         "profile": "standard",
@@ -144,6 +155,7 @@ PRESETS = {
     },
     "lockdown": {
         "tdd": True,
+        "tdd_mode": "remind",
         "skill_routing": True,
         "enforcement": "block",
         "profile": "paranoid",

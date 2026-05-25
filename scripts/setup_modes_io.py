@@ -39,6 +39,7 @@ def build_full_config(settings: dict) -> dict:
         "auto": settings.get("auto", False),
         "continue": settings.get("continue", False),
         "tdd": settings.get("tdd", True),
+        "tdd_mode": settings.get("tdd_mode", "remind"),
         "skill_routing": settings.get("skill_routing", True),
         "model": settings.get("model", "auto"),
         "gate_protect": settings.get("gate_protect", True),

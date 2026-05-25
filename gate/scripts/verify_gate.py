@@ -19,7 +19,6 @@ def _default_project_root() -> Path:
 
 from gate.attest import build_attestation, git_head_sha, write_attestation  # noqa: E402
 from gate.core import (  # noqa: E402
-    find_gates_config,
     load_gates_config,
     read_token,
     verify_token,
