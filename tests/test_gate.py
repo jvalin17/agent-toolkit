@@ -43,7 +43,7 @@ def gate_env(tmp_path: Path, monkeypatch):
                 "profiles": {
                     "standard": {
                         "commit_requires": ["precommit"],
-                        "push_requires": ["precommit", "evaluate"],
+                        "push_requires": ["evaluate"],
                     }
                 },
             }
@@ -84,14 +84,6 @@ def test_issue_and_verify_push_token(gate_env: Path):
     assert ok, msg
 
 
-def test_commit_succeeds_with_push_superset_token(gate_env: Path):
-    att = _attestation_all_passed()
-    config = load_gates_config(gate_env)
-    token = issue_token(att, config, "push", gate_env)
-    ok, msg = verify_token(token, gate_env, "commit", commit_sha="abc123")
-    assert ok, msg
-
-
 def test_rejects_low_eval_score(gate_env: Path):
     att = _attestation_all_passed()
     att["results"]["evaluate"]["overall_score"] = 80
@@ -121,7 +113,17 @@ def test_rejects_tampered_token(gate_env: Path):
 def test_required_skills_standard_profile(gate_env: Path):
     config = load_gates_config(gate_env)
     assert required_skills(config, "commit") == ["precommit"]
-    assert required_skills(config, "push") == ["precommit", "evaluate"]
+    assert required_skills(config, "push") == ["evaluate"]
+
+
+def test_push_token_does_not_satisfy_commit(gate_env: Path):
+    """Push-scoped tokens no longer duplicate precommit (commit-only gate)."""
+    att = _attestation_all_passed()
+    config = load_gates_config(gate_env)
+    token = issue_token(att, config, "push", gate_env)
+    ok, msg = verify_token(token, gate_env, "commit", commit_sha="abc123")
+    assert not ok
+    assert "precommit" in msg
 
 
 def test_report_precommit_requires_ready(tmp_path: Path):
@@ -190,7 +192,7 @@ def test_legacy_mode_still_verifies_jwt_when_token_present(gate_env: Path, monke
                 "profiles": {
                     "standard": {
                         "commit_requires": ["precommit"],
-                        "push_requires": ["precommit", "evaluate"],
+                        "push_requires": ["evaluate"],
                     }
                 },
             }

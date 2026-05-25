@@ -86,7 +86,7 @@ Gate config in strict mode:
 {
   "mode": "strict",
   "commit_requires": ["precommit", "evaluate"],
-  "push_requires": ["precommit", "evaluate"]
+  "push_requires": ["evaluate"]
 }
 ```
 

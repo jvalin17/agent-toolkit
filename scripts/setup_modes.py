@@ -183,19 +183,19 @@ PRESETS = {
 PROFILES = {
     "minimal": {
         "commit_requires": ["precommit"],
-        "push_requires": ["precommit"],
+        "push_requires": [],
     },
     "standard": {
         "commit_requires": ["precommit"],
-        "push_requires": ["precommit", "evaluate"],
+        "push_requires": ["evaluate"],
     },
     "strict": {
         "commit_requires": ["precommit", "evaluate"],
-        "push_requires": ["precommit", "evaluate", "reviewer"],
+        "push_requires": ["evaluate", "reviewer"],
     },
     "paranoid": {
         "commit_requires": ["precommit", "evaluate"],
-        "push_requires": ["precommit", "evaluate", "reviewer", "assess"],
+        "push_requires": ["evaluate", "reviewer", "assess"],
     },
 }
 

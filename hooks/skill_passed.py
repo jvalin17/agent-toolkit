@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """skill_passed.py — Informs Claude about gate status after a gated skill runs.
 
-This hook does NOT set gate flags. Only the skill itself sets
-.gates/<skill>-passed when it actually passes. This hook only tells
-Claude what gates are still needed.
+This hook does NOT set gate flags. Only `hooks/finalize_report.py` writes
+`.gates/*-passed` when `gate_protect` is on (precommit, evaluate, reviewer,
+assess). This hook only tells Claude what gates are still needed.
 
 Runs as PostToolUse hook on Skill tool.
 Replaces skill-passed.sh.

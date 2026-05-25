@@ -162,8 +162,40 @@ For each approved change, follow this sequence:
 
 ## Reporting
 
-Write to `reports/assess/assess_<slug>_<uuid>.md`. Include findings, thresholds checked, and refactoring progress if applicable.
+Reports/ is owned by hooks (G-REPORT-1). Do not `Write reports/...` or
+`echo > reports/...` — both are blocked when `report_protect: true`.
 
-**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: completed report with `PASSED` (no unresolved `[!!]` findings), then refresh gate token. Legacy only: `echo "PASSED ..." > .gates/assess-passed`.
+Instead, write **findings.json** to `.scratch/assess_<slug>/findings.json`
+and let the finalize hook produce the canonical report.
+
+Findings schema (all keys required unless marked optional):
+
+```json
+{
+  "skill": "assess",
+  "slug": "kebab-case-slug",
+  "topic": "what was assessed",
+  "findings": { "fix_now": 0, "consider": 2, "good": 4 },
+  "summary": "<optional agent narrative>"
+}
+```
+
+`fix_now`, `consider`, and `good` must be non-negative integers. The gate
+passes only when `fix_now` is 0 and mechanical test/lint re-runs pass.
+
+Then run:
+
+```
+python3 hooks/finalize_report.py assess .scratch/assess_<slug>/findings.json
+```
+
+The hook writes `reports/assess/assess_<slug>_<id>.md` and prints a JSON
+response with `passed` and the report path. Exit code 0 = gate ready,
+1 = BLOCKED, 2 = invalid findings.
+
+**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: refresh gate token
+after the report is written. Legacy: `finalize_report.py` writes
+`.gates/assess-passed` when `passed` is true (agent cannot write `.gates/`
+when `gate_protect` is on).
 
 **If critical anti-patterns remain:** Do not claim pass; gate remains locked.

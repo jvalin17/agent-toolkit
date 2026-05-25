@@ -36,10 +36,15 @@ Review `gates.json` after switching.
 
 | Profile | Commit needs | Push needs |
 |---------|-------------|------------|
-| **minimal** (template default) | `/precommit` | `/precommit` |
-| **standard** | `/precommit` | `/precommit` + `/evaluate` (≥ threshold) |
-| **strict** | `/precommit` + `/evaluate` | + `/reviewer` |
-| **paranoid** | `/precommit` + `/evaluate` | + `/reviewer` + `/assess` |
+| **minimal** (template default) | `/precommit` | *(none — commit already gated)* |
+| **standard** | `/precommit` | `/evaluate` (≥ threshold) |
+| **strict** | `/precommit` + `/evaluate` | `/reviewer` *(evaluate survives commit)* |
+| **paranoid** | `/precommit` + `/evaluate` | `/reviewer` + `/assess` |
+
+**Gate cleanup:** `gate_cleanup.py` clears `precommit-passed` on commit only.
+Push-scoped flags (`evaluate`, `reviewer`, `assess`) survive commit so you
+finalize once, commit, then push without re-running evaluate. Push clears
+push-scoped flags for the next cycle.
 
 ```json
 {
@@ -57,9 +62,9 @@ Set `"gate_mode": "signed"` for JWT workflow. Attestation requires mechanical ch
 | Skill | File | Required content |
 |-------|------|------------------|
 | `/precommit` | `.gates/precommit-passed` | `READY` |
-| `/evaluate` | `.gates/evaluate-passed` | `PASSED` + score ≥ threshold |
-| `/reviewer` | `.gates/reviewer-passed` | `PASSED` |
-| `/assess` | `.gates/assess-passed` | `PASSED` |
+| `/evaluate` | `.gates/evaluate-passed` | `PASSED` + score ≥ threshold (written by `finalize_report.py` when `gate_protect: true`) |
+| `/reviewer` | `.gates/reviewer-passed` | `PASSED` (written by `finalize_report.py` when `gate_protect: true`) |
+| `/assess` | `.gates/assess-passed` | `PASSED` (written by `finalize_report.py` when `gate_protect: true`) |
 
 Legacy is weaker when `gate_protect` is off (agent can `echo` flags). With default **`gate_protect: true`**, only hooks such as `finalize_report.py` write `.gates/` files. With `enforcement: warn`, skills and guardrails carry most of the quality bar. Before push: run skills per profile; flags must contain real markers, not empty files.
 

@@ -27,7 +27,7 @@ def project_dir(tmp_path):
         "gate_mode": "legacy",
         "enforcement": "block",
         "commit_requires": ["precommit"],
-        "push_requires": ["precommit", "evaluate"],
+        "push_requires": ["evaluate"],
     }
     (tmp_path / "gates.json").write_text(json.dumps(gates))
     os.chdir(tmp_path)
@@ -275,7 +275,7 @@ class TestRunGate:
             "profiles": {
                 "strict": {
                     "commit_requires": ["precommit", "evaluate"],
-                    "push_requires": ["precommit", "evaluate", "reviewer"],
+                    "push_requires": ["evaluate", "reviewer"],
                 }
             },
         }

@@ -12,6 +12,9 @@ Usage:
 
 Currently supports:
     - precommit
+    - evaluate
+    - reviewer
+    - assess
 
 Exit codes:
     0 — report written, gate-ready
@@ -45,9 +48,17 @@ from gate.attest import (  # noqa: E402  — must come after sys.path tweak
 )
 
 
-SUPPORTED_SKILLS = {"precommit"}
+SUPPORTED_SKILLS = {"precommit", "evaluate", "reviewer", "assess"}
 
 SLUG_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+
+EVAL_DIMENSION_WEIGHTS: dict[str, float] = {
+    "completeness": 0.30,
+    "code_quality": 0.25,
+    "security": 0.20,
+    "test_quality": 0.15,
+    "efficiency": 0.10,
+}
 
 
 # --- I/O helpers ----------------------------------------------------------
@@ -83,6 +94,26 @@ def _require(d: dict, key: str, kind, context: str) -> object:
             f"got {type(value).__name__}"
         )
     return value
+
+
+def _validate_slug(data: dict, skill_name: str) -> None:
+    skill = _require(data, "skill", str, "findings")
+    if skill != skill_name:
+        _fail(f"findings.skill must be '{skill_name}', got '{skill}'")
+
+    slug = _require(data, "slug", str, "findings")
+    if not SLUG_RE.match(slug):
+        _fail(
+            f"findings.slug '{slug}' is not a valid slug "
+            "(lowercase, alphanumeric, dashes, 1-64 chars)"
+        )
+
+
+def _require_nonneg_int(d: dict, key: str, context: str) -> int:
+    val = _require(d, key, int, context)
+    if val < 0:
+        _fail(f"{context}: '{key}' must be >= 0 (got {val})")
+    return val
 
 
 def _validate_precommit_findings(data: dict) -> dict:
@@ -148,6 +179,117 @@ def _validate_precommit_findings(data: dict) -> dict:
     return data
 
 
+def _validate_evaluate_findings(data: dict) -> dict:
+    """Minimal but enforced schema for evaluate findings.
+
+    Schema (all keys required unless marked optional):
+        skill (str)       — must equal "evaluate"
+        slug  (str)       — short kebab-case identifier
+        topic (str)       — what was evaluated
+        dimensions (obj)  — completeness, code_quality, security,
+                            test_quality, efficiency (each int 0-100)
+        summary (str, optional) — agent narrative
+
+    The hook recomputes the overall score from dimension weights; the agent
+    cannot claim a higher score than the dimensions support. Mechanical
+    test/lint are also re-run.
+    """
+    skill = _require(data, "skill", str, "findings")
+    if skill != "evaluate":
+        _fail(f"findings.skill must be 'evaluate', got '{skill}'")
+
+    slug = _require(data, "slug", str, "findings")
+    if not SLUG_RE.match(slug):
+        _fail(
+            f"findings.slug '{slug}' is not a valid slug "
+            "(lowercase, alphanumeric, dashes, 1-64 chars)"
+        )
+
+    _require(data, "topic", str, "findings")
+    dims = _require(data, "dimensions", dict, "findings")
+
+    for key in EVAL_DIMENSION_WEIGHTS:
+        if key not in dims:
+            _fail(f"findings.dimensions: missing required key '{key}'")
+        score = dims[key]
+        if not isinstance(score, int):
+            _fail(
+                f"findings.dimensions.{key} must be int, "
+                f"got {type(score).__name__}"
+            )
+        if score < 0 or score > 100:
+            _fail(
+                f"findings.dimensions.{key} must be 0..100 (got {score})"
+            )
+
+    return data
+
+
+def _validate_reviewer_findings(data: dict) -> dict:
+    """Schema for reviewer findings.
+
+    Required:
+        skill, slug, topic, findings { high, medium, low } (non-negative ints)
+    Optional:
+        areas_reviewed (list of str), summary (str)
+    """
+    _validate_slug(data, "reviewer")
+    _require(data, "topic", str, "findings")
+    counts = _require(data, "findings", dict, "findings")
+    for key in ("high", "medium", "low"):
+        _require_nonneg_int(counts, key, f"findings.{key}")
+
+    areas = data.get("areas_reviewed", [])
+    if areas is not None and not isinstance(areas, list):
+        _fail("findings.areas_reviewed must be a list if present")
+    if isinstance(areas, list):
+        for item in areas:
+            if not isinstance(item, str):
+                _fail("findings.areas_reviewed items must be strings")
+
+    return data
+
+
+def _validate_assess_findings(data: dict) -> dict:
+    """Schema for assess findings.
+
+    Required:
+        skill, slug, topic, findings { fix_now, consider, good } (non-negative ints)
+    Optional:
+        summary (str)
+    """
+    _validate_slug(data, "assess")
+    _require(data, "topic", str, "findings")
+    counts = _require(data, "findings", dict, "findings")
+    for key in ("fix_now", "consider", "good"):
+        _require_nonneg_int(counts, key, f"findings.{key}")
+
+    return data
+
+
+def _compute_evaluate_score(dimensions: dict) -> int:
+    total = sum(dimensions[k] * w for k, w in EVAL_DIMENSION_WEIGHTS.items())
+    return round(total)
+
+
+def _grade_letter(score: int) -> str:
+    if score >= 95:
+        return "A+"
+    if score >= 90:
+        return "A"
+    if score >= 85:
+        return "B+"
+    if score >= 80:
+        return "B"
+    if score >= 75:
+        return "C+"
+    if score >= 70:
+        return "C"
+    if score >= 60:
+        return "D"
+    return "F"
+
+
 # --- Mechanical re-run ----------------------------------------------------
 
 
@@ -194,6 +336,64 @@ def _decide_precommit(
 
     if findings["app_verification"]["status"] == "pending":
         reasons.append("app verification: still pending")
+
+    return (len(reasons) == 0), reasons
+
+
+def _decide_evaluate(
+    findings: dict,
+    test: CheckResult,
+    lint: CheckResult,
+    threshold: int,
+) -> tuple[bool, int, list[str]]:
+    """Return (passed, score, blocking_reasons)."""
+    reasons: list[str] = []
+    score = _compute_evaluate_score(findings["dimensions"])
+
+    if not test.passed:
+        reasons.append(f"test re-run failed: {test.name}")
+    if not lint.passed:
+        reasons.append(f"lint re-run failed: {lint.name}")
+    if score < threshold:
+        reasons.append(f"score {score} below threshold {threshold}")
+
+    return (len(reasons) == 0), score, reasons
+
+
+def _decide_reviewer(
+    findings: dict,
+    test: CheckResult,
+    lint: CheckResult,
+) -> tuple[bool, list[str]]:
+    reasons: list[str] = []
+
+    if not test.passed:
+        reasons.append(f"test re-run failed: {test.name}")
+    if not lint.passed:
+        reasons.append(f"lint re-run failed: {lint.name}")
+
+    high = findings["findings"]["high"]
+    if high > 0:
+        reasons.append(f"high-severity findings: {high}")
+
+    return (len(reasons) == 0), reasons
+
+
+def _decide_assess(
+    findings: dict,
+    test: CheckResult,
+    lint: CheckResult,
+) -> tuple[bool, list[str]]:
+    reasons: list[str] = []
+
+    if not test.passed:
+        reasons.append(f"test re-run failed: {test.name}")
+    if not lint.passed:
+        reasons.append(f"lint re-run failed: {lint.name}")
+
+    fix_now = findings["findings"]["fix_now"]
+    if fix_now > 0:
+        reasons.append(f"critical fix_now findings: {fix_now}")
 
     return (len(reasons) == 0), reasons
 
@@ -265,6 +465,214 @@ def _compose_precommit_markdown(
     return md
 
 
+def _compose_evaluate_markdown(
+    findings: dict,
+    test: CheckResult,
+    lint: CheckResult,
+    passed: bool,
+    score: int,
+    threshold: int,
+    reasons: list[str],
+    report_id: str,
+) -> str:
+    slug = findings["slug"]
+    topic = findings["topic"]
+    dims = findings["dimensions"]
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    grade = _grade_letter(score)
+    summary = findings.get("summary", "").strip()
+
+    test_status = "passed" if test.passed else "FAILED"
+    lint_status = "passed" if lint.passed else "FAILED"
+    test_detail = _trim_detail(test.detail)
+    lint_detail = _trim_detail(lint.detail)
+
+    dim_rows = []
+    for key, weight in EVAL_DIMENSION_WEIGHTS.items():
+        label = key.replace("_", " ").title()
+        dim_score = dims[key]
+        weighted = round(dim_score * weight)
+        dim_rows.append(
+            f"| {label} | {dim_score}% | {int(weight * 100)}% | {weighted} |"
+        )
+    dim_table = "\n".join(dim_rows)
+
+    if passed:
+        final_marker = (
+            f"[x] PASSED — score {score}% ≥ threshold {threshold}%\n"
+            f"[ ] BLOCKED"
+        )
+    else:
+        final_marker = (
+            f"[ ] PASSED\n"
+            f"[x] BLOCKED — {'; '.join(reasons)}"
+        )
+
+    md = f"""<!-- agent-toolkit:evaluate | v1 | {date} | {report_id} -->
+<!-- writer: hooks/finalize_report.py — agent did not write this file -->
+# Evaluation: {topic}
+# Score: **{score}%** ({grade})
+
+| Field | Value |
+|-------|-------|
+| Status | completed |
+| Writer | hooks/finalize_report.py |
+| Skill | evaluate |
+| Slug | {slug} |
+| Threshold | {threshold}% |
+| Date (UTC) | {date} |
+
+| Dimension | Score | Weight | Weighted |
+|-----------|-------|--------|----------|
+{dim_table}
+| **Overall** | | | **{score}%** |
+
+## Mechanical Re-run (hook-owned)
+
+| Check | Command | Result | Detail |
+|-------|---------|--------|--------|
+| tests | `{test.name}` | {test_status} | {test_detail} |
+| lint  | `{lint.name}` | {lint_status} | {lint_detail} |
+"""
+
+    if summary:
+        md += f"\n## Summary\n\n{summary}\n"
+
+    md += f"\n## Final Gate\n\n{final_marker}\n"
+    return md
+
+
+def _mechanical_table(test: CheckResult, lint: CheckResult) -> str:
+    test_status = "passed" if test.passed else "FAILED"
+    lint_status = "passed" if lint.passed else "FAILED"
+    test_detail = _trim_detail(test.detail)
+    lint_detail = _trim_detail(lint.detail)
+    return f"""## Mechanical Re-run (hook-owned)
+
+| Check | Command | Result | Detail |
+|-------|---------|--------|--------|
+| tests | `{test.name}` | {test_status} | {test_detail} |
+| lint  | `{lint.name}` | {lint_status} | {lint_detail} |
+"""
+
+
+def _compose_reviewer_markdown(
+    findings: dict,
+    test: CheckResult,
+    lint: CheckResult,
+    passed: bool,
+    reasons: list[str],
+    report_id: str,
+) -> str:
+    slug = findings["slug"]
+    topic = findings["topic"]
+    counts = findings["findings"]
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    summary = findings.get("summary", "").strip()
+    areas = findings.get("areas_reviewed") or []
+
+    if passed:
+        final_marker = "[x] PASSED\n[ ] BLOCKED"
+        pass_line = "PASSED — no high-severity findings remain."
+    else:
+        final_marker = f"[ ] PASSED\n[x] BLOCKED — {'; '.join(reasons)}"
+        pass_line = ""
+
+    areas_line = ", ".join(areas) if areas else "—"
+
+    md = f"""<!-- agent-toolkit:reviewer | v1 | {date} | {report_id} -->
+<!-- writer: hooks/finalize_report.py — agent did not write this file -->
+# Reviewer Report: {topic}
+
+| Field | Value |
+|-------|-------|
+| **Status** | completed |
+| Writer | hooks/finalize_report.py |
+| Skill | reviewer |
+| Slug | {slug} |
+| Areas reviewed | {areas_line} |
+| Date (UTC) | {date} |
+
+## Findings Summary
+
+| Severity | Count |
+|----------|-------|
+| High | {counts['high']} |
+| Medium | {counts['medium']} |
+| Low | {counts['low']} |
+
+{_mechanical_table(test, lint)}
+"""
+
+    if summary:
+        md += f"\n## Summary\n\n{summary}\n"
+
+    if pass_line:
+        md += f"\n{pass_line}\n"
+
+    md += f"\n## Final Gate\n\n{final_marker}\n"
+    return md
+
+
+def _compose_assess_markdown(
+    findings: dict,
+    test: CheckResult,
+    lint: CheckResult,
+    passed: bool,
+    reasons: list[str],
+    report_id: str,
+) -> str:
+    slug = findings["slug"]
+    topic = findings["topic"]
+    counts = findings["findings"]
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    summary = findings.get("summary", "").strip()
+
+    if passed:
+        final_marker = "[x] PASSED\n[ ] BLOCKED"
+        pass_line = "PASSED — no critical anti-patterns remain."
+        fix_now_section = "### [!!] Fix Now\n\nNone.\n"
+    else:
+        final_marker = f"[ ] PASSED\n[x] BLOCKED — {'; '.join(reasons)}"
+        pass_line = ""
+        fix_now_section = (
+            f"### [!!] Fix Now\n\n{counts['fix_now']} critical finding(s) remain.\n"
+        )
+
+    md = f"""<!-- agent-toolkit:assess | v1 | {date} | {report_id} -->
+<!-- writer: hooks/finalize_report.py — agent did not write this file -->
+# Assess Report: {topic}
+
+| Field | Value |
+|-------|-------|
+| **Status** | completed |
+| Writer | hooks/finalize_report.py |
+| Skill | assess |
+| Slug | {slug} |
+| Date (UTC) | {date} |
+
+## Findings Summary
+
+| Bucket | Count |
+|--------|-------|
+| [!!] Fix now | {counts['fix_now']} |
+| [~] Consider | {counts['consider']} |
+| [ok] Good as-is | {counts['good']} |
+
+{fix_now_section}
+{_mechanical_table(test, lint)}
+"""
+
+    if summary:
+        md += f"\n## Summary\n\n{summary}\n"
+
+    if pass_line:
+        md += f"\n{pass_line}\n"
+
+    md += f"\n## Final Gate\n\n{final_marker}\n"
+    return md
+
+
 def _trim_detail(detail: str, limit: int = 200) -> str:
     if not detail:
         return "—"
@@ -286,7 +694,12 @@ def _inline(prefix: str, value) -> str:
 def _report_path(project_dir: Path, skill: str, slug: str, report_id: str) -> Path:
     target_dir = project_dir / "reports" / skill
     target_dir.mkdir(parents=True, exist_ok=True)
-    fname_prefix = {"precommit": "pc"}[skill]
+    fname_prefix = {
+        "precommit": "pc",
+        "evaluate": "eval",
+        "reviewer": "review",
+        "assess": "assess",
+    }[skill]
     return target_dir / f"{fname_prefix}_{slug}_{report_id}.md"
 
 
@@ -300,7 +713,34 @@ def _write_precommit_gate(project_dir: Path) -> Path:
     return flag
 
 
-# --- Entry point ----------------------------------------------------------
+def _write_evaluate_gate(project_dir: Path, score: int) -> Path:
+    """Write legacy evaluate gate flag (G-GATE-1: hooks only when gate_protect is on)."""
+    gates_dir = project_dir / ".gates"
+    gates_dir.mkdir(parents=True, exist_ok=True)
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    flag = gates_dir / "evaluate-passed"
+    flag.write_text(f"PASSED {score}% evaluate {date}\n", encoding="utf-8")
+    return flag
+
+
+def _write_reviewer_gate(project_dir: Path) -> Path:
+    """Write legacy reviewer gate flag (G-GATE-1: hooks only when gate_protect is on)."""
+    gates_dir = project_dir / ".gates"
+    gates_dir.mkdir(parents=True, exist_ok=True)
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    flag = gates_dir / "reviewer-passed"
+    flag.write_text(f"PASSED reviewer {date}\n", encoding="utf-8")
+    return flag
+
+
+def _write_assess_gate(project_dir: Path) -> Path:
+    """Write legacy assess gate flag (G-GATE-1: hooks only when gate_protect is on)."""
+    gates_dir = project_dir / ".gates"
+    gates_dir.mkdir(parents=True, exist_ok=True)
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    flag = gates_dir / "assess-passed"
+    flag.write_text(f"PASSED assess {date}\n", encoding="utf-8")
+    return flag
 
 
 def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
@@ -337,6 +777,111 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     return 0 if ready else 1
 
 
+def finalize_evaluate(project_dir: Path, findings_path: Path) -> int:
+    findings = _validate_evaluate_findings(_read_findings(findings_path))
+    config = load_gate_config(project_dir)
+    threshold = int(get_config_value(config, "eval_threshold", 95))
+
+    test, lint = _run_mechanical(project_dir, config)
+    passed, score, reasons = _decide_evaluate(findings, test, lint, threshold)
+    report_id = uuid.uuid4().hex[:8]
+    markdown = _compose_evaluate_markdown(
+        findings, test, lint, passed, score, threshold, reasons, report_id
+    )
+
+    out_path = _report_path(project_dir, "evaluate", findings["slug"], report_id)
+    out_path.write_text(markdown, encoding="utf-8")
+
+    gate_flag = None
+    if passed:
+        gate_flag = _write_evaluate_gate(project_dir, score)
+
+    response = {
+        "skill": "evaluate",
+        "passed": passed,
+        "score": score,
+        "threshold": threshold,
+        "report_path": str(out_path.relative_to(project_dir)),
+        "report_id": report_id,
+        "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
+        "mechanical": {
+            "tests_passed": test.passed,
+            "lint_passed": lint.passed,
+        },
+        "blocking_reasons": reasons,
+    }
+    sys.stdout.write(json.dumps(response, indent=2) + "\n")
+    return 0 if passed else 1
+
+
+def finalize_reviewer(project_dir: Path, findings_path: Path) -> int:
+    findings = _validate_reviewer_findings(_read_findings(findings_path))
+    config = load_gate_config(project_dir)
+
+    test, lint = _run_mechanical(project_dir, config)
+    passed, reasons = _decide_reviewer(findings, test, lint)
+    report_id = uuid.uuid4().hex[:8]
+    markdown = _compose_reviewer_markdown(
+        findings, test, lint, passed, reasons, report_id
+    )
+
+    out_path = _report_path(project_dir, "reviewer", findings["slug"], report_id)
+    out_path.write_text(markdown, encoding="utf-8")
+
+    gate_flag = None
+    if passed:
+        gate_flag = _write_reviewer_gate(project_dir)
+
+    response = {
+        "skill": "reviewer",
+        "passed": passed,
+        "report_path": str(out_path.relative_to(project_dir)),
+        "report_id": report_id,
+        "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
+        "mechanical": {
+            "tests_passed": test.passed,
+            "lint_passed": lint.passed,
+        },
+        "blocking_reasons": reasons,
+    }
+    sys.stdout.write(json.dumps(response, indent=2) + "\n")
+    return 0 if passed else 1
+
+
+def finalize_assess(project_dir: Path, findings_path: Path) -> int:
+    findings = _validate_assess_findings(_read_findings(findings_path))
+    config = load_gate_config(project_dir)
+
+    test, lint = _run_mechanical(project_dir, config)
+    passed, reasons = _decide_assess(findings, test, lint)
+    report_id = uuid.uuid4().hex[:8]
+    markdown = _compose_assess_markdown(
+        findings, test, lint, passed, reasons, report_id
+    )
+
+    out_path = _report_path(project_dir, "assess", findings["slug"], report_id)
+    out_path.write_text(markdown, encoding="utf-8")
+
+    gate_flag = None
+    if passed:
+        gate_flag = _write_assess_gate(project_dir)
+
+    response = {
+        "skill": "assess",
+        "passed": passed,
+        "report_path": str(out_path.relative_to(project_dir)),
+        "report_id": report_id,
+        "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
+        "mechanical": {
+            "tests_passed": test.passed,
+            "lint_passed": lint.passed,
+        },
+        "blocking_reasons": reasons,
+    }
+    sys.stdout.write(json.dumps(response, indent=2) + "\n")
+    return 0 if passed else 1
+
+
 def main(argv: list[str]) -> int:
     if len(argv) != 3:
         _fail("usage: finalize_report.py <skill> <findings.json>")
@@ -353,6 +898,12 @@ def main(argv: list[str]) -> int:
     project_dir = resolve_project_root(hint=findings_path)
     if skill == "precommit":
         return finalize_precommit(project_dir, findings_path)
+    if skill == "evaluate":
+        return finalize_evaluate(project_dir, findings_path)
+    if skill == "reviewer":
+        return finalize_reviewer(project_dir, findings_path)
+    if skill == "assess":
+        return finalize_assess(project_dir, findings_path)
     _fail(f"no handler wired for skill '{skill}'")
 
 

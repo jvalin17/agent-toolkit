@@ -53,7 +53,7 @@ cat > gates.json << 'EOF'
   "gate_mode": "legacy",
   "enforcement": "block",
   "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate"]
+  "push_requires": ["evaluate"]
 }
 EOF
 
@@ -79,7 +79,7 @@ else
 fi
 
 # Test 3: git push without evaluate-passed → BLOCKED
-rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
+rm -rf .gates && mkdir -p .gates
 EXIT_CODE=0
 echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
@@ -88,8 +88,8 @@ else
   fail "git push should be blocked (exit 2)" "got exit $EXIT_CODE"
 fi
 
-# Test 4: git push with both valid flags → ALLOWED
-echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
+# Test 4: git push with evaluate flag → ALLOWED
+mkdir -p .gates && echo "PASSED 96% 2026-05-20" > .gates/evaluate-passed
 EXIT_CODE=0
 echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -153,7 +153,7 @@ cat > gates.json << 'EOF'
   "gate_mode": "legacy",
   "enforcement": "warn",
   "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate"]
+  "push_requires": ["evaluate"]
 }
 EOF
 EXIT_CODE=0
@@ -168,7 +168,7 @@ cat > gates.json << 'EOF'
   "gate_mode": "legacy",
   "enforcement": "block",
   "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate"]
+  "push_requires": ["evaluate"]
 }
 EOF
 
@@ -234,7 +234,7 @@ cat > gates.json << 'EOF'
   "gate_mode": "legacy",
   "enforcement": "block",
   "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate", "reviewer"]
+  "push_requires": ["evaluate", "reviewer"]
 }
 EOF
 rm -rf .gates && mkdir -p .gates
@@ -265,7 +265,7 @@ cat > gates.json << 'EOF'
   "gate_mode": "legacy",
   "enforcement": "block",
   "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate"]
+  "push_requires": ["evaluate"]
 }
 EOF
 
@@ -278,7 +278,7 @@ cat > gates.json << 'EOF'
   "profiles": {
     "strict": {
       "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["precommit", "evaluate", "reviewer"]
+      "push_requires": ["evaluate", "reviewer"]
     }
   }
 }
@@ -295,18 +295,27 @@ fi
 echo ""
 echo "=== gate_cleanup.py ==="
 
-# Test 9: git commit clears .gates/
+# Test 9: git commit clears precommit only (push-scoped flags survive)
 rm -rf .gates && mkdir -p .gates
 echo "READY" > .gates/precommit-passed
 echo "PASSED 96%" > .gates/evaluate-passed
 echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$HOOKS_DIR/gate_cleanup.py" > /dev/null 2>&1
-if [ ! -d ".gates" ]; then
-  pass "git commit clears .gates directory"
+if [ ! -f ".gates/precommit-passed" ] && [ -f ".gates/evaluate-passed" ]; then
+  pass "git commit clears precommit only; evaluate survives"
 else
-  fail "git commit should clear .gates" "directory still exists"
+  fail "git commit should clear precommit only" "precommit=$([ -f .gates/precommit-passed ] && echo yes || echo no) evaluate=$([ -f .gates/evaluate-passed ] && echo yes || echo no)"
 fi
 
-# Test 10: non-commit doesn't clear .gates/
+# Test 10: git push clears push-scoped flags
+mkdir -p .gates && echo "READY" > .gates/precommit-passed && echo "PASSED 96%" > .gates/evaluate-passed
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate_cleanup.py" > /dev/null 2>&1
+if [ -f ".gates/precommit-passed" ] && [ ! -f ".gates/evaluate-passed" ]; then
+  pass "git push clears evaluate; precommit survives"
+else
+  fail "git push should clear push-scoped flags only" "unexpected .gates state"
+fi
+
+# Test 11: non-commit doesn't clear .gates/
 mkdir -p .gates && echo "READY" > .gates/precommit-passed
 echo '{"tool_input":{"command":"git status"}}' | python3 "$HOOKS_DIR/gate_cleanup.py" > /dev/null 2>&1
 if [ -f ".gates/precommit-passed" ]; then
@@ -478,7 +487,7 @@ cat > gates.json << 'GATEJSON'
   "profiles": {
     "minimal": {
       "commit_requires": ["precommit"],
-      "push_requires": ["precommit"]
+      "push_requires": []
     }
   }
 }
@@ -529,7 +538,7 @@ cat > gates.json << 'GATEJSON'
   "gate_mode": "legacy",
   "enforcement": "block",
   "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate"]
+  "push_requires": ["evaluate"]
 }
 GATEJSON
 
@@ -542,7 +551,7 @@ cat > gates.json << 'EOF'
   "gate_mode": "legacy",
   "enforcement": "warn",
   "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate"]
+  "push_requires": ["evaluate"]
 }
 EOF
 rm -rf .gates
@@ -595,7 +604,7 @@ cat > gates.json << 'GATEJSON'
   "gate_mode": "legacy",
   "enforcement": "block",
   "commit_requires": ["precommit"],
-  "push_requires": ["precommit", "evaluate"]
+  "push_requires": ["evaluate"]
 }
 GATEJSON
 

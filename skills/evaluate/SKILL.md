@@ -127,55 +127,51 @@ Overall = (Completeness * 0.30) + (Code Quality * 0.25) + (Security * 0.20)
         + (Test Quality * 0.15) + (Efficiency * 0.10)
 ```
 
-## Step 8: Report
+## Step 8: Submit Findings (do NOT write the report yourself)
 
-```
-# Evaluation: [topic]
-# Score: [X]% ([grade letter])
+Reports/ is owned by hooks (G-REPORT-1). Do not `Write reports/...` or
+`echo > reports/...` — both are blocked when `report_protect: true`.
 
-| Dimension | Score | Weight | Weighted |
-|-----------|-------|--------|----------|
-| Completeness | X% | 30% | X |
-| Code Quality | X% | 25% | X |
-| Security | X% | 20% | X |
-| Test Quality | X% | 15% | X |
-| Efficiency | X% | 10% | X |
-| **Overall** | | | **X%** |
+Instead, write **findings.json** to `.scratch/evaluate_<slug>/findings.json`
+and let the finalize hook produce the canonical report.
 
-## Grade Scale
-95-100% = A+   90-94% = A   85-89% = B+   80-84% = B
-75-79% = C+    70-74% = C   60-69% = D    <60% = F
+Findings schema (all keys required):
 
-## Findings by Dimension
-
-### Completeness ([X]%)
-| # | Claim | Status | Evidence |
-|---|-------|--------|----------|
-
-### Code Quality ([X]%)
-| # | Check | Status | File:Line | Issue |
-|---|-------|--------|-----------|-------|
-
-### Security ([X]%)
-| # | Check | Status | File:Line | Issue |
-|---|-------|--------|-----------|-------|
-
-### Test Quality ([X]%)
-| # | Check | Status | File:Line | Issue |
-|---|-------|--------|-----------|-------|
-
-### Efficiency ([X]%)
-| # | Check | Status | File:Line | Issue |
-|---|-------|--------|-----------|-------|
-
-## To Reach [target]%
-[Prioritized list of what to fix, ordered by impact on score]
+```json
+{
+  "skill": "evaluate",
+  "slug": "kebab-case-slug",
+  "topic": "what was evaluated",
+  "dimensions": {
+    "completeness": 92,
+    "code_quality": 82,
+    "security": 91,
+    "test_quality": 94,
+    "efficiency": 84
+  },
+  "summary": "<optional agent narrative>"
+}
 ```
 
-If user specified a quality target: list exactly what needs to change to reach it.
+Dimension scores must be honest integers 0–100. The hook **recomputes**
+the overall score from the weighted average — you cannot claim a higher
+score than your dimension scores support.
 
-Write to `reports/evaluate/eval_<slug>_<uuid>.md` with `# Score: **X%**` in the header (required for signed attestation).
+Then run:
 
-**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: completed report with score ≥ threshold, then refresh gate token. Legacy only: `echo "PASSED <score>% ..." > .gates/evaluate-passed`.
+```
+python3 hooks/finalize_report.py evaluate .scratch/evaluate_<slug>/findings.json
+```
+
+The hook re-runs `test_command` and `lint_command` from `gates.json` itself —
+you cannot fake those results. It writes `reports/evaluate/eval_<slug>_<id>.md`
+(with `# Score: **X%**` in the header, required for signed attestation) and
+prints a JSON response with `passed`, `score`, and `threshold`. Exit code
+0 = gate ready, 1 = BLOCKED, 2 = invalid findings.
+
+**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: refresh gate token
+after the report is written. Legacy: `finalize_report.py` writes
+`.gates/evaluate-passed` when `passed` is true and score ≥ `eval_threshold`
+(agent cannot write `.gates/` when `gate_protect` is on).
 
 **If score < threshold:** Do not claim pass; gate remains locked.

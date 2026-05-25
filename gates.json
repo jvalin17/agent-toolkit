@@ -19,16 +19,13 @@
       "commit_requires": [
         "precommit"
       ],
-      "push_requires": [
-        "precommit"
-      ]
+      "push_requires": []
     },
     "standard": {
       "commit_requires": [
         "precommit"
       ],
       "push_requires": [
-        "precommit",
         "evaluate"
       ]
     },
@@ -38,7 +35,6 @@
         "evaluate"
       ],
       "push_requires": [
-        "precommit",
         "evaluate",
         "reviewer"
       ]
@@ -49,7 +45,6 @@
         "evaluate"
       ],
       "push_requires": [
-        "precommit",
         "evaluate",
         "reviewer",
         "assess"

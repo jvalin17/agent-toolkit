@@ -36,7 +36,7 @@ def load_gates_config(project_root: Path) -> dict[str, Any]:
             "profile": "standard",
             "eval_threshold": 95,
             "commit_requires": ["precommit"],
-            "push_requires": ["precommit", "evaluate"],
+            "push_requires": ["evaluate"],
         }
     return json.loads(path.read_text(encoding="utf-8"))
 

@@ -78,31 +78,41 @@ If `project-state.md` doesn't exist, create it with the review findings.
 
 **Read `shared/report-format.md` for full format rules.**
 
-1. **At the START:** create `reports/reviewer/review_<topic>_<uuid8>.md` with status `in-progress`.
-2. **After each area:** update with findings from that area.
-3. **At the END:** update status to `completed` with full summary.
+Reports/ is owned by hooks (G-REPORT-1). Do not `Write reports/...` or
+`echo > reports/...` — both are blocked when `report_protect: true`.
 
-Report structure per area:
+Instead, write **findings.json** to `.scratch/reviewer_<slug>/findings.json`
+and let the finalize hook produce the canonical report.
 
-```
-## [Area Name] Review
+Findings schema (all keys required unless marked optional):
 
-### Findings
-| # | Severity | File:Line | Issue | Recommendation |
-|---|----------|-----------|-------|----------------|
-| 1 | High | auth.py:42 | Password compared with == | Use constant-time comparison |
-| 2 | Medium | Card.tsx:18 | No empty state | Add fallback when data is null |
-
-### Tests Written (if applicable)
-| File | Tests | Passing | Bugs Found |
-|------|-------|---------|------------|
-
-### Summary
-[1-2 sentences on overall health of this area]
+```json
+{
+  "skill": "reviewer",
+  "slug": "kebab-case-slug",
+  "topic": "what was reviewed",
+  "findings": { "high": 0, "medium": 1, "low": 2 },
+  "areas_reviewed": ["code quality", "tests"],
+  "summary": "<optional agent narrative>"
+}
 ```
 
-Final summary includes: areas reviewed, total findings by severity, bugs discovered, tests written, action items.
+`high`, `medium`, and `low` must be non-negative integers. The gate passes
+only when `high` is 0 and mechanical test/lint re-runs pass.
 
-**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: completed report with `PASSED` (no open high-severity findings), then refresh gate token. Legacy only: `echo "PASSED ..." > .gates/reviewer-passed`.
+Then run:
+
+```
+python3 hooks/finalize_report.py reviewer .scratch/reviewer_<slug>/findings.json
+```
+
+The hook writes `reports/reviewer/review_<slug>_<id>.md` and prints a JSON
+response with `passed` and the report path. Exit code 0 = gate ready,
+1 = BLOCKED, 2 = invalid findings.
+
+**Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: refresh gate token
+after the report is written. Legacy: `finalize_report.py` writes
+`.gates/reviewer-passed` when `passed` is true (agent cannot write `.gates/`
+when `gate_protect` is on).
 
 **If high-severity findings exist:** Do not claim pass; gate remains locked until resolved and reviewer re-run.

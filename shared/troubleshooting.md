@@ -52,7 +52,33 @@ This re-registers hooks in `~/.claude/settings.json`.
 cat .gates/precommit-passed
 ```
 
-If missing or empty, run `/precommit` again.
+If missing or empty, run `/precommit` again (including the `finalize_report.py` step).
+
+## Gate blocks push but you've run /evaluate
+
+**Symptom:** `git push` blocked even after running `/evaluate`.
+
+**Check:** `.gates/evaluate-passed` must contain `PASSED` and a score ≥ `eval_threshold` in `gates.json` (default 95). Verify:
+```bash
+cat .gates/evaluate-passed
+grep eval_threshold gates.json
+```
+
+With default **`gate_protect: true`**, only `finalize_report.py` writes this file — run:
+```bash
+python3 hooks/finalize_report.py evaluate .scratch/evaluate_<slug>/findings.json
+```
+Exit code 0 means the gate unlocked; exit code 1 means score or mechanical checks blocked.
+
+## Gate flags cleared after commit vs push
+
+**Symptom:** Ran `/evaluate` and finalized, committed, but expected to push without re-running evaluate.
+
+**Expected:** `gate_cleanup.py` clears only `precommit-passed` on commit. Push-scoped flags (`evaluate-passed`, etc.) should still exist. If missing, re-run finalize for the skill.
+
+**Symptom:** Push succeeded but next push requires fresh evaluate.
+
+**Expected:** Push clears push-scoped flags. Re-finalize evaluate (and reviewer/assess per profile) before the next push.
 
 ## Skill tool: "cannot be used due to disable-model-invocation"
 

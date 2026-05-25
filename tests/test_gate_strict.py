@@ -34,11 +34,11 @@ def setup_gates_json(project_dir: Path, mode: str = "normal", profile: str = "mi
         "profiles": {
             "minimal": {
                 "commit_requires": ["precommit"],
-                "push_requires": ["precommit"],
+                "push_requires": [],
             },
             "standard": {
                 "commit_requires": ["precommit"],
-                "push_requires": ["precommit", "evaluate"],
+                "push_requires": ["evaluate"],
             },
         },
     }
@@ -123,7 +123,7 @@ class TestStrictModeGateEnforcement:
             "profiles": {
                 "minimal": {
                     "commit_requires": ["precommit"],
-                    "push_requires": ["precommit"],
+                    "push_requires": [],
                 },
             },
         }
