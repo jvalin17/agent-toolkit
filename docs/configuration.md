@@ -31,6 +31,7 @@ Demo: `scripts/demo-modes.sh`
 | `gate_protect` | **`true`** | Block agent writes to `.gates/` (G-GATE-1) |
 | `report_protect` | **`true`** | Block agent writes to `reports/` (G-REPORT-1) |
 | `tdd` | `true` | Remind test-first before source edits |
+| `tdd_mode` | `remind` | `remind` = advisory; `strict` = block source edits until tests exist |
 | `skill_routing` | `true` | Auto-detect intent → skill |
 | `mode` | `normal` | `strict` = anti-fake drift detection |
 | `eval_threshold` | `95` | Minimum evaluate score to pass gate |
