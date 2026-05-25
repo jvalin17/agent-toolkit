@@ -149,7 +149,7 @@ HOOKS_SRC="$SCRIPT_DIR/hooks"
 
 install_hooks() {
     local toolkit_path="$SCRIPT_DIR"
-    local update_command="$toolkit_path/update.sh 2>/dev/null || true"
+    local update_command="bash $toolkit_path/update.sh || true"
     local gate_cmd="python3 $toolkit_path/hooks/gate_hook.py"
     local skill_passed_cmd="python3 $toolkit_path/hooks/skill_passed.py"
     local gate_cleanup_cmd="python3 $toolkit_path/hooks/gate_cleanup.py"
@@ -437,7 +437,7 @@ HOOKEOF
     if jq --arg tp "$toolkit_path" '
       def refresh(cmd):
         if (cmd | type) != "string" then cmd
-        elif cmd | contains("update.sh") then ($tp + "/update.sh 2>/dev/null || true")
+        elif cmd | contains("update.sh") then ($tp + "/update.sh || true")
         elif cmd | contains("gate_hook.py") or cmd | contains("/hooks/gate.py") then "python3 " + $tp + "/hooks/gate_hook.py"
         elif cmd | contains("skill_passed.py") then "python3 " + $tp + "/hooks/skill_passed.py"
         elif cmd | contains("gate_cleanup.py") then "python3 " + $tp + "/hooks/gate_cleanup.py"

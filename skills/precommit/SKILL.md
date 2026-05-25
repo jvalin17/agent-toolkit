@@ -98,8 +98,9 @@ See `references/readme-validation.md`.
 
 ## Step 6: Submit Findings (do NOT write the report yourself)
 
-Reports/ is owned by hooks (G-REPORT-1). Do not `Write reports/...` or
-`echo > reports/...` — both are blocked when `report_protect: true`.
+Reports/ is owned by hooks (G-REPORT-1). Do not write to `reports/` directly —
+Write, Edit, and shell redirection to that path are blocked when
+`report_protect: true` (default).
 
 Instead, write **findings.json** to `.scratch/precommit_<slug>/findings.json`
 and let the finalize hook produce the canonical report.
@@ -133,9 +134,8 @@ and prints a JSON response with `ready_to_commit` and the report path. Exit
 code 0 = ready, 1 = BLOCKED, 2 = invalid findings.
 
 **Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: refresh gate token
-after the report is written. Legacy: `finalize_report.py` writes
-`.gates/precommit-passed` when `ready_to_commit` is true (agent cannot
-write `.gates/` when `gate_protect` is on).
+after the report is written. Legacy: `finalize_report.py` writes `.gates/precommit-passed` when
+`ready_to_commit` is true.
 
 **Do NOT commit automatically.** Wait for user to say "commit" or "go ahead."
 

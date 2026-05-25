@@ -1,6 +1,9 @@
-# Quality gate for agent-toolkit. No GitHub secret required:
-# bootstrap creates .gate/signing.key; issue + verify use that file in this job.
-# Optional: set AGENT_TOOLKIT_GATE_SECRET only if you want a stable key across runs/machines.
+# Quality gate for agent-toolkit (canonical CI workflow).
+# No GitHub secret required: bootstrap creates .gate/signing.key.
+# Optional: AGENT_TOOLKIT_GATE_SECRET for a stable key across runs/machines.
+# Signed mode + branch protection: require check "agent-toolkit-gate" on main.
+#
+# Consumer projects get a lighter copy via templates/github/workflows/agent-toolkit-gate.yml
 
 name: agent-toolkit-gate
 
@@ -42,8 +45,9 @@ jobs:
         run: python .agent-toolkit/gate/scripts/verify_gate.py attest --project-root .
         env:
           AGENT_TOOLKIT_ATTEST_SKIP_HOOK_TESTS: "1"
+          AGENT_TOOLKIT_ATTEST_SKIP_GATE_TESTS: "1"
 
-      - name: Issue gate token (ephemeral signing.key — no repo secret required)
+      - name: Issue gate token
         run: python .agent-toolkit/gate/scripts/issue_token.py --project-root . --action push
 
       - name: Verify gate token
@@ -52,3 +56,10 @@ jobs:
             --project-root . \
             --action push \
             --commit "${{ github.sha }}"
+
+      - name: Upload gate token artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-token
+          path: .gate/gate-token.jwt
+          retention-days: 14

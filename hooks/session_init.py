@@ -395,20 +395,25 @@ def toolkit_root() -> Path:
 
 
 def run_toolkit_update() -> None:
-    """Pull latest toolkit and sync install state. Silent; never blocks session."""
+    """Pull latest toolkit and sync install state. Never blocks session."""
     update_script = toolkit_root() / "update.sh"
     if not update_script.is_file():
         return
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["bash", str(update_script)],
             cwd=str(toolkit_root()),
             capture_output=True,
+            text=True,
             timeout=120,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout or "").strip()
+            if detail:
+                sys.stderr.write(f"update.sh failed: {detail}\n")
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        sys.stderr.write(f"update.sh failed: {exc}\n")
 
 
 # --- Main entry point ---

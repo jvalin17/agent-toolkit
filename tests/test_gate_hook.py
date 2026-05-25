@@ -289,6 +289,48 @@ class TestRunGate:
         assert exit_code == 0  # Blocking via JSON decision
         assert "block" in output  # Missing evaluate for strict commit
 
+    def test_signed_mode_blocks_when_verify_script_missing(self, project_dir):
+        gates = {
+            "gate_mode": "signed",
+            "enforcement": "block",
+            "profile": "minimal",
+        }
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        exit_code, output = run_gate(
+            '{"tool_input":{"command":"git commit -m \\"test\\""}}',
+            project_dir,
+        )
+        assert exit_code == 0
+        assert "block" in output
+        assert "verify_gate.py not found" in output
+
+    def test_signed_mode_blocks_on_verify_oserror(
+        self, project_dir, monkeypatch
+    ):
+        gates = {
+            "gate_mode": "signed",
+            "enforcement": "block",
+            "profile": "minimal",
+        }
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+        gate_dir = project_dir / ".agent-toolkit" / "gate" / "scripts"
+        gate_dir.mkdir(parents=True)
+        (gate_dir / "verify_gate.py").write_text("# stub\n")
+
+        def boom(*args, **kwargs):
+            raise OSError("python3 not found")
+
+        monkeypatch.setattr("hooks.gate_hook.subprocess.run", boom)
+
+        exit_code, output = run_gate(
+            '{"tool_input":{"command":"git commit -m \\"test\\""}}',
+            project_dir,
+        )
+        assert exit_code == 0
+        assert "block" in output
+        assert "verification unavailable" in output
+
 
 class TestGetConfigValue:
     """get_config_value reads from config dict with env var override."""

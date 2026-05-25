@@ -173,7 +173,7 @@ drift_score = (
 
 ### Modified
 - `hooks/session_monitor.py` — drift counters, periodic check, tool sequence tracking
-- `hooks/gate.py` — load mode, require /evaluate in strict
+- `hooks/gate_hook.py` — load mode, require /evaluate in strict
 - `hooks/session_init.py` — detect mode, inject strict mode context
 - `shared/guardrails.md` — add G-IMPL-7
 - `shared/guardrails-quick.md` — add G-IMPL-7 one-liner

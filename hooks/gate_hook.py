@@ -16,7 +16,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 
 def detect_git_action(command: str) -> Optional[str]:
@@ -168,105 +168,135 @@ def make_block_response(reason: str) -> str:
     return json.dumps({"decision": "block", "reason": reason})
 
 
-def run_gate(
-    stdin_input: str,
-    project_dir: Path,
-    env_enforcement: Optional[str] = None,
-) -> tuple:
-    """Main gate logic. Returns (exit_code, output_json).
-
-    Args:
-        stdin_input: Hook JSON from Claude Code.
-        project_dir: Project root directory.
-        env_enforcement: AGENT_TOOLKIT_ENFORCEMENT override.
-
-    Returns:
-        (exit_code, hook_response_json)
-    """
-    # Parse command from hook input
+def _parse_hook_command(stdin_input: str) -> Optional[str]:
+    """Extract git command from hook JSON. Returns None if not a git hook event."""
     try:
         hook_input = json.loads(stdin_input)
         command = hook_input.get("tool_input", {}).get("command", "")
     except (json.JSONDecodeError, TypeError):
-        return 0, ""
+        return None
+    if not command:
+        return None
+    return command
 
-    # Detect action
-    action = detect_git_action(command)
-    if action is None:
-        return 0, ""
 
-    # Load config
-    config = load_gate_config(project_dir)
-    gate_mode = config.get("gate_mode", "legacy")
-    config_enforcement = config.get("enforcement", "block")
-
-    # Resolve enforcement
-    enforcement = resolve_enforcement(
-        config_enforcement, project_dir, env_enforcement
-    )
+def _make_gate_finish(
+    enforcement: str,
+    project_dir: Path,
+) -> Callable[[str], tuple]:
+    """Return a callback that emits block or warn based on enforcement level."""
 
     def gate_finish(msg: str) -> tuple:
-        """Emit gate result based on enforcement level."""
         if enforcement == "block":
             return 0, make_block_response(f"BLOCKED: {msg}")
-        # Auto-escalate: first warn → block for rest of session
         gates_dir = project_dir / ".gates"
         gates_dir.mkdir(exist_ok=True)
         (gates_dir / "enforcement-override").write_text("block\n")
         return 0, make_hook_response(f"GATE WARNING: {msg}")
 
-    # Signed mode
-    if gate_mode == "signed":
-        verify_script = project_dir / ".agent-toolkit" / "gate" / "scripts" / "verify_gate.py"
-        if verify_script.is_file():
-            try:
-                commit_sha = subprocess.run(
-                    ["git", "rev-parse", "HEAD"],
-                    capture_output=True, text=True, cwd=project_dir,
-                ).stdout.strip()
-                result = subprocess.run(
-                    [
-                        "python3", str(verify_script), "verify",
-                        "--action", action,
-                        "--commit", commit_sha,
-                    ],
-                    capture_output=True, text=True, cwd=project_dir,
-                )
-                if result.returncode != 0:
-                    return gate_finish(
-                        f"git {action} failed verify: {result.stdout.strip()}. "
-                        f"Run precommit and evaluate; refresh gate token."
-                    )
-            except OSError:
-                pass  # git or python3 not available — fall through to legacy
-        return 0, ""
+    return gate_finish
 
-    # Legacy mode — determine required skills
+
+def _verify_signed_gate(project_dir: Path, action: str) -> Optional[str]:
+    """Run signed JWT verification. Returns error message, or None if OK."""
+    verify_script = (
+        project_dir / ".agent-toolkit" / "gate" / "scripts" / "verify_gate.py"
+    )
+    if not verify_script.is_file():
+        return (
+            "signed mode: verify_gate.py not found — run install/bootstrap "
+            "to create .agent-toolkit/gate/"
+        )
+
+    try:
+        commit_proc = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+        )
+        if commit_proc.returncode != 0:
+            detail = (commit_proc.stderr or commit_proc.stdout or "").strip()
+            return f"signed mode: git rev-parse HEAD failed: {detail or 'unknown error'}"
+
+        commit_sha = commit_proc.stdout.strip()
+        result = subprocess.run(
+            [
+                "python3",
+                str(verify_script),
+                "verify",
+                "--action",
+                action,
+                "--commit",
+                commit_sha,
+            ],
+            capture_output=True,
+            text=True,
+            cwd=project_dir,
+        )
+        if result.returncode != 0:
+            detail = (result.stdout or result.stderr or "").strip()
+            return (
+                f"git {action} failed verify: {detail}. "
+                "Run precommit and evaluate; refresh gate token."
+            )
+        return None
+    except OSError as exc:
+        sys.stderr.write(
+            f"gate_hook: signed verify unavailable ({exc}); blocking git {action}\n"
+        )
+        return (
+            f"signed mode: verification unavailable ({exc}). "
+            "Ensure git and python3 are on PATH, or switch to legacy mode."
+        )
+
+
+def _required_skills_for_action(config: dict, action: str) -> list:
+    """Resolve required skills for commit or push from profile or flat config."""
     profile = config.get("profile")
     if profile and "profiles" in config:
-        profiles = config["profiles"]
-        profile_config = profiles.get(profile, {})
+        profile_config = config["profiles"].get(profile, {})
         required = list(profile_config.get(f"{action}_requires", []))
     else:
         required = list(config.get(f"{action}_requires", []))
 
-    # Strict mode: always require evaluate for commit and push
-    mode = config.get("mode", "normal")
-    if mode == "strict" and "evaluate" not in required:
+    if config.get("mode", "normal") == "strict" and "evaluate" not in required:
         required.append("evaluate")
 
+    return required
+
+
+def _check_legacy_fallback_commit(
+    project_dir: Path,
+    gate_finish: Callable[[str], tuple],
+) -> Optional[tuple]:
+    """When no gate config exists, still require precommit for commit."""
+    precommit_flag = project_dir / ".gates" / "precommit-passed"
+    if precommit_flag.is_file() and "READY" in precommit_flag.read_text(
+        encoding="utf-8"
+    ):
+        return None
+    return gate_finish(
+        "git commit requires precommit skill. Run install.sh in project root."
+    )
+
+
+def _run_legacy_gate(
+    project_dir: Path,
+    config: dict,
+    action: str,
+    gate_finish: Callable[[str], tuple],
+) -> tuple:
+    """Legacy .gates/ flag enforcement."""
+    required = _required_skills_for_action(config, action)
+
     if not required:
-        # No config or no jq equivalent — fallback: check precommit for commit
         if action == "commit":
-            precommit_flag = project_dir / ".gates" / "precommit-passed"
-            if not precommit_flag.is_file() or "READY" not in precommit_flag.read_text(encoding="utf-8"):
-                return gate_finish(
-                    "git commit requires precommit skill. "
-                    "Run install.sh in project root."
-                )
+            blocked = _check_legacy_fallback_commit(project_dir, gate_finish)
+            if blocked is not None:
+                return blocked
         return 0, ""
 
-    # Check flags
     eval_threshold = config.get("eval_threshold", 95)
     missing = check_gate_flags(required, project_dir, eval_threshold)
 
@@ -274,10 +304,42 @@ def run_gate(
         missing_str = " ".join(missing)
         return gate_finish(
             f"git {action} needs skills:{missing_str}. "
-            f"Run precommit and evaluate when ready."
+            "Run precommit and evaluate when ready."
         )
 
     return 0, ""
+
+
+def run_gate(
+    stdin_input: str,
+    project_dir: Path,
+    env_enforcement: Optional[str] = None,
+) -> tuple:
+    """Main gate logic. Returns (exit_code, output_json)."""
+    command = _parse_hook_command(stdin_input)
+    if command is None:
+        return 0, ""
+
+    action = detect_git_action(command)
+    if action is None:
+        return 0, ""
+
+    config = load_gate_config(project_dir)
+    gate_mode = config.get("gate_mode", "legacy")
+    enforcement = resolve_enforcement(
+        config.get("enforcement", "block"),
+        project_dir,
+        env_enforcement,
+    )
+    gate_finish = _make_gate_finish(enforcement, project_dir)
+
+    if gate_mode == "signed":
+        verify_error = _verify_signed_gate(project_dir, action)
+        if verify_error:
+            return gate_finish(verify_error)
+        return 0, ""
+
+    return _run_legacy_gate(project_dir, config, action, gate_finish)
 
 
 def main() -> int:

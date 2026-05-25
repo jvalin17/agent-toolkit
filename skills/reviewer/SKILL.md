@@ -78,8 +78,9 @@ If `project-state.md` doesn't exist, create it with the review findings.
 
 **Read `shared/report-format.md` for full format rules.**
 
-Reports/ is owned by hooks (G-REPORT-1). Do not `Write reports/...` or
-`echo > reports/...` — both are blocked when `report_protect: true`.
+Reports/ is owned by hooks (G-REPORT-1). Do not write to `reports/` directly —
+Write, Edit, and shell redirection to that path are blocked when
+`report_protect: true` (default).
 
 Instead, write **findings.json** to `.scratch/reviewer_<slug>/findings.json`
 and let the finalize hook produce the canonical report.
@@ -111,8 +112,7 @@ response with `passed` and the report path. Exit code 0 = gate ready,
 1 = BLOCKED, 2 = invalid findings.
 
 **Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: refresh gate token
-after the report is written. Legacy: `finalize_report.py` writes
-`.gates/reviewer-passed` when `passed` is true (agent cannot write `.gates/`
-when `gate_protect` is on).
+after the report is written. Legacy: `finalize_report.py` writes `.gates/reviewer-passed` when `passed`
+is true.
 
 **If high-severity findings exist:** Do not claim pass; gate remains locked until resolved and reviewer re-run.

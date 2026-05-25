@@ -4,7 +4,6 @@
 # Usage:
 #   scripts/set-gate-mode.sh legacy              # back to default (block, minimal)
 #   scripts/set-gate-mode.sh signed              # full signed setup (calls setup-signed-gates.sh)
-#   scripts/set-gate-mode.sh signed --warn       # signed + non-blocking enforcement
 #   scripts/set-gate-mode.sh status              # print current mode
 #
 # Safe for agents: non-interactive, prints what changed. Human should review gates.json.
@@ -20,7 +19,7 @@ usage() {
 Usage:
   $0 status
   $0 legacy [project-root]
-  $0 signed [--upload-github-secret] [--warn] [--profile NAME] [project-root]
+  $0 signed [--upload-github-secret] [--profile NAME] [project-root]
 
 Examples (you or your agent can run these from the project repo):
   $0 status
@@ -95,7 +94,7 @@ apply_legacy() {
   jq '.gate_mode = "legacy" | .enforcement = "block" | .profile = "minimal"' \
     "$GATES_FILE" > "$TMP" && mv "$TMP" "$GATES_FILE"
   echo "Set gate_mode=legacy, enforcement=block, profile=minimal"
-  echo "Hooks now use .gates/*-passed files (skills write flags on pass)."
+  echo "Hooks use .gates/*-passed files written by hooks/finalize_report.py."
   echo "JWT files are ignored until you switch back to signed."
   show_status
 }

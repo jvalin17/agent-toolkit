@@ -129,8 +129,9 @@ Overall = (Completeness * 0.30) + (Code Quality * 0.25) + (Security * 0.20)
 
 ## Step 8: Submit Findings (do NOT write the report yourself)
 
-Reports/ is owned by hooks (G-REPORT-1). Do not `Write reports/...` or
-`echo > reports/...` — both are blocked when `report_protect: true`.
+Reports/ is owned by hooks (G-REPORT-1). Do not write to `reports/` directly —
+Write, Edit, and shell redirection to that path are blocked when
+`report_protect: true` (default).
 
 Instead, write **findings.json** to `.scratch/evaluate_<slug>/findings.json`
 and let the finalize hook produce the canonical report.
@@ -170,8 +171,7 @@ prints a JSON response with `passed`, `score`, and `threshold`. Exit code
 0 = gate ready, 1 = BLOCKED, 2 = invalid findings.
 
 **Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: refresh gate token
-after the report is written. Legacy: `finalize_report.py` writes
-`.gates/evaluate-passed` when `passed` is true and score ≥ `eval_threshold`
-(agent cannot write `.gates/` when `gate_protect` is on).
+after the report is written. Legacy: `finalize_report.py` writes `.gates/evaluate-passed` when `passed`
+is true and score ≥ `eval_threshold`.
 
 **If score < threshold:** Do not claim pass; gate remains locked.
