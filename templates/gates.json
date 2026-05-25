@@ -10,7 +10,7 @@
   "tdd": true,
   "skill_routing": true,
   "model": "auto",
-  "gate_protect": false,
+  "gate_protect": true,
   "report_protect": true,
   "profiles": {
     "minimal": {

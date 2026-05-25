@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""gate.py — Commit/push gate enforcement (legacy .gates or signed JWT).
+"""gate_hook.py — Commit/push gate enforcement (legacy .gates or signed JWT).
 
-Replaces gate.sh. Reads hook input from stdin, checks whether git commit/push
-is allowed based on .gates/ flag files and gates.json configuration.
+Reads hook input from stdin, checks whether git commit/push is allowed based
+on .gates/ flag files and gates.json configuration.
 
-Default enforcement is warn (exit 0) so Cursor and other agents are not
-hard-blocked. Auto-escalates: first warn violation writes
-.gates/enforcement-override → subsequent attempts are hard-blocked.
+Default enforcement is **block** (matches `templates/gates.json`). Set
+`enforcement: warn` in gates.json for advisory-only mode. In warn mode,
+auto-escalates: first violation writes `.gates/enforcement-override` →
+subsequent attempts are hard-blocked.
 """
 
 import json
@@ -197,7 +198,7 @@ def run_gate(
     # Load config
     config = load_gate_config(project_dir)
     gate_mode = config.get("gate_mode", "legacy")
-    config_enforcement = config.get("enforcement", "warn")
+    config_enforcement = config.get("enforcement", "block")
 
     # Resolve enforcement
     enforcement = resolve_enforcement(

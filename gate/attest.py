@@ -92,6 +92,7 @@ def git_repo_slug(cwd: Path) -> str:
 
 
 def run_command(cmd: list[str], cwd: Path, timeout: int = 600) -> CheckResult:
+    cmd = _normalize_python_cmd(cmd)
     try:
         proc = subprocess.run(
             cmd,
@@ -139,6 +140,15 @@ def detect_and_run_lint(cwd: Path, config: dict) -> CheckResult:
     if (cwd / "package.json").exists():
         return run_command(["npm", "run", "lint", "--if-present"], cwd)
     return CheckResult(name="lint", passed=True, detail="no linter configured — skipped")
+
+
+def _normalize_python_cmd(cmd: list[str]) -> list[str]:
+    """Use the active interpreter so venv python is used instead of system python3."""
+    if not cmd:
+        return cmd
+    if cmd[0] in ("python3", "python"):
+        return [sys.executable, *cmd[1:]]
+    return cmd
 
 
 def run_toolkit_hook_tests(cwd: Path) -> CheckResult | None:

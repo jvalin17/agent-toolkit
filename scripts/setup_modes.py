@@ -147,7 +147,7 @@ PRESETS = {
         "continue": False,
         "max_session_minutes": 0,
         "model": "auto",
-        "gate_protect": False,
+        "gate_protect": True,
         "report_protect": True,
     },
     "guarded": {
@@ -259,7 +259,7 @@ def build_full_config(settings: dict) -> dict:
         "tdd": settings.get("tdd", True),
         "skill_routing": settings.get("skill_routing", True),
         "model": settings.get("model", "auto"),
-        "gate_protect": settings.get("gate_protect", False),
+        "gate_protect": settings.get("gate_protect", True),
         "report_protect": settings.get("report_protect", True),
         "profiles": PROFILES,
     }

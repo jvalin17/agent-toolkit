@@ -35,7 +35,7 @@ cd agent-toolkit
 | Registers hooks | `~/.claude/settings.json` |
 | Bootstraps gates (in a git repo) | `gates.json`, `.agent-toolkit/` in project root |
 
-Re-run `./install.sh` if hooks were missing on first install.
+Re-run `./install.sh` only for first install, missing `jq`, symlink conflicts, or stale skill paths (e.g. `~/.claude/skills/debug` pointing at `/tmp/...`). Day-to-day updates are automatic — see [Updates](#updates).
 
 ### 2. Open your project
 
@@ -44,7 +44,7 @@ cd /path/to/your-project
 claude
 ```
 
-On session start, hooks inject project context automatically (`HANDOFF.md`, `project-state.md`, config). You should see **"AGENT TOOLKIT ACTIVE"**.
+Hooks inject project context (`HANDOFF.md`, `project-state.md`, `gates.json` config). You should see **"AGENT TOOLKIT ACTIVE"**.
 
 ### 3. Run a skill
 
@@ -57,6 +57,8 @@ On session start, hooks inject project context automatically (`HANDOFF.md`, `pro
 ```
 
 Natural language works too — e.g. "fix the login bug" routes to `/debug`.
+
+If `/debug` (or another skill) errors with `Skill … cannot be used with Skill tool due to disable-model-invocation`, use natural language or: `Read skills/debug/SKILL.md and follow it` — see [Troubleshooting](#troubleshooting).
 
 > **Using Cursor, GPT, Gemini, or another LLM?** See [Other LLMs](#other-llms-cursor-gpt-gemini--more) — setup is different (no `./install.sh` required for hooks).
 
@@ -287,6 +289,21 @@ Disable auto-pull: `AGENT_TOOLKIT_AUTO_PULL=0`
 | Conflict: skill exists as a real directory, not symlink | `./install.sh` — answer prompts to replace |
 | `jq` was missing on first install | Install `jq`, then `./install.sh` |
 | Debugging sync | `AGENT_TOOLKIT_SYNC_VERBOSE=1 ./install.sh --sync-only` |
+| Stale skill symlinks (`~/.claude/skills/*` → wrong path) | `./install.sh` once, then new session |
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| `/debug` or Skill tool: `disable-model-invocation` | Use natural language or `Read skills/debug/SKILL.md`. Run `./install.sh`, new session. |
+| Hooks not firing (no routing, no gates) | `cd /path/to/agent-toolkit && ./install.sh` |
+| Session immediately HARD STOP | `rm -rf .session`, start new session |
+| `git commit` blocked after `/precommit` | Check `.gates/precommit-passed` contains `READY` |
+| Skills point at `/tmp/...` instead of your clone | `./install.sh` refreshes symlinks and hook paths |
+
+Full details: [`shared/troubleshooting.md`](shared/troubleshooting.md)
 
 ---
 
@@ -311,7 +328,7 @@ Default gates: **legacy + block + minimal** — `/precommit` required before `gi
 3. Agent writes .scratch/precommit_<slug>/findings.json
 4. Agent runs: python3 hooks/finalize_report.py precommit .scratch/.../findings.json
 5. Hook re-runs tests/lint and writes reports/precommit/pc_<slug>_<id>.md
-6. Unlock gate:  echo "READY $(date +%F)" > .gates/precommit-passed
+6. Hook writes `.gates/precommit-passed` when ready (agent cannot — G-GATE-1)
 7. git commit -m "..."
 ```
 
@@ -347,7 +364,7 @@ agent-toolkit-setup --tdd off             # toggle one setting
 | `tdd` | `true` | Remind to write tests before source edits | `AGENT_TOOLKIT_TDD` |
 | `skill_routing` | `true` | Auto-detect intent → skill | `AGENT_TOOLKIT_SKILL_ROUTING` |
 | `report_protect` | **`true`** | Block agent writes to `reports/` (G-REPORT-1) | `AGENT_TOOLKIT_REPORT_PROTECT` |
-| `gate_protect` | `false` | Block agent writes to `.gates/` (G-GATE-1) | `AGENT_TOOLKIT_GATE_PROTECT` |
+| `gate_protect` | **`true`** | Block agent writes to `.gates/` (G-GATE-1) | `AGENT_TOOLKIT_GATE_PROTECT` |
 | `mode` | `normal` | `strict` = drift detection + fixture provenance | `AGENT_TOOLKIT_MODE` |
 | `max_session_minutes` | `0` | Session time limit (0 = off) | `AGENT_TOOLKIT_MAX_SESSION_MINUTES` |
 | `eval_threshold` | `95` | Minimum `/evaluate` score to pass gate | — |
@@ -386,7 +403,7 @@ Full gate reference: [`shared/gate-unlock.md`](shared/gate-unlock.md)
 | `/requirements` | Gather and validate requirements |
 | `/architecture` | Design with trade-offs and user journey |
 | `/implementation` | TDD — skeleton → slabs; fix, refactor, demo modes |
-| `/debug` | Hypothesis-driven debugging with reproduction tests |
+| `/debug` | Hypothesis-driven debugging with reproduction tests (if Skill tool errors, Read `skills/debug/SKILL.md`) |
 | `/assess` | Architecture fitness audit |
 | `/verify` | Output quality check — is it useful, not just correct? |
 | `/precommit` | Pre-commit quality gate |
@@ -434,7 +451,7 @@ These are enforced by hooks, not prompts.
 |------|--------|---------|
 | **G-SESSION-1** | Agent writes to `.session/` | Always on |
 | **G-REPORT-1** | Agent writes to `reports/` | **`report_protect: true`** |
-| **G-GATE-1** | Agent writes to `.gates/` | `gate_protect: false` (opt-in) |
+| **G-GATE-1** | Agent writes to `.gates/` | **`gate_protect: true`** |
 | **G-PUSH-1** | Commit/push without required skills | `enforcement: block` |
 
 Full guardrail list: [`shared/guardrails.md`](shared/guardrails.md)

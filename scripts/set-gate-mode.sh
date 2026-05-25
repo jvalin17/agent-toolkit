@@ -2,7 +2,7 @@
 # set-gate-mode.sh — Switch gates.json between legacy and signed (human or agent).
 #
 # Usage:
-#   scripts/set-gate-mode.sh legacy              # back to default (warn, minimal)
+#   scripts/set-gate-mode.sh legacy              # back to default (block, minimal)
 #   scripts/set-gate-mode.sh signed              # full signed setup (calls setup-signed-gates.sh)
 #   scripts/set-gate-mode.sh signed --warn       # signed + non-blocking enforcement
 #   scripts/set-gate-mode.sh status              # print current mode
@@ -92,9 +92,9 @@ apply_legacy() {
     cp "$TOOLKIT_DIR/templates/gates.json" "$GATES_FILE"
   fi
   TMP="$(mktemp)"
-  jq '.gate_mode = "legacy" | .enforcement = "warn" | .profile = "minimal"' \
+  jq '.gate_mode = "legacy" | .enforcement = "block" | .profile = "minimal"' \
     "$GATES_FILE" > "$TMP" && mv "$TMP" "$GATES_FILE"
-  echo "Set gate_mode=legacy, enforcement=warn, profile=minimal"
+  echo "Set gate_mode=legacy, enforcement=block, profile=minimal"
   echo "Hooks now use .gates/*-passed files (skills write flags on pass)."
   echo "JWT files are ignored until you switch back to signed."
   show_status

@@ -73,6 +73,8 @@ class TestSessionState:
         assert state.warned is False
         assert state.stopped == 0
         assert state.stop_at_tool_call == 0
+        assert state.gate_protect is True
+        assert state.report_protect is True
 
     def test_serialization_roundtrip(self):
         state = SessionState(

@@ -50,7 +50,7 @@ echo "  [installed] .agent-toolkit/config.json"
 # gates.json
 if [ ! -f "$PROJECT_ROOT/gates.json" ]; then
   cp "$TOOLKIT_DIR/templates/gates.json" "$PROJECT_ROOT/gates.json"
-  echo "  [installed] gates.json (from template: legacy, warn, minimal — set gate_mode signed if needed)"
+  echo "  [installed] gates.json (from template: legacy, block, minimal — set gate_mode signed if needed)"
 else
   # Add new top-level keys from template without overwriting user values
   if command -v jq >/dev/null 2>&1; then
@@ -132,4 +132,4 @@ if [ "${AGENT_TOOLKIT_UPLOAD_GATE_SECRET:-}" = "1" ]; then
   fi
 fi
 
-echo "  Gate layout ready (default: legacy + warn). Signed mode and GitHub secret are optional."
+echo "  Gate layout ready (default: legacy + block). Signed mode and GitHub secret are optional."

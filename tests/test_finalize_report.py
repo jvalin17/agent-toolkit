@@ -207,6 +207,28 @@ class TestEndToEnd:
         assert "writer: hooks/finalize_report.py" in text
         assert valid_findings["slug"] in reports[0].name
 
+        gate_flag = project_dir / ".gates" / "precommit-passed"
+        assert gate_flag.is_file()
+        assert "READY" in gate_flag.read_text()
+
+    def test_does_not_write_gate_when_blocked(
+        self, project_dir: Path, valid_findings: dict, monkeypatch
+    ):
+        findings_path = _write_findings(project_dir, valid_findings["slug"], valid_findings)
+        monkeypatch.chdir(project_dir)
+
+        with patch.object(
+            fr, "detect_and_run_tests",
+            return_value=CheckResult("python3 -m pytest", False, "1 failed"),
+        ), patch.object(
+            fr, "detect_and_run_lint",
+            return_value=CheckResult("lint", True, "clean"),
+        ):
+            exit_code = fr.finalize_precommit(project_dir, findings_path)
+
+        assert exit_code == 1
+        assert not (project_dir / ".gates" / "precommit-passed").exists()
+
     def test_writes_blocked_report_when_tests_fail(
         self, project_dir: Path, valid_findings: dict, monkeypatch
     ):
@@ -243,6 +265,29 @@ class TestEndToEnd:
         with pytest.raises(SystemExit) as exc:
             fr.finalize_precommit(project_dir, project_dir / "nope.json")
         assert exc.value.code == 2
+
+    def test_main_resolves_project_from_scratch_not_cwd(
+        self, project_dir: Path, valid_findings: dict, monkeypatch, tmp_path: Path
+    ):
+        findings_path = _write_findings(project_dir, valid_findings["slug"], valid_findings)
+        elsewhere = tmp_path / "wrong-cwd"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+
+        with patch.object(
+            fr, "detect_and_run_tests",
+            return_value=CheckResult("tests", True, "ok"),
+        ) as mock_tests, patch.object(
+            fr, "detect_and_run_lint",
+            return_value=CheckResult("lint", True, "ok"),
+        ):
+            exit_code = fr.main(
+                ["finalize_report.py", "precommit", str(findings_path)]
+            )
+
+        assert exit_code == 0
+        mock_tests.assert_called_once()
+        assert mock_tests.call_args[0][0] == project_dir
 
 
 # --- CLI: invoked as subprocess (proves the actual entry point works) -----

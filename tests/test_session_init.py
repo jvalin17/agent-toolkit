@@ -141,101 +141,123 @@ class TestInitSessionState:
 # --- check_hook_integrity ---
 
 
-class TestCheckHookIntegrity:
-    def test_no_warnings_when_all_present(self, project_dir):
-        hooks_dir = project_dir / "hooks"
-        hooks_dir.mkdir()
-        required = [
-            "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
-            "route_to_skill.py", "session_init.py", "session_monitor.py",
-            "tdd_enforce.py",
-        ]
-        for hook in required:
-            hook_file = hooks_dir / hook
-            hook_file.write_text("#!/bin/bash")
-            hook_file.chmod(0o755)
+def _write_required_hooks(hooks_dir: Path) -> None:
+    hooks_dir.mkdir(parents=True, exist_ok=True)
+    for hook in (
+        "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
+        "route_to_skill.py", "session_init.py", "session_monitor.py",
+        "tdd_enforce.py",
+    ):
+        (hooks_dir / hook).write_text("# hook")
 
-        warnings = check_hook_integrity(hooks_dir, settings_path=None)
+
+def _registered_settings() -> dict:
+    return {
+        "hooks": {
+            "PreToolUse": [
+                {"hooks": [{"command": "python3 /tk/hooks/gate_hook.py"}]},
+                {"hooks": [{"command": "python3 /tk/hooks/session_monitor.py"}]},
+            ],
+            "PostToolUse": [
+                {"hooks": [{"command": "python3 /tk/hooks/skill_passed.py"}]},
+            ],
+        }
+    }
+
+
+class TestCheckHookIntegrity:
+    def test_no_warnings_when_toolkit_hooks_and_settings_ok(
+        self, project_dir, tmp_path
+    ):
+        hooks_dir = tmp_path / "toolkit-hooks"
+        _write_required_hooks(hooks_dir)
+        settings_file = tmp_path / "settings.json"
+        settings_file.write_text(json.dumps(_registered_settings()))
+
+        with patch(
+            "hooks.session_init.resolve_toolkit_hooks_dir",
+            return_value=hooks_dir,
+        ):
+            warnings = check_hook_integrity(project_dir, settings_path=settings_file)
+
         assert warnings == []
 
-    def test_missing_hook_reported(self, project_dir):
-        hooks_dir = project_dir / "hooks"
+    def test_missing_toolkit_hook_reported(self, project_dir, tmp_path):
+        hooks_dir = tmp_path / "toolkit-hooks"
         hooks_dir.mkdir()
-        # Only create some hooks
-        (hooks_dir / "gate.sh").write_text("#!/bin/bash")
-        (hooks_dir / "gate.sh").chmod(0o755)
+        (hooks_dir / "gate_hook.py").write_text("# only one")
 
-        warnings = check_hook_integrity(hooks_dir, settings_path=None)
-        assert any("MISSING" in w for w in warnings)
+        with patch(
+            "hooks.session_init.resolve_toolkit_hooks_dir",
+            return_value=hooks_dir,
+        ):
+            warnings = check_hook_integrity(project_dir, settings_path=None)
 
-    def test_python_hooks_skip_executable_check(self, project_dir):
-        """Python hooks don't need +x since they're invoked via python3."""
-        hooks_dir = project_dir / "hooks"
-        hooks_dir.mkdir()
-        required = [
-            "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
-            "route_to_skill.py", "session_init.py", "session_monitor.py",
-            "tdd_enforce.py",
-        ]
-        for hook in required:
-            hook_file = hooks_dir / hook
-            hook_file.write_text("#!/usr/bin/env python3")
-            hook_file.chmod(0o644)  # Not executable — should be fine for .py
+        assert any("MISSING toolkit hook" in w for w in warnings)
 
-        warnings = check_hook_integrity(hooks_dir, settings_path=None)
-        exec_warnings = [w for w in warnings if "NOT EXECUTABLE" in w]
-        assert exec_warnings == []
+    def test_python_hooks_skip_executable_check(self, project_dir, tmp_path):
+        hooks_dir = tmp_path / "toolkit-hooks"
+        _write_required_hooks(hooks_dir)
+        for hook in hooks_dir.glob("*.py"):
+            hook.chmod(0o644)
 
-    def test_settings_missing_hook_registration(self, project_dir):
-        hooks_dir = project_dir / "hooks"
-        hooks_dir.mkdir()
-        required = [
-            "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
-            "route_to_skill.py", "session_init.py", "session_monitor.py",
-            "tdd_enforce.py",
-        ]
-        for hook in required:
-            hook_file = hooks_dir / hook
-            hook_file.write_text("#!/bin/bash")
-            hook_file.chmod(0o755)
+        settings_file = tmp_path / "settings.json"
+        settings_file.write_text(json.dumps(_registered_settings()))
 
-        settings_file = project_dir / "settings.json"
+        with patch(
+            "hooks.session_init.resolve_toolkit_hooks_dir",
+            return_value=hooks_dir,
+        ):
+            warnings = check_hook_integrity(project_dir, settings_path=settings_file)
+
+        assert not any("NOT EXECUTABLE" in w for w in warnings)
+
+    def test_settings_missing_hook_registration(self, project_dir, tmp_path):
+        hooks_dir = tmp_path / "toolkit-hooks"
+        _write_required_hooks(hooks_dir)
+        settings_file = tmp_path / "settings.json"
         settings_file.write_text(json.dumps({"hooks": {}}))
 
-        warnings = check_hook_integrity(hooks_dir, settings_path=settings_file)
+        with patch(
+            "hooks.session_init.resolve_toolkit_hooks_dir",
+            return_value=hooks_dir,
+        ):
+            warnings = check_hook_integrity(project_dir, settings_path=settings_file)
+
         assert any("NOT REGISTERED" in w for w in warnings)
 
-    def test_settings_with_hooks_registered(self, project_dir):
-        hooks_dir = project_dir / "hooks"
-        hooks_dir.mkdir()
-        required = [
-            "gate_hook.py", "skill_passed.py", "gate_cleanup.py",
-            "route_to_skill.py", "session_init.py", "session_monitor.py",
-            "tdd_enforce.py",
-        ]
-        for hook in required:
-            hook_file = hooks_dir / hook
-            hook_file.write_text("#!/bin/bash")
-            hook_file.chmod(0o755)
+    def test_settings_with_hooks_registered(self, project_dir, tmp_path):
+        hooks_dir = tmp_path / "toolkit-hooks"
+        _write_required_hooks(hooks_dir)
+        settings_file = tmp_path / "settings.json"
+        settings_file.write_text(json.dumps(_registered_settings()))
 
-        settings_content = json.dumps({
-            "hooks": {
-                "PreToolUse": [
-                    {"hooks": [{"command": "gate_hook.py"}]},
-                    {"hooks": [{"command": "session_monitor.py"}]},
-                ],
-                "PostToolUse": [
-                    {"hooks": [{"command": "skill_passed.py"}]},
-                ],
-            }
-        })
-        settings_file = project_dir / "settings.json"
-        settings_file.write_text(settings_content)
+        with patch(
+            "hooks.session_init.resolve_toolkit_hooks_dir",
+            return_value=hooks_dir,
+        ):
+            warnings = check_hook_integrity(project_dir, settings_path=settings_file)
 
-        warnings = check_hook_integrity(hooks_dir, settings_path=settings_file)
-        # All three checked hooks should be found
         registration_warnings = [w for w in warnings if "NOT REGISTERED" in w]
         assert registration_warnings == []
+
+    def test_user_project_without_hooks_dir_is_not_false_missing(
+        self, project_dir, tmp_path
+    ):
+        """Regression: do not warn about project_dir/hooks/ — hooks live in toolkit."""
+        hooks_dir = tmp_path / "toolkit-hooks"
+        _write_required_hooks(hooks_dir)
+        settings_file = tmp_path / "settings.json"
+        settings_file.write_text(json.dumps(_registered_settings()))
+        assert not (project_dir / "hooks").exists()
+
+        with patch(
+            "hooks.session_init.resolve_toolkit_hooks_dir",
+            return_value=hooks_dir,
+        ):
+            warnings = check_hook_integrity(project_dir, settings_path=settings_file)
+
+        assert warnings == []
 
 
 # --- detect_continuation ---

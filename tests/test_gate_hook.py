@@ -1,4 +1,4 @@
-"""Tests for hooks/gate.py — commit/push gate enforcement.
+"""Tests for hooks/gate_hook.py — commit/push gate enforcement.
 
 Ports gate.sh bash tests to pytest. Covers: command detection, enforcement
 modes, flag validation, profile-based gates, override chain, auto-escalation.

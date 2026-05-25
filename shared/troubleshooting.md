@@ -24,6 +24,25 @@ cd /path/to/agent-toolkit && ./install.sh
 ```
 This re-registers hooks in `~/.claude/settings.json`.
 
+## "MISSING hook" warnings on session start (wrong directory)
+
+**Symptom:** Session start shows `HARNESS INTEGRITY WARNINGS: MISSING hook: gate_hook.py` even though `./install.sh` ran successfully.
+
+**Cause:** Hooks live in the **agent-toolkit clone** (e.g. `/path/to/agent-toolkit/hooks/`) and are registered in `~/.claude/settings.json`. They are **not** under your project's `hooks/` directory.
+
+**Fix:** Run `./install.sh` from the toolkit clone. If warnings persist, check that `~/.claude/settings.json` contains commands pointing at your toolkit path. Re-run `./install.sh` to dedupe stale entries.
+
+## finalize_report runs tests from wrong directory / wrong Python
+
+**Symptom:** `/precommit` finalize passes but tests didn't actually run, or `python3` can't find your venv packages.
+
+**Cause:** `finalize_report.py` must run test/lint against the **git project root**, not the shell's last `cd`. Custom `test_command` values using bare `python3` may hit system Python instead of the active venv.
+
+**Fix:**
+1. Re-run finalize from your project — it resolves git root from the `.scratch/.../findings.json` path (not shell cwd).
+2. If you set a custom `test_command` with `python3`, it is rewritten to the active interpreter (venv-safe).
+3. Omit `test_command`/`lint_command` to use auto-detect, or set project-specific values in your `gates.json`.
+
 ## Gate blocks commit but you've run /precommit
 
 **Symptom:** `git commit` blocked even after running `/precommit`.

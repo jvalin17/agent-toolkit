@@ -23,9 +23,9 @@ Review `gates.json` after switching.
 
 | What you want | Command | Result in `gates.json` |
 |---------------|---------|-------------------------|
-| Default | `./install.sh` only | `legacy`, `warn`, `minimal` |
+| Default | `./install.sh` only | `legacy`, `block`, `minimal` |
 | Enable signed | `scripts/setup-signed-gates.sh` or `set-gate-mode.sh signed` | `signed` + bootstrap + smoke test |
-| Back to legacy | `set-gate-mode.sh legacy` | `legacy`, `warn`, `minimal` |
+| Back to legacy | `set-gate-mode.sh legacy` | `legacy`, `block`, `minimal` |
 | Signed + GitHub secret | `setup-signed-gates.sh --upload-github-secret` | + `AGENT_TOOLKIT_GATE_SECRET` |
 | Signed, non-blocking hooks | `setup-signed-gates.sh --warn` | `signed`, `enforcement: warn` |
 | Stricter profile | `setup-signed-gates.sh --profile strict` | `signed`, `profile: strict` |
@@ -44,7 +44,7 @@ Review `gates.json` after switching.
 ```json
 {
   "gate_mode": "legacy",
-  "enforcement": "warn",
+  "enforcement": "block",
   "profile": "minimal",
   "eval_threshold": 95
 }
@@ -61,7 +61,7 @@ Set `"gate_mode": "signed"` for JWT workflow. Attestation requires mechanical ch
 | `/reviewer` | `.gates/reviewer-passed` | `PASSED` |
 | `/assess` | `.gates/assess-passed` | `PASSED` |
 
-Legacy is weaker (agent can `echo` flags). With `enforcement: warn`, skills and guardrails carry most of the quality bar. Before push: run skills per profile; flags must contain real markers, not empty files.
+Legacy is weaker when `gate_protect` is off (agent can `echo` flags). With default **`gate_protect: true`**, only hooks such as `finalize_report.py` write `.gates/` files. With `enforcement: warn`, skills and guardrails carry most of the quality bar. Before push: run skills per profile; flags must contain real markers, not empty files.
 
 ## Signed mode
 
@@ -96,7 +96,7 @@ Re-issue after each new commit. Token must match `git rev-parse HEAD`. Or rely o
 ## What `./install.sh` adds (git projects)
 
 - `.agent-toolkit/gate/` — scripts for CI and local verify
-- `gates.json` — template if missing (`legacy`, `warn`, `minimal`)
+- `gates.json` — template if missing (`legacy`, `block`, `minimal`)
 - `.gate/signing.key` — gitignored (optional GitHub secret)
 - `.github/workflows/agent-toolkit-gate.yml` — attest → issue → verify
 

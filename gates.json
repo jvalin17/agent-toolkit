@@ -10,26 +10,50 @@
   "tdd": true,
   "skill_routing": true,
   "model": "auto",
-  "gate_protect": false,
+  "gate_protect": true,
   "report_protect": true,
   "test_command": "python3 -m pytest tests/ -q",
   "lint_command": "python3 -m compileall -q gate hooks scripts tests",
   "profiles": {
     "minimal": {
-      "commit_requires": ["precommit"],
-      "push_requires": ["precommit"]
+      "commit_requires": [
+        "precommit"
+      ],
+      "push_requires": [
+        "precommit"
+      ]
     },
     "standard": {
-      "commit_requires": ["precommit"],
-      "push_requires": ["precommit", "evaluate"]
+      "commit_requires": [
+        "precommit"
+      ],
+      "push_requires": [
+        "precommit",
+        "evaluate"
+      ]
     },
     "strict": {
-      "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["precommit", "evaluate", "reviewer"]
+      "commit_requires": [
+        "precommit",
+        "evaluate"
+      ],
+      "push_requires": [
+        "precommit",
+        "evaluate",
+        "reviewer"
+      ]
     },
     "paranoid": {
-      "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["precommit", "evaluate", "reviewer", "assess"]
+      "commit_requires": [
+        "precommit",
+        "evaluate"
+      ],
+      "push_requires": [
+        "precommit",
+        "evaluate",
+        "reviewer",
+        "assess"
+      ]
     }
   }
 }

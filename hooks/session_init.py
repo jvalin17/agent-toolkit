@@ -59,7 +59,7 @@ def load_session_config(project_dir: Path) -> dict:
         "auto": get_config_value(config, "auto", False),
         "continue": get_config_value(config, "continue", False),
         "model": get_config_value(config, "model", "auto"),
-        "gate_protect": get_config_value(config, "gate_protect", False),
+        "gate_protect": get_config_value(config, "gate_protect", True),
         "report_protect": get_config_value(config, "report_protect", True),
     }
 
@@ -103,7 +103,7 @@ def init_session_state(
     session_dir: Path,
     mode: str = "normal",
     max_session_minutes: int = 0,
-    gate_protect: bool = False,
+    gate_protect: bool = True,
     report_protect: bool = True,
 ) -> SessionState:
     """Initialize .session/state.json with fresh counters."""
@@ -120,31 +120,90 @@ def init_session_state(
     return state
 
 
-def check_hook_integrity(hooks_dir: Path, settings_path: Optional[Path]) -> List[str]:
-    """Check that required hooks exist, are executable, and registered.
+def resolve_toolkit_hooks_dir(project_dir: Path) -> Path:
+    """Return the toolkit hooks directory (not project_dir/hooks/).
 
-    Returns list of warning strings.
+    Hooks are registered in ~/.claude/settings.json and live in the
+    agent-toolkit clone. User projects only have .agent-toolkit/, not hooks/.
     """
-    warnings = []
+    here = Path(__file__).resolve().parent
+    if (here / "gate_hook.py").is_file():
+        return here
+
+    config_path = project_dir / ".agent-toolkit" / "config.json"
+    if config_path.is_file():
+        try:
+            data = json.loads(config_path.read_text(encoding="utf-8"))
+            toolkit_path = data.get("toolkit_path")
+            if toolkit_path:
+                candidate = Path(toolkit_path) / "hooks"
+                if (candidate / "gate_hook.py").is_file():
+                    return candidate
+        except (json.JSONDecodeError, OSError, TypeError):
+            pass
+
+    return here
+
+
+def _extract_settings_commands(settings: dict) -> list[str]:
+    """Flatten all hook command strings from settings.json."""
+    commands: list[str] = []
+    hooks_obj = settings.get("hooks")
+    if not isinstance(hooks_obj, dict):
+        return commands
+    for entries in hooks_obj.values():
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            for hook in entry.get("hooks", []):
+                if isinstance(hook, dict):
+                    cmd = hook.get("command", "")
+                    if isinstance(cmd, str) and cmd:
+                        commands.append(cmd)
+    return commands
+
+
+def check_hook_integrity(
+    project_dir: Path,
+    settings_path: Optional[Path],
+) -> List[str]:
+    """Check toolkit hooks exist and are registered in ~/.claude/settings.json.
+
+    Does NOT look for hooks under project_dir/hooks/ — that path is not used
+    by the harness. Returns list of warning strings.
+    """
+    warnings: list[str] = []
+    hooks_dir = resolve_toolkit_hooks_dir(project_dir)
 
     for hook_name in REQUIRED_HOOKS:
         hook_path = hooks_dir / hook_name
         if not hook_path.is_file():
-            warnings.append(f"MISSING hook: {hook_name}")
+            warnings.append(
+                f"MISSING toolkit hook: {hook_name} (expected in {hooks_dir})"
+            )
         elif not hook_name.endswith(".py") and not os.access(hook_path, os.X_OK):
             warnings.append(f"NOT EXECUTABLE: {hook_name}")
 
-    # Check settings.json registration
     if settings_path and settings_path.is_file():
         try:
-            settings_text = settings_path.read_text(encoding="utf-8")
+            settings = json.loads(settings_path.read_text(encoding="utf-8"))
+            commands = _extract_settings_commands(settings)
             for hook_name in SETTINGS_CHECKED_HOOKS:
-                if hook_name not in settings_text:
+                if not any(hook_name in cmd for cmd in commands):
                     warnings.append(
-                        f"NOT REGISTERED in settings.json: {hook_name} (run install.sh)"
+                        f"NOT REGISTERED in ~/.claude/settings.json: {hook_name} "
+                        f"(run ./install.sh from agent-toolkit)"
                     )
         except (json.JSONDecodeError, OSError):
-            pass
+            warnings.append(
+                "Could not parse ~/.claude/settings.json — run ./install.sh"
+            )
+    else:
+        warnings.append(
+            "No ~/.claude/settings.json — hooks not registered (run ./install.sh)"
+        )
 
     return warnings
 
@@ -231,7 +290,7 @@ def build_context(
             f"skill_routing={session_config.get('skill_routing', True)}",
             f"max_session_minutes={session_config.get('max_session_minutes', 0)}",
             f"model={session_config.get('model', 'auto')}",
-            f"gate_protect={session_config.get('gate_protect', False)}",
+            f"gate_protect={session_config.get('gate_protect', True)}",
             f"report_protect={session_config.get('report_protect', True)}",
         ]
         parts.append(f"Config: {', '.join(cfg_items)}")
@@ -309,7 +368,8 @@ G-SESSION-1: You must NEVER read, write, edit, or delete files in the .session/ 
         for warning in warnings:
             parts.append(f"  - {warning}")
         parts.append(
-            "Run install.sh to fix missing hooks. Do NOT proceed with work until hooks are verified."
+            "Run ./install.sh from the agent-toolkit clone to register hooks in "
+            "~/.claude/settings.json. Do NOT proceed until hooks are verified."
         )
 
     return "\n".join(parts)
@@ -363,7 +423,6 @@ def main() -> int:
         event = {}
 
     project_dir = get_project_dir()
-    hooks_dir = project_dir / "hooks"
     settings_path = get_settings_path()
     session_dir = project_dir / ".session"
 
@@ -387,7 +446,7 @@ def main() -> int:
     gate_warnings = clear_stale_gates(project_dir)
 
     # 4. Hook integrity check
-    integrity_warnings = check_hook_integrity(hooks_dir, settings_path)
+    integrity_warnings = check_hook_integrity(project_dir, settings_path)
     all_warnings = gate_warnings + integrity_warnings
 
     # 5. Scan project files

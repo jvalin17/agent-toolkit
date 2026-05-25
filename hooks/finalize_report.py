@@ -32,6 +32,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gate_hook import get_config_value, load_gate_config
+from project_root import resolve_project_root
 
 # Reach the toolkit's gate/ package (project root on sys.path)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -289,6 +290,16 @@ def _report_path(project_dir: Path, skill: str, slug: str, report_id: str) -> Pa
     return target_dir / f"{fname_prefix}_{slug}_{report_id}.md"
 
 
+def _write_precommit_gate(project_dir: Path) -> Path:
+    """Write legacy precommit gate flag (G-GATE-1: hooks only when gate_protect is on)."""
+    gates_dir = project_dir / ".gates"
+    gates_dir.mkdir(parents=True, exist_ok=True)
+    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    flag = gates_dir / "precommit-passed"
+    flag.write_text(f"READY {date}\n", encoding="utf-8")
+    return flag
+
+
 # --- Entry point ----------------------------------------------------------
 
 
@@ -306,11 +317,16 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     out_path = _report_path(project_dir, "precommit", findings["slug"], report_id)
     out_path.write_text(markdown, encoding="utf-8")
 
+    gate_flag = None
+    if ready:
+        gate_flag = _write_precommit_gate(project_dir)
+
     response = {
         "skill": "precommit",
         "ready_to_commit": ready,
         "report_path": str(out_path.relative_to(project_dir)),
         "report_id": report_id,
+        "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
         "mechanical": {
             "tests_passed": test.passed,
             "lint_passed": lint.passed,
@@ -334,7 +350,7 @@ def main(argv: list[str]) -> int:
             f"Supported: {sorted(SUPPORTED_SKILLS)}"
         )
 
-    project_dir = Path.cwd()
+    project_dir = resolve_project_root(hint=findings_path)
     if skill == "precommit":
         return finalize_precommit(project_dir, findings_path)
     _fail(f"no handler wired for skill '{skill}'")

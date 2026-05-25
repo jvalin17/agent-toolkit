@@ -461,6 +461,31 @@ HOOKEOF
     else
         rm -f "$tmp_file"
     fi
+
+    # Deduplicate hook entries (repeated install.sh runs can accumulate copies)
+    if jq '
+      def dedupe_event(entries):
+        entries
+        | group_by(.matcher // "")
+        | map({
+            matcher: (.[0].matcher // ""),
+            hooks: (
+              [.[].hooks[]?]
+              | unique_by(.command)
+            )
+          });
+      if .hooks then
+        .hooks |= with_entries(.value |= dedupe_event(.))
+      else .
+      end
+    ' "$SETTINGS_FILE" > "$tmp_file" 2>/dev/null; then
+        mv "$tmp_file" "$SETTINGS_FILE"
+        if [ "$SYNC_ONLY" != "1" ]; then
+            echo "  [updated] deduplicated hook entries in settings.json"
+        fi
+    else
+        rm -f "$tmp_file"
+    fi
 }
 
 # Only install if jq is available (needed for safe JSON merging)

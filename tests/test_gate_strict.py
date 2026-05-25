@@ -1,4 +1,4 @@
-"""Tests for strict mode gate enforcement in hooks/gate.py.
+"""Tests for strict mode gate enforcement in hooks/gate_hook.py.
 
 When mode=strict in gates.json, commit and push require both
 precommit AND evaluate, regardless of the profile setting.
@@ -19,7 +19,7 @@ def project_dir(tmp_path):
 
 
 def make_hook_input(command: str) -> str:
-    """Build the stdin JSON that gate.py expects."""
+    """Build the stdin JSON that gate_hook.py expects."""
     return json.dumps({"tool_input": {"command": command}})
 
 

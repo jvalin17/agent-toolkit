@@ -133,8 +133,9 @@ and prints a JSON response with `ready_to_commit` and the report path. Exit
 code 0 = ready, 1 = BLOCKED, 2 = invalid findings.
 
 **Gate unlock:** Read `shared/gate-unlock.md`. Signed mode: refresh gate token
-after the report is written. Legacy: `echo "READY ..." > .gates/precommit-passed`
-(or have the unlock hook do it).
+after the report is written. Legacy: `finalize_report.py` writes
+`.gates/precommit-passed` when `ready_to_commit` is true (agent cannot
+write `.gates/` when `gate_protect` is on).
 
 **Do NOT commit automatically.** Wait for user to say "commit" or "go ahead."
 
