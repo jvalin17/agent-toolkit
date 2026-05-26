@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Tests for signed gate tokens (issue, verify, attest)."""
+"""Tests for signed gate tokens (issue, verify, attest).
+
+Requires PyJWT + cryptography — skipped automatically when unavailable
+(e.g. architecture mismatch on cffi).
+"""
 
 from __future__ import annotations
 
@@ -12,6 +16,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+
+jwt = pytest.importorskip("jwt", reason="PyJWT (+ cryptography) not available")
 
 from gate.attest import Attestation, build_attestation, write_attestation  # noqa: E402
 from gate.core import (  # noqa: E402

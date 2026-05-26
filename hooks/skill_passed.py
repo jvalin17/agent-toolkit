@@ -40,7 +40,20 @@ def run_skill_passed(
     except (json.JSONDecodeError, TypeError, AttributeError):
         return 0, ""
 
-    if not skill or skill not in GATED_SKILLS:
+    if not skill:
+        return 0, ""
+
+    # F3.2: After /implementation, inject demo prompt (new features only)
+    if skill == "implementation":
+        message = (
+            "If this was a new feature (not a fix or refactor): "
+            "DEMO with real data before committing. "
+            "Ask the user for sample data if you don't have any. "
+            "Skip this for bug fixes and refactors."
+        )
+        return 0, make_hook_response(message)
+
+    if skill not in GATED_SKILLS:
         return 0, ""
 
     gates_dir = project_dir / ".gates"

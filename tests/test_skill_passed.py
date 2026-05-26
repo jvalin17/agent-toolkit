@@ -77,10 +77,12 @@ class TestGatedSkillNotPassed:
 
 
 class TestNonGatedSkills:
-    def test_implementation_ignored(self, project):
+    def test_implementation_returns_demo_prompt(self, project):
+        """F3.2: /implementation now returns demo prompt, not empty."""
         exit_code, output = run_skill_passed(make_input("implementation"), project)
         assert exit_code == 0
-        assert output == ""
+        context = parse_context(output)
+        assert "DEMO" in context
 
     def test_debug_ignored(self, project):
         exit_code, output = run_skill_passed(make_input("debug"), project)
@@ -111,5 +113,28 @@ class TestEdgeCases:
 
     def test_empty_skill(self, project):
         exit_code, output = run_skill_passed(make_input(""), project)
+        assert exit_code == 0
+        assert output == ""
+
+
+class TestDemoCompleted:
+    """F3.2: After /implementation completes, inject demo reminder for new features."""
+
+    def test_implementation_injects_demo_prompt(self, project):
+        """After /implementation, skill_passed injects demo reminder."""
+        _, output = run_skill_passed(make_input("implementation"), project)
+        context = parse_context(output)
+        assert "DEMO" in context
+        assert "real data" in context.lower()
+
+    def test_demo_prompt_scoped_to_new_features(self, project):
+        """Demo prompt tells agent it applies to new features, not fix/refactor."""
+        _, output = run_skill_passed(make_input("implementation"), project)
+        context = parse_context(output)
+        assert "new feature" in context.lower()
+
+    def test_non_implementation_no_demo_prompt(self, project):
+        """Other non-gated skills don't inject demo prompt."""
+        exit_code, output = run_skill_passed(make_input("explore"), project)
         assert exit_code == 0
         assert output == ""
