@@ -297,6 +297,32 @@ class TestRun:
 # --- CLI parsing ---
 
 
+class TestGoallessRestart:
+    """Bug: auto-restart without goal arg should work when HANDOFF.md exists."""
+
+    def test_no_goal_arg_with_handoff_continues(self, project_dir):
+        """When HANDOFF.md exists but no goal arg, wrapper should continue (not block on input)."""
+        handoff = (
+            "# HANDOFF\n\n## Goal\n\n"
+            "(no goal set — check project-state.md)\n\n"
+            "## Session\n\nNumber: 3\n"
+        )
+        (project_dir / "HANDOFF.md").write_text(handoff)
+
+        runner = AutoContinue(goal=None, max_budget=None, project_dir=project_dir, dry_run=True)
+        # Should NOT call input() — should resolve goal from handoff or use fallback
+        result = runner.run()
+        assert result == 0
+
+    def test_no_goal_no_handoff_returns_error_in_headless(self, project_dir):
+        """No goal + no HANDOFF.md + non-interactive = exit 1, not hang on input()."""
+        runner = AutoContinue(goal=None, max_budget=None, project_dir=project_dir)
+        # Simulate non-interactive (stdin closed)
+        with patch("builtins.input", side_effect=EOFError):
+            result = runner.run()
+        assert result == 1
+
+
 class TestParseArgs:
     def test_goal_positional(self):
         args = parse_args(["Build auth system"])

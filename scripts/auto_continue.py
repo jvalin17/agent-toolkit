@@ -83,7 +83,12 @@ class AutoContinue:
             )
 
     def _resolve_goal(self) -> str:
-        """Goal from: arg > HANDOFF.md > interactive prompt."""
+        """Goal from: arg > HANDOFF.md > interactive prompt > empty string.
+
+        When HANDOFF.md exists (auto-restart), a missing goal is acceptable —
+        the agent reads HANDOFF.md itself. When no HANDOFF.md and no arg,
+        try interactive prompt but handle headless (EOFError) gracefully.
+        """
         if self.goal:
             return self.goal
 
@@ -96,10 +101,18 @@ class AutoContinue:
                 re.DOTALL,
             )
             if goal_match:
-                return goal_match.group(1).strip()
+                extracted = goal_match.group(1).strip()
+                # Ignore hook placeholder — treat as "no goal" but continue
+                if not extracted.startswith("(no goal"):
+                    return extracted
+            # HANDOFF.md exists but no real goal — continue anyway
+            return "(continued from HANDOFF.md)"
 
-        # Interactive prompt
-        return input("What's the goal? ")
+        # Interactive prompt — handle headless mode
+        try:
+            return input("What's the goal? ")
+        except (EOFError, KeyboardInterrupt):
+            return ""
 
     def _build_prompt(self) -> str:
         """Build the prompt for the Claude session."""
