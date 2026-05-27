@@ -6,7 +6,7 @@
   "eval_threshold": 95,
   "max_session_minutes": 0,
   "auto": false,
-  "continue": false,
+  "continue": true,
   "tdd": true,
   "tdd_mode": "remind",
   "skill_routing": true,

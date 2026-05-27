@@ -1594,7 +1594,7 @@ class TestContinueModeMessaging:
     """Hook messages should only promise auto-relaunch when continue_mode is on."""
 
     def test_time_limit_message_with_continue(self, tmp_path, monkeypatch):
-        """When continue_mode=True, message says wrapper will relaunch."""
+        """When continue_mode=True (default), message says wrapper will relaunch."""
         monkeypatch.chdir(tmp_path)
         (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
 
@@ -1602,7 +1602,6 @@ class TestContinueModeMessaging:
         state = SessionState(
             session_start=now - (71 * 60),
             max_session_minutes=70,
-            continue_mode=True,
         )
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="foo.py", command=""

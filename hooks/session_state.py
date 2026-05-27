@@ -38,7 +38,7 @@ class SessionState:
     report_protect: bool = True  # G-REPORT-1: block agent writes to reports/
     last_test_edits: list = field(default_factory=list)  # F2.6: recent test file paths
     demo_completed: bool = False  # F3.3: set when agent demos after implementation slab
-    continue_mode: bool = False  # True when running under agent-toolkit-continue wrapper
+    continue_mode: bool = True  # Assume wrapper; set False only if explicitly disabled
 
 
 def load_state(state_file: Path) -> SessionState:
