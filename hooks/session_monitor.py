@@ -73,10 +73,16 @@ def _strict_integrity_response(state: SessionState) -> Optional[str]:
         f"- Drift score: {drift:.2f}\n"
     )
     if drift > 0.8:
+        if state.continue_mode:
+            restart_msg = "The auto-continuation wrapper will relaunch a fresh session."
+        else:
+            restart_msg = (
+                "Run `agent-toolkit-continue` to resume, "
+                "or start a new session manually."
+            )
         response += (
             "\nCRITICAL DRIFT: Score exceeds 0.8. SESSION RESTART required.\n"
-            "Write HANDOFF.md immediately and exit. "
-            "The auto-continuation wrapper will relaunch a fresh session."
+            f"Write HANDOFF.md immediately and exit. {restart_msg}"
         )
         state.stopped = 2
     elif drift > 0.6:

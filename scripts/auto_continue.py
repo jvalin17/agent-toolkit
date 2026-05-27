@@ -15,6 +15,7 @@ Goal resolution: CLI arg > HANDOFF.md ## Goal > interactive prompt.
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -144,6 +145,9 @@ class AutoContinue:
         if self.max_budget:
             cmd.extend(["--max-budget-usd", str(self.max_budget)])
 
+        # Tell hooks we're running under the wrapper so messages are accurate
+        env = {**os.environ, "AGENT_TOOLKIT_CONTINUE": "true"}
+
         if self.dry_run:
             print(f"[dry-run] Would execute: {' '.join(cmd)}")
             # Signal completion so the loop stops after one iteration
@@ -156,7 +160,7 @@ class AutoContinue:
                     )
             return 0
 
-        result = subprocess.run(cmd, cwd=self.project_dir)
+        result = subprocess.run(cmd, cwd=self.project_dir, env=env)
         return result.returncode
 
     def _is_complete(self) -> bool:

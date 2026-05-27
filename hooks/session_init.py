@@ -105,6 +105,7 @@ def init_session_state(
     max_session_minutes: int = 0,
     gate_protect: bool = True,
     report_protect: bool = True,
+    continue_mode: bool = False,
 ) -> SessionState:
     """Initialize .session/state.json with fresh counters."""
     session_dir.mkdir(parents=True, exist_ok=True)
@@ -114,6 +115,7 @@ def init_session_state(
         max_session_minutes=max_session_minutes,
         gate_protect=gate_protect,
         report_protect=report_protect,
+        continue_mode=continue_mode,
     )
     state_file = session_dir / "state.json"
     save_state(state, state_file)
@@ -445,6 +447,7 @@ def main() -> int:
         max_session_minutes=session_config["max_session_minutes"],
         gate_protect=session_config["gate_protect"],
         report_protect=session_config["report_protect"],
+        continue_mode=session_config["continue"],
     )
 
     # 3. Clear stale gates

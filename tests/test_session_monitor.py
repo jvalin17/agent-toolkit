@@ -1588,3 +1588,40 @@ class TestTimeLimitHardStop:
             state, tool_name="Bash", file_path="", command="git commit -m 'wip'"
         )
         assert blocked is False
+
+
+class TestContinueModeMessaging:
+    """Hook messages should only promise auto-relaunch when continue_mode is on."""
+
+    def test_time_limit_message_with_continue(self, tmp_path, monkeypatch):
+        """When continue_mode=True, message says wrapper will relaunch."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
+
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (71 * 60),
+            max_session_minutes=70,
+            continue_mode=True,
+        )
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Read", file_path="foo.py", command=""
+        )
+        assert "will relaunch" in response.lower() or "wrapper" in response.lower()
+
+    def test_time_limit_message_without_continue(self, tmp_path, monkeypatch):
+        """When continue_mode=False, message tells user to restart manually."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
+
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (71 * 60),
+            max_session_minutes=70,
+            continue_mode=False,
+        )
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Read", file_path="foo.py", command=""
+        )
+        assert "agent-toolkit-continue" in response or "new session" in response.lower()
+        assert "will relaunch" not in response.lower()

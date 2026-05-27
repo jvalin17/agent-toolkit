@@ -36,10 +36,17 @@ def _handle_limit_triggered(state: SessionState, stop_reason: str) -> tuple:
     if is_time_triggered and state.stopped < 2:
         state.stopped = 2
         trigger_auto_handoff(state, stop_reason)
+        if state.continue_mode:
+            restart_msg = "The auto-continuation wrapper will relaunch a fresh session."
+        else:
+            restart_msg = (
+                "Run `agent-toolkit-continue` to resume, "
+                "or start a new session manually."
+            )
         return state, (
             f"SESSION TIME LIMIT: {stop_reason}.\n\n"
             f"HANDOFF.md has been written automatically by the hook.\n"
-            f"The auto-continuation wrapper will relaunch a fresh session.\n"
+            f"{restart_msg}\n"
             f"Finish your current task, then write HANDOFF.md."
         )
 
