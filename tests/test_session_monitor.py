@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -15,7 +16,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
 
 from auto_handoff import (
+    build_restarter_code,
     parse_handoff_header,
+    schedule_restart,
     trigger_auto_handoff,
     write_auto_handoff,
 )
@@ -1591,10 +1594,10 @@ class TestTimeLimitHardStop:
 
 
 class TestContinueModeMessaging:
-    """Hook messages should only promise auto-relaunch when continue_mode is on."""
+    """Handoff and stop only happen when continue_mode is on."""
 
-    def test_time_limit_message_with_continue(self, tmp_path, monkeypatch):
-        """When continue_mode=True (default), message says wrapper will relaunch."""
+    def test_time_limit_writes_handoff_with_continue(self, tmp_path, monkeypatch):
+        """When continue_mode=True (default), writes HANDOFF.md and stops."""
         monkeypatch.chdir(tmp_path)
         (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
 
@@ -1606,12 +1609,12 @@ class TestContinueModeMessaging:
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="foo.py", command=""
         )
-        assert "will relaunch" in response.lower() or "wrapper" in response.lower()
+        assert state.stopped == 2
+        assert "HANDOFF.md" in response
 
-    def test_time_limit_message_without_continue(self, tmp_path, monkeypatch):
-        """When continue_mode=False, message tells user to restart manually."""
+    def test_time_limit_skips_handoff_without_continue(self, tmp_path, monkeypatch):
+        """When continue_mode=False, no handoff, no stop — just warn."""
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
 
         now = int(time.time())
         state = SessionState(
@@ -1622,5 +1625,109 @@ class TestContinueModeMessaging:
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="foo.py", command=""
         )
-        assert "agent-toolkit-continue" in response or "new session" in response.lower()
-        assert "will relaunch" not in response.lower()
+        assert state.stopped == 0
+        assert "HANDOFF" not in response
+        assert "warning" in response.lower() or "limit" in response.lower()
+
+    def test_byte_limit_skips_handoff_without_continue(self, tmp_path, monkeypatch):
+        """Byte threshold without continue_mode just warns, doesn't stop."""
+        monkeypatch.chdir(tmp_path)
+
+        state = SessionState(
+            session_start=int(time.time()),
+            cumulative_output_bytes=800_000,
+            continue_mode=False,
+        )
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Read", file_path="foo.py", command=""
+        )
+        assert state.stopped == 0
+        assert "HANDOFF" not in response
+
+    def test_handoff_schedules_restart_when_continue(self, tmp_path, monkeypatch):
+        """trigger_auto_handoff calls schedule_restart when continue_mode=True."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n")
+
+        state = SessionState(session_start=int(time.time()), continue_mode=True)
+        with patch("auto_handoff.schedule_restart") as mock_restart:
+            trigger_auto_handoff(state, "test reason")
+        mock_restart.assert_called_once()
+
+    def test_handoff_skips_restart_when_no_continue(self, tmp_path, monkeypatch):
+        """trigger_auto_handoff does NOT call schedule_restart when continue_mode=False."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n")
+
+        state = SessionState(session_start=int(time.time()), continue_mode=False)
+        with patch("auto_handoff.schedule_restart") as mock_restart:
+            trigger_auto_handoff(state, "test reason")
+        mock_restart.assert_not_called()
+
+    def test_schedule_restart_spawns_background_process(self, tmp_path):
+        """schedule_restart calls Popen with start_new_session=True."""
+        with patch("auto_handoff.shutil.which", return_value="/usr/bin/claude"), \
+             patch("auto_handoff.subprocess.Popen") as mock_popen:
+            schedule_restart(tmp_path)
+        mock_popen.assert_called_once()
+        call_kwargs = mock_popen.call_args[1]
+        assert call_kwargs["start_new_session"] is True
+
+    def test_schedule_restart_skips_when_claude_not_found(self, tmp_path):
+        """No Popen call when claude is not on PATH."""
+        with patch("auto_handoff.shutil.which", return_value=None), \
+             patch("auto_handoff.subprocess.Popen") as mock_popen:
+            schedule_restart(tmp_path)
+        mock_popen.assert_not_called()
+
+
+class TestRestarterIntegration:
+    """Integration test: restarter actually waits for PID, cleans .session/, runs command."""
+
+    def test_restarter_waits_cleans_and_executes(self, tmp_path):
+        """Spawn a real restarter process that waits for a sleep to die,
+        cleans .session/, and touches a marker file (instead of claude)."""
+        import signal
+
+        # Create a short-lived "parent" process (sleep 60, we kill it)
+        sleeper = subprocess.Popen(["sleep", "60"])
+        wait_pid = sleeper.pid
+
+        session_dir = tmp_path / ".session"
+        session_dir.mkdir()
+        (session_dir / "state.json").write_text("{}")
+        marker = tmp_path / "restarted.marker"
+
+        # Build restarter code but replace claude with a touch command
+        restarter_code = f"""
+import os, shutil, subprocess, sys, time
+wait_pid = {wait_pid}
+for _ in range(30):
+    try:
+        os.kill(wait_pid, 0)
+        time.sleep(0.1)
+    except OSError:
+        break
+session_dir = {str(session_dir)!r}
+if os.path.isdir(session_dir):
+    shutil.rmtree(session_dir, ignore_errors=True)
+# Touch marker instead of running claude
+open({str(marker)!r}, "w").write("restarted")
+"""
+        proc = subprocess.Popen(
+            [sys.executable, "-c", restarter_code],
+            start_new_session=True,
+        )
+
+        # Kill the "parent" — restarter should detect and proceed
+        time.sleep(0.2)
+        sleeper.kill()
+        sleeper.wait()
+
+        # Wait for restarter to finish
+        proc.wait(timeout=10)
+
+        # Verify: .session/ cleaned and marker touched
+        assert not session_dir.exists(), ".session/ should be cleaned"
+        assert marker.exists(), "marker file should exist (restarter ran)"
+        assert marker.read_text() == "restarted"

@@ -2,10 +2,14 @@
 
 Called by session_monitor when hard stop triggers. The hook writes
 the handoff directly so the agent cannot prevent, delay, or fake it.
+When continue_mode is on, also schedules a background restart.
 """
 
+import os
 import re
+import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -123,10 +127,71 @@ def get_git_log(max_entries: int = 10) -> str:
         return ""
 
 
+def build_restarter_code(
+    wait_pid: int,
+    session_dir: str,
+    project_dir: str,
+    claude_bin: str,
+) -> str:
+    """Build the Python source for the background restarter process.
+
+    Separated from schedule_restart for testability.
+    """
+    return f"""
+import os, shutil, subprocess, sys, time
+# Wait for the current claude process to exit
+wait_pid = {wait_pid}
+for _ in range(300):
+    try:
+        os.kill(wait_pid, 0)
+        time.sleep(1)
+    except OSError:
+        break
+# Clean session state
+session_dir = {session_dir!r}
+if os.path.isdir(session_dir):
+    shutil.rmtree(session_dir, ignore_errors=True)
+# Relaunch
+prompt = "Read HANDOFF.md and continue from where the previous session left off."
+cmd = [{claude_bin!r}, "-p", prompt, "--output-format", "json", "--dangerously-skip-permissions"]
+env = {{**os.environ, "AGENT_TOOLKIT_CONTINUE": "true"}}
+subprocess.run(cmd, cwd={project_dir!r}, env=env)
+"""
+
+
+def schedule_restart(project_dir: Path) -> None:
+    """Spawn a detached background process that restarts claude after this session exits.
+
+    The restarter waits for the current claude parent process to exit,
+    cleans .session/, then launches a fresh claude session that reads HANDOFF.md.
+    """
+    claude_bin = shutil.which("claude")
+    if not claude_bin:
+        sys.stderr.write("auto_handoff: claude not on PATH, cannot schedule restart\n")
+        return
+
+    restarter_code = build_restarter_code(
+        wait_pid=os.getppid(),
+        session_dir=str(project_dir / ".session"),
+        project_dir=str(project_dir),
+        claude_bin=claude_bin,
+    )
+    try:
+        subprocess.Popen(
+            [sys.executable, "-c", restarter_code],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+    except OSError as exc:
+        sys.stderr.write(f"auto_handoff: failed to schedule restart: {{exc}}\n")
+
+
 def trigger_auto_handoff(state, stop_reason: str) -> None:
     """Trigger hook-written handoff. Called when hard stop fires.
 
-    Reads existing HANDOFF.md, gets git log, and writes the new handoff.
+    Reads existing HANDOFF.md, gets git log, writes the new handoff,
+    and schedules a background restart if continue_mode is on.
     """
     handoff_path = Path("HANDOFF.md")
     previous_handoff = ""
@@ -145,3 +210,6 @@ def trigger_auto_handoff(state, stop_reason: str) -> None:
         previous_handoff=previous_handoff,
         git_log=git_log,
     )
+
+    if getattr(state, "continue_mode", False):
+        schedule_restart(Path.cwd())

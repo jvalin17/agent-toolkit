@@ -12,8 +12,24 @@ from session_state import (
 
 
 def apply_session_limits(state: SessionState) -> tuple:
-    """Apply byte/time/compaction limits. Returns (state, response_message)."""
+    """Apply byte/time/compaction limits. Returns (state, response_message).
+
+    When continue_mode is False, limits only warn — no handoff, no stop.
+    Stopping a session without auto-restart is pointless.
+    """
     triggered, stop_reason = check_thresholds(state)
+
+    if triggered and not state.continue_mode:
+        # No auto-restart — just warn, don't kill the session
+        if not state.warned:
+            state.warned = True
+            return state, (
+                f"SESSION LIMIT WARNING: {stop_reason}. "
+                f"Auto-continuation is off, so the session will continue. "
+                f"Quality may degrade. Consider wrapping up current work."
+            )
+        return state, ""
+
     if triggered:
         return _handle_limit_triggered(state, stop_reason)
 
@@ -31,22 +47,16 @@ def apply_session_limits(state: SessionState) -> tuple:
 
 
 def _handle_limit_triggered(state: SessionState, stop_reason: str) -> tuple:
+    """Handle limit when continue_mode is True — write handoff and stop."""
     is_time_triggered = "minutes" in stop_reason
 
     if is_time_triggered and state.stopped < 2:
         state.stopped = 2
         trigger_auto_handoff(state, stop_reason)
-        if state.continue_mode:
-            restart_msg = "The auto-continuation wrapper will relaunch a fresh session."
-        else:
-            restart_msg = (
-                "Run `agent-toolkit-continue` to resume, "
-                "or start a new session manually."
-            )
         return state, (
             f"SESSION TIME LIMIT: {stop_reason}.\n\n"
             f"HANDOFF.md has been written automatically by the hook.\n"
-            f"{restart_msg}\n"
+            f"A fresh session will be launched automatically.\n"
             f"Finish your current task, then write HANDOFF.md."
         )
 
@@ -61,8 +71,7 @@ def _handle_limit_triggered(state: SessionState, stop_reason: str) -> tuple:
             f"what's next (spec text copied, not summarized), decisions, "
             f"code change plan for next slab\n"
             f"2. Update project-state.md Resume section\n"
-            f"3. Tell user: 'Session limit reached. "
-            f"Start a new session — it will read HANDOFF.md to continue.'\n\n"
+            f"3. A fresh session will be launched automatically after this one ends.\n\n"
             f"Do NOT start new tasks. Finish current task and hand off."
         )
 
@@ -74,7 +83,7 @@ def _handle_limit_triggered(state: SessionState, stop_reason: str) -> tuple:
         return state, (
             f"HARD STOP: Grace period exhausted. {stop_reason}.\n\n"
             f"HANDOFF.md has been written automatically by the hook.\n"
-            f"Finish your current task, then write HANDOFF.md."
+            f"A fresh session will be launched automatically."
         )
 
     return state, (
