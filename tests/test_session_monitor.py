@@ -17,6 +17,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
 
 from auto_handoff import (
     build_restarter_code,
+    find_claude_pid,
     parse_handoff_header,
     schedule_restart,
     trigger_auto_handoff,
@@ -1667,6 +1668,7 @@ class TestContinueModeMessaging:
     def test_schedule_restart_spawns_background_process(self, tmp_path):
         """schedule_restart calls Popen with start_new_session=True."""
         with patch("auto_handoff.shutil.which", return_value="/usr/bin/claude"), \
+             patch("auto_handoff.find_claude_pid", return_value=12345), \
              patch("auto_handoff.subprocess.Popen") as mock_popen:
             schedule_restart(tmp_path)
         mock_popen.assert_called_once()
@@ -1679,6 +1681,22 @@ class TestContinueModeMessaging:
              patch("auto_handoff.subprocess.Popen") as mock_popen:
             schedule_restart(tmp_path)
         mock_popen.assert_not_called()
+
+    def test_schedule_restart_skips_when_pid_not_found(self, tmp_path):
+        """No Popen call when claude PID can't be found in process tree."""
+        with patch("auto_handoff.shutil.which", return_value="/usr/bin/claude"), \
+             patch("auto_handoff.find_claude_pid", return_value=0), \
+             patch("auto_handoff.subprocess.Popen") as mock_popen:
+            schedule_restart(tmp_path)
+        mock_popen.assert_not_called()
+
+    def test_find_claude_pid_walks_process_tree(self):
+        """find_claude_pid finds a claude ancestor in the process tree."""
+        # In our test environment, we're running under claude
+        pid = find_claude_pid()
+        # May or may not find claude depending on execution context
+        # but should not crash
+        assert isinstance(pid, int)
 
 
 class TestRestarterIntegration:

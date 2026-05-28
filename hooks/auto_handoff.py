@@ -127,6 +127,37 @@ def get_git_log(max_entries: int = 10) -> str:
         return ""
 
 
+def find_claude_pid() -> int:
+    """Walk up the process tree to find the claude process PID.
+
+    Hooks run as: claude → bash → python3 (this process).
+    os.getppid() gives bash, which dies when the hook exits.
+    We need the actual claude PID so the restarter waits for it.
+    Returns 0 if not found.
+    """
+    try:
+        pid = os.getppid()  # start from our parent
+        for _ in range(10):  # walk up max 10 levels
+            result = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "ppid=,comm="],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode != 0:
+                break
+            parts = result.stdout.strip().split(None, 1)
+            if len(parts) < 2:
+                break
+            ppid, comm = int(parts[0]), parts[1]
+            if "claude" in comm.lower():
+                return pid  # this PID is the claude process
+            if ppid <= 1:
+                break
+            pid = ppid
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        pass
+    return 0
+
+
 def build_restarter_code(
     wait_pid: int,
     session_dir: str,
@@ -139,14 +170,16 @@ def build_restarter_code(
     """
     return f"""
 import os, shutil, subprocess, sys, time
-# Wait for the current claude process to exit
+# Wait for the claude process to exit
 wait_pid = {wait_pid}
-for _ in range(300):
+for _ in range(600):
     try:
         os.kill(wait_pid, 0)
         time.sleep(1)
     except OSError:
         break
+# Brief pause to let Claude fully shut down
+time.sleep(2)
 # Clean session state
 session_dir = {session_dir!r}
 if os.path.isdir(session_dir):
@@ -162,16 +195,21 @@ subprocess.run(cmd, cwd={project_dir!r}, env=env)
 def schedule_restart(project_dir: Path) -> None:
     """Spawn a detached background process that restarts claude after this session exits.
 
-    The restarter waits for the current claude parent process to exit,
-    cleans .session/, then launches a fresh claude session that reads HANDOFF.md.
+    Finds the actual claude process (not the bash intermediary), then spawns
+    a restarter that waits for it to exit, cleans .session/, and relaunches.
     """
     claude_bin = shutil.which("claude")
     if not claude_bin:
         sys.stderr.write("auto_handoff: claude not on PATH, cannot schedule restart\n")
         return
 
+    claude_pid = find_claude_pid()
+    if claude_pid == 0:
+        sys.stderr.write("auto_handoff: could not find claude process in tree\n")
+        return
+
     restarter_code = build_restarter_code(
-        wait_pid=os.getppid(),
+        wait_pid=claude_pid,
         session_dir=str(project_dir / ".session"),
         project_dir=str(project_dir),
         claude_bin=claude_bin,
