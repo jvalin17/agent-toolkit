@@ -1,10 +1,10 @@
-"""Session limit enforcement — warn only, never stop.
+"""Session limit enforcement.
 
-Sessions continue through compaction. Limits produce warnings
-so the agent prioritizes current work over starting new tasks.
-No handoff, no stop, no restart — compaction handles context pressure.
+continue_mode=True: write HANDOFF.md and launch a new session.
+continue_mode=False: warn only, session continues through compaction.
 """
 
+from auto_handoff import trigger_auto_handoff
 from session_state import (
     FALLBACK_MAX_EXCHANGES,
     HARD_THRESHOLD_BYTES,
@@ -17,18 +17,26 @@ from session_state import (
 def apply_session_limits(state: SessionState) -> tuple:
     """Apply byte/time limits. Returns (state, response_message).
 
-    Never stops the session. Warns once when thresholds are hit
-    so the agent wraps up current work instead of starting new tasks.
-    Compaction handles context pressure naturally.
+    continue_mode=True: writes HANDOFF.md and launches new claude session.
+    continue_mode=False: warns only, session continues through compaction.
     """
     triggered, stop_reason = check_thresholds(state)
+
+    if triggered and state.continue_mode and not state.warned:
+        state.warned = True
+        trigger_auto_handoff(state, stop_reason)
+        return state, (
+            f"SESSION LIMIT: {stop_reason}. "
+            f"HANDOFF.md written. A new session is being launched. "
+            f"Wrap up current work."
+        )
 
     if triggered and not state.warned:
         state.warned = True
         return state, (
             f"SESSION LIMIT: {stop_reason}. "
-            f"The session will continue (compaction handles context pressure). "
-            f"Quality may degrade. Wrap up current work before starting new tasks."
+            f"The session continues (compaction handles context pressure). "
+            f"Quality may degrade. Wrap up current work."
         )
 
     if should_warn(state) and not state.warned:

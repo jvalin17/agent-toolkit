@@ -16,7 +16,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
 
 from auto_handoff import (
+    launch_new_session,
     parse_handoff_header,
+    trigger_auto_handoff,
     write_auto_handoff,
 )
 from session_monitor import (
@@ -1297,21 +1299,38 @@ class TestAutoHandoffWiring:
         # Handoff should NOT be rewritten
         assert handoff_path.read_text() == original_content
 
-    def test_byte_limit_does_not_write_handoff(self, tmp_path, monkeypatch):
-        """Byte limit warns but does NOT write handoff."""
+    def test_byte_limit_no_handoff_without_continue(self, tmp_path, monkeypatch):
+        """Without continue_mode, byte limit warns but does NOT write handoff."""
         handoff_path = tmp_path / "HANDOFF.md"
         monkeypatch.chdir(tmp_path)
 
         state = SessionState(
             session_start=int(time.time()),
             cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
+            continue_mode=False,
         )
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="foo.py", command=""
         )
-        assert state.stopped == 0
         assert blocked is False
-        assert not handoff_path.exists()  # No handoff written
+        assert not handoff_path.exists()
+
+    def test_byte_limit_writes_handoff_with_continue(self, tmp_path, monkeypatch):
+        """With continue_mode, byte limit writes HANDOFF.md and launches new session."""
+        monkeypatch.chdir(tmp_path)
+
+        state = SessionState(
+            session_start=int(time.time()),
+            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
+            continue_mode=True,
+        )
+        with patch("auto_handoff.launch_new_session"):
+            state, response, blocked = handle_pre_tool_use(
+                state, tool_name="Read", file_path="foo.py", command=""
+            )
+        assert blocked is False
+        assert (tmp_path / "HANDOFF.md").exists()
+        assert "new session" in response.lower() or "launched" in response.lower()
 
 
 # --- Time-based session limit (F1) ---
@@ -1437,6 +1456,47 @@ class TestStaleSessionStartSelfHeal:
         }))
         state = load_state(state_file)
         assert state.session_start == old_start
+
+
+class TestLaunchNewSession:
+    """launch_new_session spawns claude as a detached process."""
+
+    def test_launches_claude(self, tmp_path):
+        with patch("auto_handoff.shutil.which", return_value="/usr/bin/claude"), \
+             patch("auto_handoff.subprocess.Popen") as mock_popen:
+            result = launch_new_session(tmp_path)
+        assert result is True
+        mock_popen.assert_called_once()
+        cmd = mock_popen.call_args[0][0]
+        assert "/usr/bin/claude" in cmd
+        assert "-p" in cmd
+        assert mock_popen.call_args[1]["start_new_session"] is True
+
+    def test_skips_when_claude_missing(self, tmp_path):
+        with patch("auto_handoff.shutil.which", return_value=None), \
+             patch("auto_handoff.subprocess.Popen") as mock_popen:
+            result = launch_new_session(tmp_path)
+        assert result is False
+        mock_popen.assert_not_called()
+
+    def test_continue_mode_triggers_handoff_and_launch(self, tmp_path, monkeypatch):
+        """When continue_mode=True and limit triggers, writes handoff and launches."""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n")
+
+        state = SessionState(session_start=int(time.time()), continue_mode=True)
+        with patch("auto_handoff.launch_new_session") as mock_launch:
+            trigger_auto_handoff(state, "test reason")
+        mock_launch.assert_called_once()
+
+    def test_no_continue_mode_skips_launch(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n")
+
+        state = SessionState(session_start=int(time.time()), continue_mode=False)
+        with patch("auto_handoff.launch_new_session") as mock_launch:
+            trigger_auto_handoff(state, "test reason")
+        mock_launch.assert_not_called()
 
 
 class TestTimeLimitWarnsOnly:
