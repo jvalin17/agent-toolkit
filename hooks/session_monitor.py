@@ -73,19 +73,11 @@ def _strict_integrity_response(state: SessionState) -> Optional[str]:
         f"- Drift score: {drift:.2f}\n"
     )
     if drift > 0.8:
-        if state.continue_mode:
-            response += (
-                "\nCRITICAL DRIFT: Score exceeds 0.8. SESSION RESTART required.\n"
-                "Write HANDOFF.md immediately and exit. "
-                "A fresh session will be launched automatically."
-            )
-            state.stopped = 2
-        else:
-            response += (
-                "\nCRITICAL DRIFT: Score exceeds 0.8. "
-                "Query the real system before continuing. "
-                "Quality is degrading."
-            )
+        response += (
+            "\nCRITICAL DRIFT: Score exceeds 0.8. "
+            "Query the real system before continuing. "
+            "Quality is degrading."
+        )
     elif drift > 0.6:
         response += (
             "\nHIGH DRIFT: Score exceeds 0.6. "
@@ -206,20 +198,17 @@ def handle_post_tool_use(
 
 
 def handle_post_compact(state: SessionState) -> tuple:
-    """Handle PostCompact event. Context was compressed — trigger auto-handoff."""
+    """Handle PostCompact event. Context was compressed — session continues.
+
+    Compaction is normal. The session keeps running with compressed context.
+    We just note it and warn that quality may degrade.
+    """
     state.compactions += 1
 
-    stop_reason = (
-        f"Context compacted ({state.compactions} time(s)) "
-        f"— context window is full"
-    )
-    trigger_auto_handoff(state, stop_reason)
-    state.stopped = 2
-
     response = (
-        "CONTEXT COMPACTED: Context window was compressed by Claude Code. "
-        "HANDOFF.md has been written automatically by the hook. "
-        "Finish your current task, then write HANDOFF.md."
+        f"CONTEXT COMPACTED ({state.compactions}x): Claude Code compressed the context. "
+        f"The session continues. Quality may degrade with repeated compactions. "
+        f"Consider wrapping up current work."
     )
     return state, response
 

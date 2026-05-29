@@ -16,11 +16,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent / "hooks"))
 
 from auto_handoff import (
-    build_restarter_code,
-    find_claude_pid,
     parse_handoff_header,
-    schedule_restart,
-    trigger_auto_handoff,
     write_auto_handoff,
 )
 from session_monitor import (
@@ -511,10 +507,15 @@ class TestHandlePostCompact:
         result_state, response = handle_post_compact(fresh_state)
         assert result_state.compactions == 1
 
-    def test_triggers_handoff_on_first_compact(self, fresh_state):
+    def test_does_not_stop_session(self, fresh_state):
+        """Compaction should NOT stop the session — let it continue."""
         result_state, response = handle_post_compact(fresh_state)
-        assert response is not None
-        assert "context" in response.lower() or "handoff" in response.lower()
+        assert result_state.stopped == 0
+        assert "compacted" in response.lower()
+
+    def test_warns_about_quality(self, fresh_state):
+        result_state, response = handle_post_compact(fresh_state)
+        assert "quality" in response.lower() or "degrade" in response.lower()
 
 
 class TestHandlePreToolUse:
@@ -535,7 +536,8 @@ class TestHandlePreToolUse:
         assert blocked is True
         assert "G-SESSION-1" in response
 
-    def test_grace_period_starts_on_threshold(self):
+    def test_warns_on_threshold_no_stop(self):
+        """Threshold hit warns but does NOT stop the session."""
         state = SessionState(
             session_start=int(time.time()),
             cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
@@ -544,73 +546,23 @@ class TestHandlePreToolUse:
         result_state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="", command=""
         )
-        assert result_state.stopped == 1
-        assert result_state.stop_at_tool_call == 51 + GRACE_TOOL_CALLS
-        assert blocked is False  # Grace period allows
+        assert result_state.stopped == 0
+        assert result_state.warned is True
+        assert blocked is False
+        assert "limit" in response.lower()
 
-    def test_hard_stop_after_grace_exhausted(self):
+    def test_warns_only_once(self):
+        """After first warning, no repeated warnings."""
         state = SessionState(
             session_start=int(time.time()),
             cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
-            stopped=1,
-            tool_calls=60,
-            stop_at_tool_call=60,  # Grace exhausted
+            warned=True,
         )
         result_state, response, blocked = handle_pre_tool_use(
-            state, tool_name="Read", file_path="/project/src/main.py", command=""
-        )
-        assert blocked is False  # No longer blocks — messages only
-        assert "HARD STOP" in response
-
-    def test_allows_handoff_write_after_hard_stop(self):
-        state = SessionState(
-            session_start=int(time.time()),
-            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
-            stopped=1,
-            tool_calls=60,
-            stop_at_tool_call=60,
-        )
-        result_state, response, blocked = handle_pre_tool_use(
-            state,
-            tool_name="Write",
-            file_path="/project/HANDOFF.md",
-            command="",
+            state, tool_name="Read", file_path="", command=""
         )
         assert blocked is False
-
-    def test_allows_git_commit_after_hard_stop(self):
-        state = SessionState(
-            session_start=int(time.time()),
-            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
-            stopped=1,
-            tool_calls=60,
-            stop_at_tool_call=60,
-        )
-        result_state, response, blocked = handle_pre_tool_use(
-            state,
-            tool_name="Bash",
-            file_path="",
-            command="git commit -m 'handoff'",
-        )
-        assert blocked is False
-
-    def test_does_not_block_after_hard_stop(self):
-        """Hard stop no longer blocks — it messages the agent to wrap up."""
-        state = SessionState(
-            session_start=int(time.time()),
-            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
-            stopped=1,
-            tool_calls=60,
-            stop_at_tool_call=60,
-        )
-        result_state, response, blocked = handle_pre_tool_use(
-            state,
-            tool_name="Bash",
-            file_path="",
-            command="npm run build",
-        )
-        assert blocked is False
-        assert "HARD STOP" in response
+        assert response == ""
 
 
 # --- JSON output format ---
@@ -1121,8 +1073,8 @@ class TestPeriodicIntegrityCheck:
         assert "8" in response  # exchanges_since_query (incremented before check)
         assert "2" in response  # patch_forward_count
 
-    def test_critical_drift_triggers_restart(self):
-        """Drift score > 0.8 sets stopped=2 (session restart)."""
+    def test_critical_drift_warns_does_not_stop(self):
+        """Drift score > 0.8 warns but does NOT stop — session continues."""
         state = SessionState(
             session_start=1000,
             mode="strict",
@@ -1132,8 +1084,8 @@ class TestPeriodicIntegrityCheck:
             slabs_without_data=2,
         )
         state, response = handle_user_prompt(state)
-        assert state.stopped == 2
-        assert "HANDOFF" in response or "restart" in response.lower()
+        assert state.stopped == 0
+        assert "drift" in response.lower()
 
     def test_moderate_drift_does_not_restart(self):
         """Drift score 0.3-0.6 warns but does not restart."""
@@ -1332,85 +1284,34 @@ class TestParseHandoffGoalAndSession:
 class TestAutoHandoffWiring:
     """Tests that trigger_auto_handoff is called at the right times."""
 
-    def test_compaction_writes_handoff(self, tmp_path, monkeypatch):
-        """PostCompact event triggers auto-handoff write."""
+    def test_compaction_does_not_write_handoff(self, tmp_path, monkeypatch):
+        """PostCompact does NOT write handoff — session continues."""
         handoff_path = tmp_path / "HANDOFF.md"
-        # Pre-populate a previous handoff
-        handoff_path.write_text(
-            "# HANDOFF\n\n## Goal\n\nBuild feature X\n\n"
-            "## Session\n\nNumber: 2\n"
-        )
-
-        # Monkey-patch Path("HANDOFF.md") to use tmp_path
+        handoff_path.write_text("# HANDOFF\n\n## Goal\n\nBuild feature X\n")
         monkeypatch.chdir(tmp_path)
 
-        state = SessionState(
-            session_start=1000,
-            exchanges=20,
-            tool_calls=100,
-            cumulative_output_bytes=600_000,
-        )
+        original_content = handoff_path.read_text()
+        state = SessionState(session_start=1000)
         state, response = handle_post_compact(state)
-        assert state.stopped == 2
-        assert "automatically" in response.lower()
-        # Verify handoff was written
-        content = handoff_path.read_text()
-        assert "Number: 3" in content
-        assert "Build feature X" in content
+        assert state.stopped == 0
+        # Handoff should NOT be rewritten
+        assert handoff_path.read_text() == original_content
 
-    def test_grace_exhausted_writes_handoff(self, tmp_path, monkeypatch):
-        """Grace period exhaustion triggers auto-handoff write."""
+    def test_byte_limit_does_not_write_handoff(self, tmp_path, monkeypatch):
+        """Byte limit warns but does NOT write handoff."""
         handoff_path = tmp_path / "HANDOFF.md"
-        handoff_path.write_text(
-            "# HANDOFF\n\n## Goal\n\nSome goal\n\n"
-            "## Session\n\nNumber: 1\n"
-        )
         monkeypatch.chdir(tmp_path)
 
         state = SessionState(
-            session_start=1000,
+            session_start=int(time.time()),
             cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
-            stopped=1,
-            tool_calls=60,
-            stop_at_tool_call=60,  # Grace exhausted
         )
-        # Tool is not blocked, but handoff should be written
         state, response, blocked = handle_pre_tool_use(
-            state, tool_name="Read", file_path="/project/src/main.py", command=""
-        )
-        assert blocked is False  # No longer blocks — messages only
-        assert state.stopped == 2
-        content = handoff_path.read_text()
-        assert "Number: 2" in content
-        assert "Some goal" in content
-
-    def test_handoff_written_once_not_repeatedly(self, tmp_path, monkeypatch):
-        """Auto-handoff is written once, not on every subsequent blocked tool."""
-        handoff_path = tmp_path / "HANDOFF.md"
-        handoff_path.write_text(
-            "# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n"
-        )
-        monkeypatch.chdir(tmp_path)
-
-        state = SessionState(
-            session_start=1000,
-            cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
-            stopped=1,
-            tool_calls=60,
-            stop_at_tool_call=60,
-        )
-        # First call — triggers handoff write
-        state, _, _ = handle_pre_tool_use(
             state, tool_name="Read", file_path="foo.py", command=""
         )
-        first_content = handoff_path.read_text()
-
-        # Second call — already stopped=2, should not rewrite
-        state, _, _ = handle_pre_tool_use(
-            state, tool_name="Read", file_path="bar.py", command=""
-        )
-        second_content = handoff_path.read_text()
-        assert first_content == second_content
+        assert state.stopped == 0
+        assert blocked is False
+        assert not handoff_path.exists()  # No handoff written
 
 
 # --- Time-based session limit (F1) ---
@@ -1538,14 +1439,11 @@ class TestStaleSessionStartSelfHeal:
         assert state.session_start == old_start
 
 
-class TestTimeLimitHardStop:
-    """F1: Time limit triggers immediate hard stop — no grace period."""
+class TestTimeLimitWarnsOnly:
+    """Time limits warn but never stop the session."""
 
-    def test_time_limit_skips_grace_goes_to_hard_stop(self, tmp_path, monkeypatch):
-        """Time limit goes directly to stopped=2, no grace (stopped=1)."""
+    def test_time_limit_warns_no_stop(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
-
         now = int(time.time())
         state = SessionState(
             session_start=now - (71 * 60),
@@ -1554,198 +1452,21 @@ class TestTimeLimitHardStop:
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="foo.py", command=""
         )
-        # Should go directly to stopped=2 (hard stop), never stopped=1 (grace)
-        assert state.stopped == 2
-        assert blocked is False  # No longer blocks — messages only
-        assert "TIME LIMIT" in response
-
-    def test_time_limit_writes_auto_handoff(self, tmp_path, monkeypatch):
-        """Time limit triggers auto-handoff write."""
-        monkeypatch.chdir(tmp_path)
-        handoff_path = tmp_path / "HANDOFF.md"
-        handoff_path.write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
-
-        now = int(time.time())
-        state = SessionState(
-            session_start=now - (71 * 60),
-            max_session_minutes=70,
-        )
-        state, response, blocked = handle_pre_tool_use(
-            state, tool_name="Read", file_path="foo.py", command=""
-        )
-        content = handoff_path.read_text()
-        assert "Number: 2" in content
-        assert "time" in content.lower() or "minute" in content.lower()
-
-    def test_time_limit_allows_git_after_stop(self, tmp_path, monkeypatch):
-        """After time-based hard stop, git commit is still allowed."""
-        monkeypatch.chdir(tmp_path)
-        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
-
-        now = int(time.time())
-        state = SessionState(
-            session_start=now - (71 * 60),
-            max_session_minutes=70,
-            stopped=2,
-        )
-        state, response, blocked = handle_pre_tool_use(
-            state, tool_name="Bash", file_path="", command="git commit -m 'wip'"
-        )
+        assert state.stopped == 0
         assert blocked is False
+        assert "limit" in response.lower()
 
-
-class TestContinueModeMessaging:
-    """Handoff and stop only happen when continue_mode is on."""
-
-    def test_time_limit_writes_handoff_with_continue(self, tmp_path, monkeypatch):
-        """When continue_mode=True (default), writes HANDOFF.md and stops."""
+    def test_time_limit_warns_once(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
-        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n\n## Session\n\nNumber: 1\n")
-
         now = int(time.time())
         state = SessionState(
             session_start=now - (71 * 60),
             max_session_minutes=70,
+            warned=True,
         )
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="foo.py", command=""
         )
-        assert state.stopped == 2
-        assert "HANDOFF.md" in response
-
-    def test_time_limit_skips_handoff_without_continue(self, tmp_path, monkeypatch):
-        """When continue_mode=False, no handoff, no stop — just warn."""
-        monkeypatch.chdir(tmp_path)
-
-        now = int(time.time())
-        state = SessionState(
-            session_start=now - (71 * 60),
-            max_session_minutes=70,
-            continue_mode=False,
-        )
-        state, response, blocked = handle_pre_tool_use(
-            state, tool_name="Read", file_path="foo.py", command=""
-        )
-        assert state.stopped == 0
-        assert "HANDOFF" not in response
-        assert "warning" in response.lower() or "limit" in response.lower()
-
-    def test_byte_limit_skips_handoff_without_continue(self, tmp_path, monkeypatch):
-        """Byte threshold without continue_mode just warns, doesn't stop."""
-        monkeypatch.chdir(tmp_path)
-
-        state = SessionState(
-            session_start=int(time.time()),
-            cumulative_output_bytes=800_000,
-            continue_mode=False,
-        )
-        state, response, blocked = handle_pre_tool_use(
-            state, tool_name="Read", file_path="foo.py", command=""
-        )
-        assert state.stopped == 0
-        assert "HANDOFF" not in response
-
-    def test_handoff_schedules_restart_when_continue(self, tmp_path, monkeypatch):
-        """trigger_auto_handoff calls schedule_restart when continue_mode=True."""
-        monkeypatch.chdir(tmp_path)
-        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n")
-
-        state = SessionState(session_start=int(time.time()), continue_mode=True)
-        with patch("auto_handoff.schedule_restart") as mock_restart:
-            trigger_auto_handoff(state, "test reason")
-        mock_restart.assert_called_once()
-
-    def test_handoff_skips_restart_when_no_continue(self, tmp_path, monkeypatch):
-        """trigger_auto_handoff does NOT call schedule_restart when continue_mode=False."""
-        monkeypatch.chdir(tmp_path)
-        (tmp_path / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\nGoal\n")
-
-        state = SessionState(session_start=int(time.time()), continue_mode=False)
-        with patch("auto_handoff.schedule_restart") as mock_restart:
-            trigger_auto_handoff(state, "test reason")
-        mock_restart.assert_not_called()
-
-    def test_schedule_restart_spawns_background_process(self, tmp_path):
-        """schedule_restart calls Popen with start_new_session=True."""
-        with patch("auto_handoff.shutil.which", return_value="/usr/bin/claude"), \
-             patch("auto_handoff.find_claude_pid", return_value=12345), \
-             patch("auto_handoff.subprocess.Popen") as mock_popen:
-            schedule_restart(tmp_path)
-        mock_popen.assert_called_once()
-        call_kwargs = mock_popen.call_args[1]
-        assert call_kwargs["start_new_session"] is True
-
-    def test_schedule_restart_skips_when_claude_not_found(self, tmp_path):
-        """No Popen call when claude is not on PATH."""
-        with patch("auto_handoff.shutil.which", return_value=None), \
-             patch("auto_handoff.subprocess.Popen") as mock_popen:
-            schedule_restart(tmp_path)
-        mock_popen.assert_not_called()
-
-    def test_schedule_restart_skips_when_pid_not_found(self, tmp_path):
-        """No Popen call when claude PID can't be found in process tree."""
-        with patch("auto_handoff.shutil.which", return_value="/usr/bin/claude"), \
-             patch("auto_handoff.find_claude_pid", return_value=0), \
-             patch("auto_handoff.subprocess.Popen") as mock_popen:
-            schedule_restart(tmp_path)
-        mock_popen.assert_not_called()
-
-    def test_find_claude_pid_walks_process_tree(self):
-        """find_claude_pid finds a claude ancestor in the process tree."""
-        # In our test environment, we're running under claude
-        pid = find_claude_pid()
-        # May or may not find claude depending on execution context
-        # but should not crash
-        assert isinstance(pid, int)
+        assert response == ""
 
 
-class TestRestarterIntegration:
-    """Integration test: restarter actually waits for PID, cleans .session/, runs command."""
-
-    def test_restarter_waits_cleans_and_executes(self, tmp_path):
-        """Spawn a real restarter process that waits for a sleep to die,
-        cleans .session/, and touches a marker file (instead of claude)."""
-        import signal
-
-        # Create a short-lived "parent" process (sleep 60, we kill it)
-        sleeper = subprocess.Popen(["sleep", "60"])
-        wait_pid = sleeper.pid
-
-        session_dir = tmp_path / ".session"
-        session_dir.mkdir()
-        (session_dir / "state.json").write_text("{}")
-        marker = tmp_path / "restarted.marker"
-
-        # Build restarter code but replace claude with a touch command
-        restarter_code = f"""
-import os, shutil, subprocess, sys, time
-wait_pid = {wait_pid}
-for _ in range(30):
-    try:
-        os.kill(wait_pid, 0)
-        time.sleep(0.1)
-    except OSError:
-        break
-session_dir = {str(session_dir)!r}
-if os.path.isdir(session_dir):
-    shutil.rmtree(session_dir, ignore_errors=True)
-# Touch marker instead of running claude
-open({str(marker)!r}, "w").write("restarted")
-"""
-        proc = subprocess.Popen(
-            [sys.executable, "-c", restarter_code],
-            start_new_session=True,
-        )
-
-        # Kill the "parent" — restarter should detect and proceed
-        time.sleep(0.2)
-        sleeper.kill()
-        sleeper.wait()
-
-        # Wait for restarter to finish
-        proc.wait(timeout=10)
-
-        # Verify: .session/ cleaned and marker touched
-        assert not session_dir.exists(), ".session/ should be cleaned"
-        assert marker.exists(), "marker file should exist (restarter ran)"
-        assert marker.read_text() == "restarted"

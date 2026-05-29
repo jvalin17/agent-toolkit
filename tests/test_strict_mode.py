@@ -166,20 +166,20 @@ class TestStrictModeSessionLifecycle:
         # exchanges_since_query=10 → 1.0*0.4=0.4 → moderate drift
         assert "MODERATE DRIFT" in response or "HIGH DRIFT" in response
 
-    def test_critical_drift_stops_session(self, project_dir):
-        """At exchange 15 with max drift, session is stopped."""
+    def test_critical_drift_warns_no_stop(self, project_dir):
+        """At exchange 15 with max drift, warns but does NOT stop."""
         state = SessionState(
             session_start=1000,
             mode="strict",
             exchanges=DRIFT_CHECK_INTERVAL - 1,
-            exchanges_since_query=10,  # becomes 11, capped at 1.0
+            exchanges_since_query=10,
             patch_forward_count=3,
             slabs_without_data=2,
         )
 
         state, response = handle_user_prompt(state)
 
-        assert state.stopped == 2
+        assert state.stopped == 0
         assert "CRITICAL DRIFT" in response
 
     def test_normal_mode_no_drift_tracking(self, project_dir):
