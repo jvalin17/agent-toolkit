@@ -99,6 +99,11 @@ def validate_precommit_findings(data: dict) -> dict:
 
 
 def validate_evaluate_findings(data: dict) -> dict:
+    """Validate evaluate findings — metadata only, no agent-reported scores.
+
+    The hook computes scores mechanically via mechanical_scorer.py.
+    Agent provides: skill, slug, topic, and optional summary.
+    """
     skill = _require(data, "skill", str, "findings")
     if skill != "evaluate":
         fail(f"findings.skill must be 'evaluate', got '{skill}'")
@@ -111,19 +116,7 @@ def validate_evaluate_findings(data: dict) -> dict:
         )
 
     _require(data, "topic", str, "findings")
-    dims = _require(data, "dimensions", dict, "findings")
-
-    for key in EVAL_DIMENSION_WEIGHTS:
-        if key not in dims:
-            fail(f"findings.dimensions: missing required key '{key}'")
-        score = dims[key]
-        if not isinstance(score, int):
-            fail(
-                f"findings.dimensions.{key} must be int, "
-                f"got {type(score).__name__}"
-            )
-        if score < 0 or score > 100:
-            fail(f"findings.dimensions.{key} must be 0..100 (got {score})")
+    # dimensions is now optional — if present, it's ignored (mechanical scores win)
 
     return data
 

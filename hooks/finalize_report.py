@@ -55,6 +55,7 @@ from finalize_schema import (  # noqa: E402
     validate_precommit_findings,
     validate_reviewer_findings,
 )
+from mechanical_scorer import score_codebase  # noqa: E402
 
 SUPPORTED_SKILLS = {"precommit", "evaluate", "reviewer", "assess"}
 
@@ -109,13 +110,13 @@ def _decide_precommit(
 
 
 def _decide_evaluate(
-    findings: dict,
+    dimensions: dict,
     test: CheckResult,
     lint: CheckResult,
     threshold: int,
 ) -> tuple[bool, int, list[str]]:
     reasons: list[str] = []
-    score = compute_evaluate_score(findings["dimensions"])
+    score = compute_evaluate_score(dimensions)
 
     if not test.passed:
         reasons.append(f"test re-run failed: {test.name}")
@@ -236,8 +237,19 @@ def finalize_evaluate(project_dir: Path, findings_path: Path) -> int:
     config = load_gate_config(project_dir)
     threshold = int(get_config_value(config, "eval_threshold", 95))
 
+    # Mechanical scoring — agent cannot influence these
+    dimensions = score_codebase(project_dir)
+    findings["dimensions"] = dimensions
+
     test, lint = _run_mechanical(project_dir, config)
-    passed, score, reasons = _decide_evaluate(findings, test, lint, threshold)
+
+    # Adjust completeness based on mechanical test/lint results
+    if test.passed and lint.passed:
+        dimensions["completeness"] = max(dimensions["completeness"], 90)
+    elif not test.passed:
+        dimensions["completeness"] = min(dimensions["completeness"], 50)
+
+    passed, score, reasons = _decide_evaluate(dimensions, test, lint, threshold)
     report_id = uuid.uuid4().hex[:8]
     markdown = compose_evaluate_markdown(
         findings, test, lint, passed, score, threshold, reasons, report_id
