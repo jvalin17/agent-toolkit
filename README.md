@@ -77,15 +77,182 @@ All 13 skills: [docs/skills.md](docs/skills.md)
 
 ## Configuration
 
+All settings live in **`gates.json`** at your project root. Use presets or edit directly.
+
 ```bash
-agent-toolkit-setup --status      # what's enabled
-agent-toolkit-setup --guarded     # production preset
+agent-toolkit-setup --status      # show current config
+agent-toolkit-setup --balanced    # daily dev (default)
+agent-toolkit-setup --guarded     # production
 agent-toolkit-setup --lockdown    # strict + all reviews
+agent-toolkit-setup --tdd off     # toggle one setting
 ```
 
-Default: **legacy + block + minimal** — precommit required at commit, nothing extra at push.
+### Presets
 
-→ All settings & presets: [docs/configuration.md](docs/configuration.md)
+| Preset | Commit requires | Push requires | Use when |
+|--------|----------------|---------------|----------|
+| **balanced** (default) | `/precommit` | — | Daily development |
+| **guarded** | `/precommit` | `/evaluate` | Production branches |
+| **lockdown** | `/precommit` + `/evaluate` | `/evaluate` + `/reviewer` + `/assess` | High-risk changes |
+| **quick** | — | — | Local experiments only |
+
+### All settings
+
+#### Gate enforcement
+
+| Setting | Values | Default | What it does |
+|---------|--------|---------|--------------|
+| `enforcement` | `block` / `warn` | `block` | Whether missing gates prevent or just warn on commit/push |
+| `profile` | `minimal` / `standard` / `strict` / `paranoid` | `minimal` | Which skills are required at commit and push |
+| `gate_mode` | `legacy` / `signed` | `legacy` | How gates are verified — `signed` uses JWT for teams/CI |
+| `eval_threshold` | `0`–`100` | `95` | Minimum `/evaluate` score to pass the push gate |
+
+**Examples:**
+
+```jsonc
+// Block commits that skip /precommit (default behavior)
+"enforcement": "block"
+
+// Just warn (useful when rolling out gates on an existing project)
+"enforcement": "warn"
+
+// Require /evaluate before push (production branches)
+"profile": "standard"
+
+// Require /evaluate + /reviewer + /assess before push (high-risk)
+"profile": "paranoid"
+
+// Use JWT-signed gates (team repos with branch protection)
+"gate_mode": "signed"
+
+// Lower the bar for evaluate score (e.g. early prototypes)
+"eval_threshold": 80
+```
+
+#### TDD & quality
+
+| Setting | Values | Default | What it does |
+|---------|--------|---------|--------------|
+| `tdd` | `true` / `false` | `true` | Enable test-first workflow enforcement |
+| `tdd_mode` | `remind` / `strict` | `remind` | `remind` = advisory nudge; `strict` = hard-blocks source edits until tests exist |
+
+**Examples:**
+
+```jsonc
+// Nudge to write tests first but don't block (default)
+"tdd": true, "tdd_mode": "remind"
+
+// Hard-block: cannot edit src/ until a failing test exists
+"tdd": true, "tdd_mode": "strict"
+
+// Disable TDD enforcement entirely (not recommended)
+"tdd": false
+```
+
+#### Security & anti-fake
+
+| Setting | Values | Default | What it does |
+|---------|--------|---------|--------------|
+| `gate_protect` | `true` / `false` | `true` | Block agent from writing `.gates/` files directly |
+| `report_protect` | `true` / `false` | `true` | Block agent from writing `reports/` files directly |
+| `mode` | `normal` / `strict` | `normal` | `strict` enables anti-fake drift detection on fixtures |
+
+**Examples:**
+
+```jsonc
+// Default: agent cannot fake passing gates or reports
+"gate_protect": true, "report_protect": true
+
+// Strict anti-fake: detect drift in test fixtures and gate provenance
+"mode": "strict"
+
+// Disable protections (only for debugging the toolkit itself)
+"gate_protect": false, "report_protect": false
+```
+
+#### Session behavior
+
+| Setting | Values | Default | What it does |
+|---------|--------|---------|--------------|
+| `continue` | `true` / `false` | `true` | Auto-restart session when context is exhausted |
+| `max_session_minutes` | `0`+ | `0` | Time limit per session in minutes; `0` = unlimited |
+| `skill_routing` | `true` / `false` | `true` | Auto-detect user intent and route to the matching skill |
+| `auto` | `true` / `false` | `false` | Run skills in auto mode (no confirmation prompts) |
+| `model` | `auto` / model name | `auto` | Override which model the agent uses |
+
+**Examples:**
+
+```jsonc
+// Auto-restart when context runs out (default)
+"continue": true
+
+// Keep session alive with warnings only (no restart)
+"continue": false
+
+// Cap sessions at 30 minutes
+"max_session_minutes": 30
+
+// Disable skill routing (manual /skill invocation only)
+"skill_routing": false
+
+// Run skills without asking for confirmation
+"auto": true
+
+// Pin to a specific model
+"model": "opus"
+```
+
+#### Project commands
+
+| Setting | Values | Default | What it does |
+|---------|--------|---------|--------------|
+| `test_command` | shell command | `"python3 -m pytest tests/ -q"` | Command the toolkit runs to execute tests |
+| `lint_command` | shell command | `"python3 -m compileall -q ..."` | Command the toolkit runs to lint/check code |
+
+**Examples:**
+
+```jsonc
+// Node.js project
+"test_command": "npm test",
+"lint_command": "npm run lint"
+
+// Go project
+"test_command": "go test ./...",
+"lint_command": "golangci-lint run"
+
+// Rust project
+"test_command": "cargo test",
+"lint_command": "cargo clippy"
+
+// Python with coverage
+"test_command": "python3 -m pytest tests/ --cov=src -q",
+"lint_command": "ruff check ."
+```
+
+### Example: full config
+
+```json
+{
+  "enforcement": "block",
+  "profile": "standard",
+  "gate_mode": "legacy",
+  "eval_threshold": 95,
+  "tdd": true,
+  "tdd_mode": "remind",
+  "gate_protect": true,
+  "report_protect": true,
+  "mode": "normal",
+  "continue": true,
+  "max_session_minutes": 0,
+  "skill_routing": true,
+  "auto": false,
+  "model": "auto",
+  "test_command": "npm test",
+  "lint_command": "npm run lint"
+}
+```
+
+→ Full reference: [docs/configuration.md](docs/configuration.md) · Signed gates: [shared/gate-unlock.md](shared/gate-unlock.md)
 
 ---
 
