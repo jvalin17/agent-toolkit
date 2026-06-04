@@ -1,10 +1,14 @@
 #!/bin/bash
 # agent-toolkit-continue — Session continuation wrapper for Claude Code
 # Launches auto_continue.py which manages session lifecycle:
-# detect context exhaustion, write HANDOFF.md, relaunch.
+# detect context exhaustion, write HANDOFF.md, relaunch in the same terminal.
+#
+# Runs INTERACTIVE by default (you get a normal claude terminal).
+# Add --headless for non-interactive (claude -p) mode.
 #
 # Usage:
-#   agent-toolkit-continue "Build auth system"
+#   agent-toolkit-continue "Build auth system"           # interactive
+#   agent-toolkit-continue --headless "Build auth system" # headless
 #   agent-toolkit-continue --max-budget-usd 5.00 "Build auth system"
 #   agent-toolkit-continue --dry-run "Build auth system"
 #   agent-toolkit-continue  # resume from existing HANDOFF.md

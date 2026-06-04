@@ -39,11 +39,13 @@ class AutoContinue:
         project_dir: Path,
         dry_run: bool = False,
         model: Optional[str] = None,
+        headless: bool = False,
     ):
         self.goal = goal
         self.max_budget = max_budget
         self.project_dir = project_dir
         self.dry_run = dry_run
+        self.headless = headless
         self.handoff_file = project_dir / "HANDOFF.md"
         self.history_log = project_dir / "handoff-history.log"
         self.session_count = 0
@@ -127,17 +129,22 @@ class AutoContinue:
         )
 
     def _launch_session(self, prompt: str) -> int:
-        """Launch a Claude Code session in headless mode. Returns process exit code.
+        """Launch a Claude Code session. Returns process exit code.
 
-        Uses `claude -p` (print mode) which runs non-interactively.
-        --dangerously-skip-permissions allows autonomous file operations.
-        --max-budget-usd caps spend per session.
+        Headless mode: `claude -p` (non-interactive, JSON output).
+        Interactive mode: `claude --resume` or `claude` with initial prompt,
+        runs in the same terminal with full user interaction.
         """
-        cmd = [
-            "claude", "-p", prompt,
-            "--output-format", "json",
-            "--dangerously-skip-permissions",
-        ]
+        if self.headless:
+            cmd = [
+                "claude", "-p", prompt,
+                "--output-format", "json",
+                "--dangerously-skip-permissions",
+            ]
+        else:
+            # Interactive: launch claude normally, let user interact
+            # First session uses --init-prompt, continuations use --resume
+            cmd = ["claude", "--init-prompt", prompt]
 
         if self.model and self.model != "auto":
             cmd.extend(["--model", self.model])
@@ -258,6 +265,12 @@ def parse_args(argv: Optional[list] = None) -> argparse.Namespace:
         default=None,
         help="Model to use (overrides gates.json). 'auto' = no override.",
     )
+    parser.add_argument(
+        "--headless",
+        action="store_true",
+        default=False,
+        help="Run in headless mode (claude -p). Default is interactive.",
+    )
     return parser.parse_args(argv)
 
 
@@ -270,6 +283,7 @@ def main() -> int:
         project_dir=Path(args.project_dir).resolve(),
         dry_run=args.dry_run,
         model=args.model,
+        headless=args.headless,
     )
     return runner.run()
 

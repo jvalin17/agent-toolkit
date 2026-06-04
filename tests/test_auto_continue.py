@@ -196,7 +196,25 @@ class TestLogHistory:
 
 
 class TestLaunchSession:
-    def test_uses_claude_p(self, runner):
+    def test_interactive_uses_init_prompt(self, runner):
+        """Default (interactive) mode uses --init-prompt, not -p."""
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            runner._launch_session("test prompt")
+
+        cmd = mock_run.call_args[0][0]
+        assert "claude" in cmd
+        assert "--init-prompt" in cmd
+        assert "test prompt" in cmd
+
+    def test_headless_uses_claude_p(self, project_dir):
+        """Headless mode uses claude -p with JSON output."""
+        runner = AutoContinue(
+            goal="Build it",
+            max_budget=None,
+            project_dir=project_dir,
+            headless=True,
+        )
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0)
             runner._launch_session("test prompt")
@@ -204,6 +222,7 @@ class TestLaunchSession:
         cmd = mock_run.call_args[0][0]
         assert "claude" in cmd
         assert "-p" in cmd
+        assert "--output-format" in cmd
         assert "test prompt" in cmd
 
     def test_budget_passthrough(self, project_dir):

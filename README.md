@@ -36,7 +36,14 @@ cd /path/to/your-project && claude        # hooks inject context; look for "AGEN
 
 Natural language works: *"fix the login bug"* routes to `/debug`. Chain hands-off: `/requirements auto my-app`.
 
-**Auto-continuation** is on by default (`"continue": true` in `gates.json`). When context is exhausted, the hook writes `HANDOFF.md` and automatically relaunches a fresh session. No wrapper needed. Set `"continue": false` to disable (session will warn but keep running).
+**Auto-continuation** — when context is exhausted, the session hands off via `HANDOFF.md` and restarts. Two ways to use it:
+
+```bash
+agent-toolkit-continue "Build auth system"   # interactive — restarts in same terminal
+claude-auto "Build auth system"              # headless — for CI/background tasks
+```
+
+Or set `"continue": true` in `gates.json` for in-hook restart (headless only). Set `"continue": false` to disable (session will warn but keep running).
 
 Install details & updates: [docs/install-and-updates.md](docs/install-and-updates.md)
 
@@ -277,7 +284,7 @@ agent-toolkit-setup --tdd off     # toggle one setting
 
 | Feature | Doc |
 |---------|-----|
-| Auto-continuation (long tasks) | [architecture/auto-continuation.md](architecture/auto-continuation.md) |
+| Auto-continuation (long tasks) | `agent-toolkit-continue` (interactive) / `claude-auto` (headless) · [architecture/auto-continuation.md](architecture/auto-continuation.md) |
 | TDD strict mode | `"tdd_mode": "strict"` in `gates.json` — blocks source edits until tests exist |
 | Strict mode (anti-fake) | [shared/strict-mode.md](shared/strict-mode.md) |
 | Signed gates (teams / CI) | [shared/gate-unlock.md](shared/gate-unlock.md) |
