@@ -36,7 +36,7 @@ cd /path/to/your-project && claude        # hooks inject context; look for "AGEN
 
 Natural language works: *"fix the login bug"* routes to `/debug`. Chain hands-off: `/requirements auto my-app`.
 
-**Auto-continuation** — when context is exhausted, the session hands off via `HANDOFF.md` and restarts. Two ways to use it:
+**Auto-continuation** — sessions use a two-layer limit: at 70 min a breadcrumb is saved to `HANDOFF.md` (session continues); at 200 min (or first compaction) a hard stop fires with a restart prompt. Two ways to run long tasks:
 
 ```bash
 agent-toolkit-continue "Build auth system"   # interactive — restarts in same terminal
@@ -181,23 +181,32 @@ agent-toolkit-setup --tdd off     # toggle one setting
 
 | Setting | Values | Default | What it does |
 |---------|--------|---------|--------------|
-| `continue` | `true` / `false` | `true` | Auto-restart session when context is exhausted |
-| `max_session_minutes` | `0`+ | `0` | Time limit per session in minutes; `0` = unlimited |
+| `compact_at_minutes` | `0`+ | `70` | Layer 1: write HANDOFF.md breadcrumb at this time; session continues |
+| `max_session_minutes` | `0`+ | `200` | Layer 2: hard stop — session ends with restart prompt |
+| `continue` | `true` / `false` | `true` | Auto-restart session when context is exhausted (headless) |
 | `skill_routing` | `true` / `false` | `true` | Auto-detect user intent and route to the matching skill |
 | `auto` | `true` / `false` | `false` | Run skills in auto mode (no confirmation prompts) |
 | `model` | `auto` / model name | `auto` | Override which model the agent uses |
 
+Sessions use a **two-layer** limit system. Layer 1 (`compact_at_minutes`) writes HANDOFF.md as a breadcrumb so the agent can re-orient after compaction — the session keeps running. Layer 2 (`max_session_minutes`, or 1 compaction, or 700KB output) is a hard stop that writes HANDOFF.md with a restart prompt you can paste into a new session.
+
 **Examples:**
 
 ```jsonc
-// Auto-restart when context runs out (default)
+// Two-layer defaults: breadcrumb at 70 min, hard stop at 200 min
+"compact_at_minutes": 70, "max_session_minutes": 200
+
+// Shorter sessions (e.g. for cost control)
+"compact_at_minutes": 30, "max_session_minutes": 60
+
+// Disable Layer 1 breadcrumb (only hard stop at 200 min)
+"compact_at_minutes": 0
+
+// Auto-restart when context runs out (headless mode)
 "continue": true
 
 // Keep session alive with warnings only (no restart)
 "continue": false
-
-// Cap sessions at 30 minutes
-"max_session_minutes": 30
 
 // Disable skill routing (manual /skill invocation only)
 "skill_routing": false
@@ -250,7 +259,8 @@ agent-toolkit-setup --tdd off     # toggle one setting
   "report_protect": true,
   "mode": "normal",
   "continue": true,
-  "max_session_minutes": 0,
+  "compact_at_minutes": 70,
+  "max_session_minutes": 200,
   "skill_routing": true,
   "auto": false,
   "model": "auto",
