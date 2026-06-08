@@ -28,6 +28,7 @@ from session_monitor import (
     HARD_THRESHOLD_BYTES,
     WARN_THRESHOLD_BYTES,
     SessionState,
+    check_compact_threshold,
     check_gates_blocked,
     check_reports_blocked,
     check_session_blocked,
@@ -142,7 +143,8 @@ class TestThresholds:
         assert triggered is False
         assert reason == ""
 
-    def test_compaction_triggers_immediately(self, fresh_state):
+    def test_single_compaction_triggers(self, fresh_state):
+        """One compaction triggers hard stop — restart required."""
         fresh_state.compactions = 1
         triggered, reason = check_thresholds(fresh_state)
         assert triggered is True
@@ -538,8 +540,8 @@ class TestHandlePreToolUse:
         assert blocked is True
         assert "G-SESSION-1" in response
 
-    def test_warns_on_threshold_no_stop(self):
-        """Threshold hit warns but does NOT stop the session."""
+    def test_hard_stop_on_byte_threshold(self):
+        """Byte threshold hit triggers hard stop (Layer 2)."""
         state = SessionState(
             session_start=int(time.time()),
             cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
@@ -548,16 +550,16 @@ class TestHandlePreToolUse:
         result_state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="", command=""
         )
-        assert result_state.stopped == 0
-        assert result_state.warned is True
+        assert result_state.stopped == 2
         assert blocked is False
-        assert "limit" in response.lower()
+        assert "hard stop" in response.lower()
 
-    def test_warns_only_once(self):
-        """After first warning, no repeated warnings."""
+    def test_hard_stop_fires_only_once(self):
+        """After hard stop, no repeated messages."""
         state = SessionState(
             session_start=int(time.time()),
             cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
+            stopped=2,
             warned=True,
         )
         result_state, response, blocked = handle_pre_tool_use(
@@ -1299,9 +1301,8 @@ class TestAutoHandoffWiring:
         # Handoff should NOT be rewritten
         assert handoff_path.read_text() == original_content
 
-    def test_byte_limit_no_handoff_without_continue(self, tmp_path, monkeypatch):
-        """Without continue_mode, byte limit warns but does NOT write handoff."""
-        handoff_path = tmp_path / "HANDOFF.md"
+    def test_byte_limit_writes_handoff_regardless_of_continue(self, tmp_path, monkeypatch):
+        """Byte limit hard stop always writes HANDOFF.md (Layer 2)."""
         monkeypatch.chdir(tmp_path)
 
         state = SessionState(
@@ -1313,7 +1314,8 @@ class TestAutoHandoffWiring:
             state, tool_name="Read", file_path="foo.py", command=""
         )
         assert blocked is False
-        assert not handoff_path.exists()
+        assert (tmp_path / "HANDOFF.md").exists()
+        assert "hard stop" in response.lower()
 
     def test_byte_limit_writes_handoff_with_continue(self, tmp_path, monkeypatch):
         """With continue_mode, byte limit writes HANDOFF.md and launches new session."""
@@ -1333,72 +1335,74 @@ class TestAutoHandoffWiring:
         assert "new session" in response.lower() or "launched" in response.lower()
 
 
-# --- Time-based session limit (F1) ---
+# --- Time-based session limit (two-layer: compact_at + max_session) ---
 
-DEFAULT_MAX_SESSION_MINUTES = 0
+DEFAULT_COMPACT_AT_MINUTES = 70
+DEFAULT_MAX_SESSION_MINUTES = 200
 
 
 class TestTimeLimitInCheckThresholds:
-    """F1: check_thresholds detects elapsed time exceeding max_session_minutes."""
+    """F1: Two-layer time limits — compact_at (Layer 1) and max_session (Layer 2)."""
 
-    def test_time_limit_triggers_at_70_minutes(self):
-        """Session running for 70+ min triggers hard stop."""
+    def test_hard_stop_at_200_minutes(self):
+        """Session running for 200+ min triggers hard stop (Layer 2)."""
         now = int(time.time())
         state = SessionState(
-            session_start=now - (70 * 60 + 1),  # 70 min 1 sec ago
-            max_session_minutes=70,
+            session_start=now - (201 * 60),
+            max_session_minutes=200,
         )
         triggered, reason = check_thresholds(state)
         assert triggered is True
-        assert "70" in reason or "time" in reason.lower()
+        assert "200" in reason or "time" in reason.lower()
 
-    def test_time_limit_does_not_trigger_before_70_minutes(self):
-        """Session under 70 min does not trigger."""
+    def test_no_hard_stop_before_200_minutes(self):
+        """Session under 200 min does not hard-stop."""
         now = int(time.time())
         state = SessionState(
-            session_start=now - (69 * 60),  # 69 min ago
-            max_session_minutes=70,
+            session_start=now - (199 * 60),
+            max_session_minutes=200,
         )
         triggered, reason = check_thresholds(state)
         assert triggered is False
 
-    def test_time_limit_configurable(self):
+    def test_max_session_minutes_configurable(self):
         """max_session_minutes can be set to custom value."""
         now = int(time.time())
         state = SessionState(
-            session_start=now - (31 * 60),  # 31 min ago
+            session_start=now - (31 * 60),
             max_session_minutes=30,
         )
         triggered, reason = check_thresholds(state)
         assert triggered is True
 
-    def test_time_limit_priority_after_compaction(self):
-        """Compaction still takes priority over time."""
+    def test_compaction_takes_priority_over_time(self):
+        """Compaction takes priority over time."""
         now = int(time.time())
         state = SessionState(
-            session_start=now - (80 * 60),
-            max_session_minutes=70,
+            session_start=now - (201 * 60),
+            max_session_minutes=200,
             compactions=1,
         )
         triggered, reason = check_thresholds(state)
         assert triggered is True
-        assert "compacted" in reason.lower()
+        assert "compact" in reason.lower()
 
     def test_time_limit_priority_before_bytes(self):
         """Time triggers before bytes threshold."""
         now = int(time.time())
         state = SessionState(
-            session_start=now - (71 * 60),
-            max_session_minutes=70,
+            session_start=now - (201 * 60),
+            max_session_minutes=200,
             cumulative_output_bytes=HARD_THRESHOLD_BYTES + 1,
         )
         triggered, reason = check_thresholds(state)
         assert triggered is True
         assert "time" in reason.lower() or "minute" in reason.lower()
 
-    def test_default_max_session_minutes_is_70(self):
-        """Default value for max_session_minutes is 70."""
+    def test_defaults(self):
+        """Default values for two-layer time limits."""
         state = SessionState(session_start=1000)
+        assert state.compact_at_minutes == DEFAULT_COMPACT_AT_MINUTES
         assert state.max_session_minutes == DEFAULT_MAX_SESSION_MINUTES
 
 
@@ -1499,29 +1503,32 @@ class TestLaunchNewSession:
         mock_launch.assert_not_called()
 
 
-class TestTimeLimitWarnsOnly:
-    """Time limits warn but never stop the session."""
+class TestCompactAtLayer1:
+    """Layer 1 (compact_at_minutes) writes breadcrumb but does NOT stop."""
 
-    def test_time_limit_warns_no_stop(self, tmp_path, monkeypatch):
+    def test_compact_at_writes_breadcrumb_no_stop(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         now = int(time.time())
         state = SessionState(
             session_start=now - (71 * 60),
-            max_session_minutes=70,
+            compact_at_minutes=70,
+            max_session_minutes=200,
         )
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Read", file_path="foo.py", command=""
         )
         assert state.stopped == 0
         assert blocked is False
-        assert "limit" in response.lower()
+        assert "checkpoint" in response.lower()
+        assert (tmp_path / "HANDOFF.md").exists()
 
-    def test_time_limit_warns_once(self, tmp_path, monkeypatch):
+    def test_compact_at_warns_once(self, tmp_path, monkeypatch):
         monkeypatch.chdir(tmp_path)
         now = int(time.time())
         state = SessionState(
             session_start=now - (71 * 60),
-            max_session_minutes=70,
+            compact_at_minutes=70,
+            max_session_minutes=200,
             warned=True,
         )
         state, response, blocked = handle_pre_tool_use(

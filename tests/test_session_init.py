@@ -362,7 +362,8 @@ class TestLoadSessionConfig:
         """If gates.json doesn't exist, return defaults."""
         config = load_session_config(project_dir)
         assert config["mode"] == "normal"
-        assert config["max_session_minutes"] == 0
+        assert config["compact_at_minutes"] == 70
+        assert config["max_session_minutes"] == 200
         assert config["tdd"] is True
         assert config["skill_routing"] is True
         assert config["model"] == "auto"

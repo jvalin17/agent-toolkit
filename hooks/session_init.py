@@ -53,7 +53,8 @@ def load_session_config(project_dir: Path) -> dict:
     config = load_gate_config(project_dir)
     return {
         "mode": get_config_value(config, "mode", "normal"),
-        "max_session_minutes": get_config_value(config, "max_session_minutes", 0),
+        "compact_at_minutes": get_config_value(config, "compact_at_minutes", 70),
+        "max_session_minutes": get_config_value(config, "max_session_minutes", 200),
         "tdd": get_config_value(config, "tdd", True),
         "skill_routing": get_config_value(config, "skill_routing", True),
         "auto": get_config_value(config, "auto", False),
@@ -102,7 +103,8 @@ def scan_project_files(project_dir: Path) -> Tuple[List[str], int]:
 def init_session_state(
     session_dir: Path,
     mode: str = "normal",
-    max_session_minutes: int = 0,
+    compact_at_minutes: int = 70,
+    max_session_minutes: int = 200,
     gate_protect: bool = True,
     report_protect: bool = True,
     continue_mode: bool = False,
@@ -112,6 +114,7 @@ def init_session_state(
     state = SessionState(
         session_start=int(time.time()),
         mode=mode,
+        compact_at_minutes=compact_at_minutes,
         max_session_minutes=max_session_minutes,
         gate_protect=gate_protect,
         report_protect=report_protect,
@@ -290,7 +293,8 @@ def build_context(
         cfg_items = [
             f"tdd={session_config.get('tdd', True)}",
             f"skill_routing={session_config.get('skill_routing', True)}",
-            f"max_session_minutes={session_config.get('max_session_minutes', 0)}",
+            f"compact_at_minutes={session_config.get('compact_at_minutes', 70)}",
+            f"max_session_minutes={session_config.get('max_session_minutes', 200)}",
             f"model={session_config.get('model', 'auto')}",
             f"gate_protect={session_config.get('gate_protect', True)}",
             f"report_protect={session_config.get('report_protect', True)}",
@@ -444,6 +448,7 @@ def main() -> int:
     init_session_state(
         session_dir,
         mode=mode,
+        compact_at_minutes=session_config["compact_at_minutes"],
         max_session_minutes=session_config["max_session_minutes"],
         gate_protect=session_config["gate_protect"],
         report_protect=session_config["report_protect"],
