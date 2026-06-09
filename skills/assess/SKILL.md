@@ -187,7 +187,7 @@ passes only when `fix_now` is 0 and mechanical test/lint re-runs pass.
 Then run:
 
 ```
-python3 hooks/finalize_report.py assess .scratch/assess_<slug>/findings.json
+python3 /Users/jvalin/dev/st5/agent-toolkit/hooks/finalize_report.py assess .scratch/assess_<slug>/findings.json
 ```
 
 The hook writes `reports/assess/assess_<slug>_<id>.md` and prints a JSON

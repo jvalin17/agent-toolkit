@@ -125,7 +125,7 @@ Findings schema (all keys required):
 Then run:
 
 ```
-python3 hooks/finalize_report.py precommit .scratch/precommit_<slug>/findings.json
+python3 /Users/jvalin/dev/st5/agent-toolkit/hooks/finalize_report.py precommit .scratch/precommit_<slug>/findings.json
 ```
 
 The hook re-runs `test_command` and `lint_command` from `gates.json` itself —

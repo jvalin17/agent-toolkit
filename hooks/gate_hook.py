@@ -68,7 +68,7 @@ def load_gate_config(project_dir: Path) -> dict:
                 return json.loads(candidate.read_text(encoding="utf-8"))
             except (json.JSONDecodeError, OSError):
                 pass
-    return {"enforcement": "block", "gate_mode": "legacy"}
+    return {"enforcement": "block", "gate_mode": "legacy", "_no_config": True}
 
 
 def get_config_value(config: dict, key: str, default=None):
@@ -325,6 +325,8 @@ def run_gate(
         return 0, ""
 
     config = load_gate_config(project_dir)
+    if config.get("_no_config"):
+        return 0, ""  # No gates.json — not a toolkit-managed project
     gate_mode = config.get("gate_mode", "legacy")
     enforcement = resolve_enforcement(
         config.get("enforcement", "block"),
