@@ -302,6 +302,34 @@ Sessions use a **two-layer** limit system. Layer 1 (`compact_at_minutes`) writes
 
 ---
 
+## Troubleshooting
+
+### `finalize_report.py: No such file or directory`
+
+The skill tried to run `finalize_report.py` using a relative path from a different project directory. Ensure the skill SKILL.md files use the absolute path:
+
+```bash
+python3 /path/to/agent-toolkit/hooks/finalize_report.py <skill> .scratch/<skill>_<slug>/findings.json
+```
+
+### `BLOCKED: git commit requires precommit skill`
+
+The gate hook blocks commits when no `gates.json` is found, assuming the project is toolkit-managed. Two fixes:
+
+1. **Upgrade the toolkit** — the latest gate hook skips enforcement for repos without `gates.json`
+2. **Temporary bypass** — set the env var before your commit:
+   ```bash
+   AGENT_TOOLKIT_ENFORCEMENT=warn git commit -m "your message"
+   ```
+
+### `Run install.sh in project root`
+
+The legacy fallback triggers when `gates.json` exists but has no `commit_requires`. Either:
+- Add `"commit_requires": ["precommit"]` to `gates.json` and run `/precommit`
+- Or remove `gates.json` to opt out of gating entirely
+
+---
+
 ## Contributing
 
 PRs welcome. Open an issue with battle-tested patterns or bugs you caught.
