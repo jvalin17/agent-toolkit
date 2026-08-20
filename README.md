@@ -2,7 +2,34 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-Make any AI coding agent build production-quality software. 19 specialized roles, 13 skills, quality gates, and guardrails — works with **Claude Code, Cursor, Gemini, Codex, Windsurf, Aider**, or any AI tool.
+Describe what you want in plain English. The toolkit's 19 specialized roles handle requirements, architecture, implementation, testing, security, and deployment — automatically.
+
+```
+"Build a price comparison app for my inventory"
+"Add real-time notifications to my dashboard"
+"Migrate this PHP app to Node.js"
+```
+
+Works with **Claude Code, Cursor, Gemini, Codex, Windsurf, Aider**, or any AI tool.
+
+---
+
+## What happens when you say "Build a price comparison app"
+
+```
+1. Requirements Engineer    → gathers specs, tracks what needs building
+2. System Architect         → designs API + database + frontend approach
+3. Research Engineer        → compares frameworks, picks best tools with evidence
+4. Backend Engineer         → builds API with validation, pagination, caching
+5. Frontend Engineer        → builds UI with lazy loading, no heavy computation on load
+6. DBA                      → designs schema with indexes, cursor pagination
+7. Security Engineer        → input validation, auth, no secrets in code
+8. QA Engineer              → writes test suite, edge cases, E2E flows
+9. Production Engineer      → runs the app, verifies everything works
+10. /precommit              → role quality checks block bad code from committing
+```
+
+All automatic. 19 roles with domain knowledge learned from 95+ production repos.
 
 ---
 
@@ -14,7 +41,7 @@ Make any AI coding agent build production-quality software. 19 specialized roles
 curl -s https://raw.githubusercontent.com/jvalin17/agent-toolkit/main/setup.sh | bash
 ```
 
-**Claude Code** — full experience with enforcement:
+**Claude Code** — full experience with auto mode:
 
 ```bash
 git clone https://github.com/jvalin17/agent-toolkit.git
@@ -22,13 +49,15 @@ cd agent-toolkit && ./install.sh
 cd /path/to/your-project && claude
 ```
 
-Then just talk to your AI:
+**Auto mode** — builds entire features hands-free:
 
-```
-"Build a login page with email and password"
-"Fix the slow database query"
-"Add a REST API for user profiles"
-"Review this code for security issues"
+```bash
+# In gates.json, set:
+{ "auto": true }
+
+# Then just describe what you want:
+"Build a price comparison feature for utensils in my inventory"
+# → requirements → architecture → implementation → testing → verification
 ```
 
 Roles activate automatically — no configuration needed.
