@@ -79,6 +79,28 @@ def get_session_skill_usage() -> Dict[str, Any]:
         except (json.JSONDecodeError, TypeError, KeyError):
             pass
 
+    # Check Agent model usage
+    agents = []
+    agents_without_model = 0
+    for line in log_path.read_text(errors="ignore").split("\n"):
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+            msg = entry.get("message", {})
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                for block in content:
+                    if block.get("type") == "tool_use" and block.get("name") == "Agent":
+                        inp = block.get("input", {})
+                        model = inp.get("model", "")
+                        desc = inp.get("description", "?")
+                        agents.append({"description": desc, "model": model or "NOT SET"})
+                        if not model:
+                            agents_without_model += 1
+        except (json.JSONDecodeError, TypeError, KeyError):
+            pass
+
     return {
         "available": True,
         "session_id": log_path.stem,
@@ -86,6 +108,9 @@ def get_session_skill_usage() -> Dict[str, Any]:
         "skills": skills,
         "skill_count": len(skills),
         "precommit_called": "precommit" in skills,
+        "agents": agents,
+        "agents_without_model": agents_without_model,
+        "taxonomy_violations": agents_without_model,
     }
 
 # Patterns that indicate real evidence (command output, file references)

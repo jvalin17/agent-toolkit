@@ -180,11 +180,19 @@ Include the result in findings under `"session_audit"`:
 "session_audit": {
   "skills_invoked": ["/requirements", "/implementation", "/precommit"],
   "precommit_called": true,
-  "tool_calls": {"Bash": 45, "Edit": 22, "Read": 18, "Skill": 3}
+  "tool_calls": {"Bash": 45, "Edit": 22, "Read": 18, "Skill": 3},
+  "agents_without_model": 0,
+  "taxonomy_violations": 0
 }
 ```
 
-This is read from Claude Code's JSONL log — the agent cannot fake it. If the agent claims it ran `/reviewer` but the audit shows no Skill call for "reviewer", flag it.
+This is read from Claude Code's JSONL log — the agent cannot fake it.
+
+**Flag these:**
+- Agent claims it ran `/reviewer` but audit shows no Skill call → **faked**
+- Agents spawned without `model` parameter → **taxonomy violation**
+- Expensive model (opus/fable) used for file search/lint → **waste**
+- Cheap model (haiku) used for architecture/security → **risk**
 
 ## Step 5f: Compliance Summary
 
