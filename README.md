@@ -29,7 +29,9 @@ Works with **Claude Code, Cursor, Gemini, Codex, Windsurf, Aider**, or any AI to
 10. /precommit              → role quality checks block bad code from committing
 ```
 
-All automatic. 19 roles with domain knowledge learned from 95+ production repos.
+All automatic. 19 roles with two layers of knowledge:
+- **Foundational** — SOLID, DDD, Clean Architecture, DDIA, GoF patterns, OWASP
+- **Practical** — patterns from 95+ production repos (NestJS, Signal, PostHog, Kubernetes, etc.)
 
 ---
 
@@ -97,7 +99,9 @@ You commit
 | **Cross-cutting** | Security, Production, QA, Architect, Code Health, Requirements, Research |
 | **Specialized** | Game Dev, Embedded/IoT, Legal & Compliance |
 
-Each role has domain knowledge learned from 95+ production open-source repos (NestJS, FastAPI, Signal, cal.com, PostHog, Kubernetes, etc.).
+Each role has two layers of knowledge:
+- **Foundational** — SOLID, DDD, GoF design patterns, Clean Architecture, DDIA, OWASP, 12-Factor App
+- **Practical** — patterns from 95+ production repos (NestJS, FastAPI, Signal, cal.com, PostHog, Kubernetes)
 
 ### 13 Skills
 
@@ -120,6 +124,15 @@ Each role has domain knowledge learned from 95+ production open-source repos (Ne
 ### Quality gates
 
 Code can't be committed unless it passes role quality checks. Security violations are hard blocks. The agent cannot fake gate results — hooks enforce this.
+
+### Model routing
+
+Agents automatically use the right model for the right task:
+- **Haiku** — file search, linting, formatting (cheapest)
+- **Sonnet** — code generation, bug fixes, testing (workhorse)
+- **Opus/Fable** — architecture, security, complex debugging (deep reasoning)
+
+Taxonomy enforcement hook warns on clear mismatches (opus for lint = waste, haiku for architecture = risk). Session audit tracks model usage at precommit.
 
 → [All 19 roles](roles/ROLES-FINAL.md) · [Architecture](architecture/role-context-layer.md) · [Skills reference](docs/skills.md)
 
@@ -155,8 +168,10 @@ Override roles:
 |---------|---------|
 | Study new repos | `python3 roles/learn.py --role backend --repo <url>` |
 | Study blog posts | `python3 roles/learn.py --role frontend --url <url>` |
-| Bootstrap all knowledge | `bash roles/bootstrap.sh` (~$14, ~45 min) |
+| Bootstrap repo knowledge | `bash roles/bootstrap.sh` (~$14, ~45 min) |
+| Bootstrap book knowledge | `bash roles/bootstrap-books.sh` (~$7) |
 | Filter knowledge | `python3 roles/learn.py --filter --role all` |
+| Session audit | `python3 roles/audit.py` — verify what agent actually did |
 | Auto-continuation | `agent-toolkit-continue "Build auth system"` |
 | TDD strict mode | `"tdd_mode": "strict"` in gates.json |
 | Signed gates (CI/CD) | [shared/gate-unlock.md](shared/gate-unlock.md) |
