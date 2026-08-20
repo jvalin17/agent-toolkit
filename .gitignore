@@ -33,3 +33,4 @@ memory/
 # Individual knowledge files are local only (regenerate with learn.py)
 roles/*/knowledge/
 roles/.learn-cache/
+roles/conversation-prompts.md
