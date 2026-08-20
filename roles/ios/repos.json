@@ -1,0 +1,7 @@
+[
+  {"name": "signal-ios", "url": "https://github.com/signalapp/Signal-iOS", "why": "Production iOS — encryption, Keychain, push notifications, Rust FFI"},
+  {"name": "wikipedia-ios", "url": "https://github.com/wikimedia/wikipedia-ios", "why": "Production iOS — offline support, accessibility, hybrid WebView, i18n"},
+  {"name": "firefox-ios", "url": "https://github.com/mozilla-mobile/firefox-ios", "why": "Large Swift app — modular SPM, Redux pattern, SwiftUI migration"},
+  {"name": "composable-architecture", "url": "https://github.com/pointfreeco/swift-composable-architecture", "why": "Modern Swift architecture — state management, side effects, testing"},
+  {"name": "alamofire", "url": "https://github.com/Alamofire/Alamofire", "why": "Networking patterns — request/response handling, interceptors, retry"}
+]

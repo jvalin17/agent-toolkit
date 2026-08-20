@@ -1,0 +1,27 @@
+[
+  {
+    "name": "playwright-examples",
+    "url": "https://github.com/microsoft/playwright",
+    "why": "E2E testing framework — browser automation, assertions, test patterns"
+  },
+  {
+    "name": "cypress-realworld",
+    "url": "https://github.com/cypress-io/cypress-realworld-app",
+    "why": "Real-world E2E testing — full app test suite, CI integration, data seeding"
+  },
+  {
+    "name": "posthog",
+    "url": "https://github.com/PostHog/posthog",
+    "why": "Production verification patterns — health checks, smoke tests, monitoring"
+  },
+  {
+    "name": "appflowy",
+    "url": "https://github.com/AppFlowy-IO/AppFlowy",
+    "why": "Cross-platform verification — desktop + mobile + web testing patterns"
+  },
+  {
+    "name": "mattermost",
+    "url": "https://github.com/mattermost/mattermost",
+    "why": "Enterprise app — load testing, API verification, real-time testing"
+  }
+]

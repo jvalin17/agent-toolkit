@@ -32,6 +32,8 @@ Each dimension is scored 0-100%. The overall score is a weighted average.
 | **Test Quality** | 15% | Meaningful tests? Realistic data? Coverage of edge cases? |
 | **Efficiency** | 10% | No unnecessary complexity? Right tool for the scale? Dependencies lean? |
 
+If active roles are in session context, include their quality checks in the relevant dimensions (e.g., frontend checks in Code Quality, security role checks in Security). See manager principles.
+
 User can adjust weights if they care more about one dimension.
 
 ## Step 1: Source of Truth

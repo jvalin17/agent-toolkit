@@ -1,0 +1,30 @@
+[
+  {
+    "name": "eslint-eslint",
+    "url": "https://github.com/eslint/eslint",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:12:07.910621",
+    "knowledge_file": "eslint-eslint.md"
+  },
+  {
+    "name": "biomejs-biome",
+    "url": "https://github.com/biomejs/biome",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:13:30.036090",
+    "knowledge_file": "biomejs-biome.md"
+  },
+  {
+    "name": "openemr-openemr",
+    "url": "https://github.com/openemr/openemr",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:14:54.833776",
+    "knowledge_file": "openemr-openemr.md"
+  },
+  {
+    "name": "renovatebot-renovate",
+    "url": "https://github.com/renovatebot/renovate",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:16:13.490654",
+    "knowledge_file": "renovatebot-renovate.md"
+  }
+]

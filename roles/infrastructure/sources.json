@@ -1,0 +1,51 @@
+[
+  {
+    "name": "docker-awesome-compose",
+    "url": "https://github.com/docker/awesome-compose",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:00:33.740421",
+    "knowledge_file": "docker-awesome-compose.md"
+  },
+  {
+    "name": "go-gitea-gitea",
+    "url": "https://github.com/go-gitea/gitea",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:01:53.815279",
+    "knowledge_file": "go-gitea-gitea.md"
+  },
+  {
+    "name": "signoz-signoz",
+    "url": "https://github.com/SigNoz/signoz",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:03:11.961598",
+    "knowledge_file": "signoz-signoz.md"
+  },
+  {
+    "name": "crossplane-crossplane",
+    "url": "https://github.com/crossplane/crossplane",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:04:24.137649",
+    "knowledge_file": "crossplane-crossplane.md"
+  },
+  {
+    "name": "jellyfin-jellyfin",
+    "url": "https://github.com/jellyfin/jellyfin",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:05:39.764036",
+    "knowledge_file": "jellyfin-jellyfin.md"
+  },
+  {
+    "name": "tagged-chaos-engineering",
+    "url": "https://netflixtechblog.com/tagged/chaos-engineering",
+    "type": "url",
+    "studied_at": "2026-08-17T01:05:52.528462",
+    "knowledge_file": "tagged-chaos-engineering.md"
+  },
+  {
+    "name": "blog-cloudflare-com-workers",
+    "url": "https://blog.cloudflare.com/workers/",
+    "type": "url",
+    "studied_at": "2026-08-17T01:07:11.868088",
+    "knowledge_file": "blog-cloudflare-com-workers.md"
+  }
+]

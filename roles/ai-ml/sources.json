@@ -1,0 +1,51 @@
+[
+  {
+    "name": "langgenius-dify",
+    "url": "https://github.com/langgenius/dify",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:46:29.970125",
+    "knowledge_file": "langgenius-dify.md"
+  },
+  {
+    "name": "open-webui-open-webui",
+    "url": "https://github.com/open-webui/open-webui",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:47:47.641741",
+    "knowledge_file": "open-webui-open-webui.md"
+  },
+  {
+    "name": "mem0ai-mem0",
+    "url": "https://github.com/mem0ai/mem0",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:49:09.916177",
+    "knowledge_file": "mem0ai-mem0.md"
+  },
+  {
+    "name": "berriai-litellm",
+    "url": "https://github.com/BerriAI/litellm",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:50:35.496361",
+    "knowledge_file": "berriai-litellm.md"
+  },
+  {
+    "name": "ollama-ollama",
+    "url": "https://github.com/ollama/ollama",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:51:50.922383",
+    "knowledge_file": "ollama-ollama.md"
+  },
+  {
+    "name": "prompt-engineering-overview",
+    "url": "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview",
+    "type": "url",
+    "studied_at": "2026-08-17T01:53:01.492323",
+    "knowledge_file": "prompt-engineering-overview.md"
+  },
+  {
+    "name": "03-the-rise-and-lessons-learned-of-ml-models-to-personalize-content-on-home-part-i",
+    "url": "https://engineering.atspotify.com/2024/03/the-rise-and-lessons-learned-of-ml-models-to-personalize-content-on-home-part-i/",
+    "type": "url",
+    "studied_at": "2026-08-17T01:53:36.112971",
+    "knowledge_file": "03-the-rise-and-lessons-learned-of-ml-models-to-personalize-content-on-home-part-i.md"
+  }
+]

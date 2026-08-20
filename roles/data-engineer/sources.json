@@ -1,0 +1,37 @@
+[
+  {
+    "name": "dagster-io-dagster",
+    "url": "https://github.com/dagster-io/dagster",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:31:24.373348",
+    "knowledge_file": "dagster-io-dagster.md"
+  },
+  {
+    "name": "dbt-labs-dbt-core",
+    "url": "https://github.com/dbt-labs/dbt-core",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:32:42.335041",
+    "knowledge_file": "dbt-labs-dbt-core.md"
+  },
+  {
+    "name": "posthog-posthog",
+    "url": "https://github.com/PostHog/posthog",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:34:01.028413",
+    "knowledge_file": "posthog-posthog.md"
+  },
+  {
+    "name": "great-expectations-great_expectations",
+    "url": "https://github.com/great-expectations/great_expectations",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:35:24.494273",
+    "knowledge_file": "great-expectations-great_expectations.md"
+  },
+  {
+    "name": "airbytehq-airbyte",
+    "url": "https://github.com/airbytehq/airbyte",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:36:54.599581",
+    "knowledge_file": "airbytehq-airbyte.md"
+  }
+]

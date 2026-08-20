@@ -1,0 +1,37 @@
+[
+  {
+    "name": "scikit-learn-scikit-learn",
+    "url": "https://github.com/scikit-learn/scikit-learn",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:39:07.074569",
+    "knowledge_file": "scikit-learn-scikit-learn.md"
+  },
+  {
+    "name": "pandas-dev-pandas",
+    "url": "https://github.com/pandas-dev/pandas",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:40:20.925732",
+    "knowledge_file": "pandas-dev-pandas.md"
+  },
+  {
+    "name": "mwaskom-seaborn",
+    "url": "https://github.com/mwaskom/seaborn",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:41:33.637414",
+    "knowledge_file": "mwaskom-seaborn.md"
+  },
+  {
+    "name": "statsmodels-statsmodels",
+    "url": "https://github.com/statsmodels/statsmodels",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:43:04.049148",
+    "knowledge_file": "statsmodels-statsmodels.md"
+  },
+  {
+    "name": "evidentlyai-evidently",
+    "url": "https://github.com/evidentlyai/evidently",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:44:22.750806",
+    "knowledge_file": "evidentlyai-evidently.md"
+  }
+]

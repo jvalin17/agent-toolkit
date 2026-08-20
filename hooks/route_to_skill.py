@@ -12,7 +12,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 # Ensure sibling modules are importable regardless of CWD
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -201,6 +201,38 @@ def make_hook_response(message: str) -> str:
     )
 
 
+def _get_role_advisory(project_dir: Path, config: dict) -> str:
+    """Load role advisory context for the current project. Fails silently."""
+    try:
+        # Add roles/ to path for import
+        roles_path = Path(__file__).resolve().parent.parent / "roles"
+        if str(roles_path) not in sys.path:
+            sys.path.insert(0, str(roles_path))
+
+        from detect_role import detect_roles, load_role_context
+
+        config_roles = get_config_value(config, "roles", None)
+        config_add = get_config_value(config, "roles_add", None)
+        config_exclude = get_config_value(config, "roles_exclude", None)
+        max_roles = get_config_value(config, "roles_max", 4)
+
+        detected = detect_roles(
+            project_dir,
+            config_roles=config_roles,
+            config_add=config_add,
+            config_exclude=config_exclude,
+            max_roles=max_roles,
+        )
+        if not detected:
+            return ""
+
+        role_names = [r["name"] for r in detected]
+        return load_role_context(role_names, roles_dir=roles_path,
+                                 max_roles=max_roles)
+    except Exception:
+        return ""
+
+
 def run_route_to_skill(
     stdin_input: str,
     project_dir: Path,
@@ -228,6 +260,12 @@ def run_route_to_skill(
         return 0, ""
 
     context = SKILL_CONTEXTS[intent]
+
+    # Append role context if roles are detected
+    role_advisory = _get_role_advisory(project_dir, config)
+    if role_advisory:
+        context = context + "\n\n" + role_advisory
+
     return 0, make_hook_response(context)
 
 

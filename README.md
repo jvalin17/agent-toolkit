@@ -14,6 +14,7 @@ Skills, guardrails, and structural hooks for AI coding agents. Plan, build, test
 | Piece | Purpose |
 |-------|---------|
 | **Skills** | Step-by-step workflows — `/explore`, `/implementation`, `/precommit`, … |
+| **Roles** | 19 specialized agents with domain knowledge learned from 95+ open-source repos |
 | **Guardrails** | Safety and quality rules ([`shared/guardrails.md`](shared/guardrails.md)) |
 | **Hooks** | Structural enforcement on Claude Code — block bad writes, gate commits, route skills |
 
@@ -79,6 +80,43 @@ With defaults, only the hook writes `reports/` and `.gates/` — the agent canno
 | `/evaluate` | Quality score (push gate) |
 
 All 13 skills: [docs/skills.md](docs/skills.md)
+
+---
+
+## Roles
+
+19 specialized roles auto-detect from your project and inject domain expertise into every skill. Roles provide the **knowledge**, skills provide the **workflow**.
+
+| Category | Roles |
+|----------|-------|
+| **Core** | Backend, Frontend |
+| **Mobile** | iOS, Android |
+| **Data** | DBA, Data Engineer, Data Scientist |
+| **AI/ML** | AI/ML Engineer |
+| **Infrastructure** | Infrastructure Engineer |
+| **Cross-cutting** | Security, Production, QA, System Architect, Code Health, Requirements, Research |
+| **Specialized** | Game Dev, Embedded/IoT |
+| **Compliance** | Legal & Compliance |
+
+**Auto-detection:** Roles activate based on project signals (e.g., `package.json` + React → Frontend, `Podfile` → iOS, `Dockerfile` → Infrastructure). Override in `gates.json`:
+
+```json
+{
+  "roles": ["backend", "frontend", "dba"],
+  "roles_add": ["security"],
+  "roles_exclude": ["infrastructure"]
+}
+```
+
+**Knowledge:** Each role has pre-learned knowledge from production open-source repos (NestJS, FastAPI, Signal, cal.com, PostHog, etc.). Bootstrap your own:
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... bash roles/bootstrap.sh
+```
+
+**Manager guardrail:** 8 principles enforce quality, scope, risk awareness, and skill usage across all roles. Role quality checks are part of `/precommit` — code can't be committed if it violates active role checks.
+
+→ Architecture: [`architecture/role-context-layer.md`](architecture/role-context-layer.md) · Roles: [`roles/ROLES-FINAL.md`](roles/ROLES-FINAL.md)
 
 ---
 

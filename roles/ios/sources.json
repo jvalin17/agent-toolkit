@@ -1,0 +1,37 @@
+[
+  {
+    "name": "signalapp-signal-ios",
+    "url": "https://github.com/signalapp/Signal-iOS",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:16:42.645657",
+    "knowledge_file": "signalapp-signal-ios.md"
+  },
+  {
+    "name": "wikimedia-wikipedia-ios",
+    "url": "https://github.com/wikimedia/wikipedia-ios",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:18:03.131385",
+    "knowledge_file": "wikimedia-wikipedia-ios.md"
+  },
+  {
+    "name": "mozilla-mobile-firefox-ios",
+    "url": "https://github.com/mozilla-mobile/firefox-ios",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:19:20.750477",
+    "knowledge_file": "mozilla-mobile-firefox-ios.md"
+  },
+  {
+    "name": "pointfreeco-swift-composable-architecture",
+    "url": "https://github.com/pointfreeco/swift-composable-architecture",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:20:40.070119",
+    "knowledge_file": "pointfreeco-swift-composable-architecture.md"
+  },
+  {
+    "name": "alamofire-alamofire",
+    "url": "https://github.com/Alamofire/Alamofire",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:21:49.488779",
+    "knowledge_file": "alamofire-alamofire.md"
+  }
+]

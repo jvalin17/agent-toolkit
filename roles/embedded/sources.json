@@ -1,0 +1,37 @@
+[
+  {
+    "name": "home-assistant-core",
+    "url": "https://github.com/home-assistant/core",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:38:53.588194",
+    "knowledge_file": "home-assistant-core.md"
+  },
+  {
+    "name": "esphome-esphome",
+    "url": "https://github.com/esphome/esphome",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:40:13.578392",
+    "knowledge_file": "esphome-esphome.md"
+  },
+  {
+    "name": "thingsboard-thingsboard",
+    "url": "https://github.com/thingsboard/thingsboard",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:41:36.922873",
+    "knowledge_file": "thingsboard-thingsboard.md"
+  },
+  {
+    "name": "micropython-micropython",
+    "url": "https://github.com/micropython/micropython",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:42:59.261998",
+    "knowledge_file": "micropython-micropython.md"
+  },
+  {
+    "name": "embassy-rs-embassy",
+    "url": "https://github.com/embassy-rs/embassy",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:44:23.025359",
+    "knowledge_file": "embassy-rs-embassy.md"
+  }
+]

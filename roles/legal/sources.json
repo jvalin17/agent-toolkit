@@ -1,0 +1,23 @@
+[
+  {
+    "name": "owasp-cheatsheetseries",
+    "url": "https://github.com/OWASP/CheatSheetSeries",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:46:21.959097",
+    "knowledge_file": "owasp-cheatsheetseries.md"
+  },
+  {
+    "name": "github-choosealicense-com",
+    "url": "https://github.com/github/choosealicense.com",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:47:40.451893",
+    "knowledge_file": "github-choosealicense-com.md"
+  },
+  {
+    "name": "privacyguides-privacyguides-org",
+    "url": "https://github.com/privacyguides/privacyguides.org",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:49:00.424454",
+    "knowledge_file": "privacyguides-privacyguides-org.md"
+  }
+]

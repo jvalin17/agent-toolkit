@@ -1,0 +1,37 @@
+[
+  {
+    "name": "godotengine-godot",
+    "url": "https://github.com/godotengine/godot",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:31:58.635228",
+    "knowledge_file": "godotengine-godot.md"
+  },
+  {
+    "name": "bevyengine-bevy",
+    "url": "https://github.com/bevyengine/bevy",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:33:21.622714",
+    "knowledge_file": "bevyengine-bevy.md"
+  },
+  {
+    "name": "phaserjs-phaser",
+    "url": "https://github.com/phaserjs/phaser",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:34:54.657987",
+    "knowledge_file": "phaserjs-phaser.md"
+  },
+  {
+    "name": "love2d-love",
+    "url": "https://github.com/love2d/love",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:36:06.874089",
+    "knowledge_file": "love2d-love.md"
+  },
+  {
+    "name": "michelpereira-awesome-open-source-games",
+    "url": "https://github.com/michelpereira/awesome-open-source-games",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:36:30.014970",
+    "knowledge_file": "michelpereira-awesome-open-source-games.md"
+  }
+]

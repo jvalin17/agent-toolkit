@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple
 # Ensure sibling modules are importable regardless of CWD
 import sys as _sys
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
+_sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "roles"))
 
 from gate_hook import get_config_value, load_gate_config
 from session_monitor import SessionState, save_state
@@ -275,6 +276,7 @@ def build_context(
     continuation: Optional[Dict[str, object]],
     mode: Optional[str] = None,
     session_config: Optional[Dict[str, object]] = None,
+    role_context: Optional[str] = None,
 ) -> str:
     """Build the full context string for SessionStart.
 
@@ -283,6 +285,7 @@ def build_context(
         report_count: Number of report .md files
         warnings: List of integrity warning strings
         continuation: Dict with 'goal' and 'session_number', or None
+        role_context: Role advisory context string from detect_role.py
         mode: Agent toolkit mode ("normal", "strict", or None for default)
         session_config: Full config dict from load_session_config
     """
@@ -300,6 +303,11 @@ def build_context(
             f"report_protect={session_config.get('report_protect', True)}",
         ]
         parts.append(f"Config: {', '.join(cfg_items)}")
+
+    # Role context (from detect_role.py)
+    if role_context:
+        parts.append("")
+        parts.append(role_context)
 
     # Strict mode banner
     if mode == "strict":
@@ -471,10 +479,42 @@ def main() -> int:
     if is_continuation:
         continuation = {"goal": goal, "session_number": session_number}
 
-    # 7. Build context
+    # 7. Detect roles (fast — file pattern matching only)
+    role_context = None
+    try:
+        from detect_role import detect_roles, load_role_context
+        roles_dir = toolkit_root() / "roles"
+        config_roles = get_config_value(
+            load_gate_config(project_dir), "roles", None,
+        )
+        config_add = get_config_value(
+            load_gate_config(project_dir), "roles_add", None,
+        )
+        config_exclude = get_config_value(
+            load_gate_config(project_dir), "roles_exclude", None,
+        )
+        max_roles = get_config_value(
+            load_gate_config(project_dir), "roles_max", 4,
+        )
+        detected = detect_roles(
+            project_dir,
+            config_roles=config_roles,
+            config_add=config_add,
+            config_exclude=config_exclude,
+            max_roles=max_roles,
+        )
+        if detected:
+            role_names = [r["name"] for r in detected]
+            role_context = load_role_context(role_names, roles_dir=roles_dir,
+                                             max_roles=max_roles)
+    except Exception as exc:
+        sys.stderr.write(f"Role detection skipped: {exc}\n")
+
+    # 8. Build context
     context = build_context(
         files, report_count, all_warnings, continuation,
         mode=mode, session_config=session_config,
+        role_context=role_context,
     )
 
     # 8. Output JSON

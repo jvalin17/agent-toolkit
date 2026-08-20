@@ -1,0 +1,7 @@
+[
+  {"name": "system-design-primer", "url": "https://github.com/donnemartin/system-design-primer", "why": "System design patterns — scaling, caching, load balancing, databases at scale"},
+  {"name": "kubernetes", "url": "https://github.com/kubernetes/kubernetes", "why": "Mega-scale architecture — API versioning, plugin system, CRDs, SIG structure"},
+  {"name": "posthog", "url": "https://github.com/PostHog/posthog", "why": "Documented architecture evolution — PG→ClickHouse migration, ADRs, engineering blog"},
+  {"name": "cal-com", "url": "https://github.com/calcom/cal.com", "why": "Production monorepo — Turborepo, multi-app, shared packages, tRPC"},
+  {"name": "supabase", "url": "https://github.com/supabase/supabase", "why": "Multi-service architecture — Go + Elixir + TS, postgres-native, edge functions"}
+]

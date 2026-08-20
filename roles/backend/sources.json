@@ -1,0 +1,58 @@
+[
+  {
+    "name": "nestjs-nest",
+    "url": "https://github.com/nestjs/nest",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:24:20.001544",
+    "knowledge_file": "nestjs-nest.md"
+  },
+  {
+    "name": "tiangolo-fastapi",
+    "url": "https://github.com/tiangolo/fastapi",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:25:34.799047",
+    "knowledge_file": "tiangolo-fastapi.md"
+  },
+  {
+    "name": "honojs-hono",
+    "url": "https://github.com/honojs/hono",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:26:48.377873",
+    "knowledge_file": "honojs-hono.md"
+  },
+  {
+    "name": "calcom-cal-com",
+    "url": "https://github.com/calcom/cal.com",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:28:09.221307",
+    "knowledge_file": "calcom-cal-com.md"
+  },
+  {
+    "name": "medusajs-medusa",
+    "url": "https://github.com/medusajs/medusa",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:29:28.835388",
+    "knowledge_file": "medusajs-medusa.md"
+  },
+  {
+    "name": "blog-rate-limiters",
+    "url": "https://stripe.com/blog/rate-limiters",
+    "type": "url",
+    "studied_at": "2026-08-17T00:30:43.995792",
+    "knowledge_file": "blog-rate-limiters.md"
+  },
+  {
+    "name": "blog-microservice-architecture",
+    "url": "https://www.uber.com/blog/microservice-architecture/",
+    "type": "url",
+    "studied_at": "2026-08-17T00:30:56.181399",
+    "knowledge_file": "blog-microservice-architecture.md"
+  },
+  {
+    "name": "netflixtechblog-com-zuul-2-the-netflix-journey-to-asynchronous-non-blocking-systems-45947377fb5c",
+    "url": "https://netflixtechblog.com/zuul-2-the-netflix-journey-to-asynchronous-non-blocking-systems-45947377fb5c",
+    "type": "url",
+    "studied_at": "2026-08-17T00:32:12.470220",
+    "knowledge_file": "netflixtechblog-com-zuul-2-the-netflix-journey-to-asynchronous-non-blocking-systems-45947377fb5c.md"
+  }
+]

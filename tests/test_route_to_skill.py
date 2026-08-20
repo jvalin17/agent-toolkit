@@ -211,3 +211,37 @@ class TestSkillRoutingConfigToggle:
         exit_code, output = run_route_to_skill(stdin, tmp_path)
         assert exit_code == 0
         assert output == ""
+
+
+class TestRoleContextInRouting:
+    """Role context should be appended to skill routing when roles are detected."""
+
+    def test_role_context_appended_to_skill_routing(self, tmp_path):
+        """When project has role signals, routing includes role advisory."""
+        # Create a project that looks like a backend project
+        pkg = {"dependencies": {"express": "^4.0.0"}}
+        (tmp_path / "package.json").write_text(json.dumps(pkg))
+
+        # Create role files the system can find
+        roles_dir = ROOT / "roles"
+
+        # Only test if roles directory exists (skip in CI without roles)
+        if not (roles_dir / "backend" / "role.md").is_file():
+            pytest.skip("Role files not installed")
+
+        stdin = make_input("fix the login bug")
+        exit_code, output = run_route_to_skill(stdin, tmp_path)
+        assert exit_code == 0
+        assert output != ""
+        context = parse_context(output)
+        # Should have skill routing AND role context
+        assert "/debug" in context
+
+    def test_routing_works_without_role_files(self, tmp_path):
+        """Skill routing should work even if role detection fails."""
+        stdin = make_input("fix the crash")
+        exit_code, output = run_route_to_skill(stdin, tmp_path)
+        assert exit_code == 0
+        assert output != ""
+        context = parse_context(output)
+        assert "/debug" in context

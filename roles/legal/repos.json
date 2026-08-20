@@ -1,0 +1,7 @@
+[
+  {"name": "owasp-cheatsheets", "url": "https://github.com/OWASP/CheatSheetSeries", "why": "Security compliance patterns — GDPR, data protection, authentication standards"},
+  {"name": "choosealicense", "url": "https://github.com/github/choosealicense.com", "why": "License compatibility — MIT, Apache, GPL, AGPL differences and implications"},
+  {"name": "cookie-consent", "url": "https://github.com/nicedayfor/cookie-consent", "why": "Cookie consent implementation — EU ePrivacy, GDPR compliance patterns"},
+  {"name": "osano-cookieconsent", "url": "https://github.com/nicedayfor/cookie-consent", "why": "Cookie consent UX patterns — opt-in/opt-out, regional variations"},
+  {"name": "privacy-guides", "url": "https://github.com/privacyguides/privacyguides.org", "why": "Privacy best practices — data minimization, encryption, transparency"}
+]

@@ -1,0 +1,51 @@
+[
+  {
+    "name": "owasp-cheatsheetseries",
+    "url": "https://github.com/OWASP/CheatSheetSeries",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:51:24.145033",
+    "knowledge_file": "owasp-cheatsheetseries.md"
+  },
+  {
+    "name": "infisical-infisical",
+    "url": "https://github.com/Infisical/infisical",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:53:03.489643",
+    "knowledge_file": "infisical-infisical.md"
+  },
+  {
+    "name": "lucia-auth-lucia",
+    "url": "https://github.com/lucia-auth/lucia",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:53:49.138641",
+    "knowledge_file": "lucia-auth-lucia.md"
+  },
+  {
+    "name": "helmetjs-helmet",
+    "url": "https://github.com/helmetjs/helmet",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:55:06.865968",
+    "knowledge_file": "helmetjs-helmet.md"
+  },
+  {
+    "name": "dani-garcia-vaultwarden",
+    "url": "https://github.com/dani-garcia/vaultwarden",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:56:21.520902",
+    "knowledge_file": "dani-garcia-vaultwarden.md"
+  },
+  {
+    "name": "blog-cloudflare-com-introducing-cloudflare-one",
+    "url": "https://blog.cloudflare.com/introducing-cloudflare-one/",
+    "type": "url",
+    "studied_at": "2026-08-17T00:57:30.443637",
+    "knowledge_file": "blog-cloudflare-com-introducing-cloudflare-one.md"
+  },
+  {
+    "name": "security-supply-chain-security",
+    "url": "https://github.blog/security/supply-chain-security/",
+    "type": "url",
+    "studied_at": "2026-08-17T00:58:31.270114",
+    "knowledge_file": "security-supply-chain-security.md"
+  }
+]

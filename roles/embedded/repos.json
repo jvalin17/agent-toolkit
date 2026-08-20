@@ -1,0 +1,7 @@
+[
+  {"name": "home-assistant-core", "url": "https://github.com/home-assistant/core", "why": "IoT platform — 2800+ integrations, event-driven, device state management"},
+  {"name": "esphome", "url": "https://github.com/esphome/esphome", "why": "ESP32 firmware — config-based, OTA, MQTT, sensor drivers"},
+  {"name": "thingsboard", "url": "https://github.com/thingsboard/thingsboard", "why": "IoT platform — multi-protocol (MQTT/CoAP/HTTP), device provisioning, rule engine"},
+  {"name": "micropython", "url": "https://github.com/micropython/micropython", "why": "Python on microcontrollers — memory management, hardware abstraction, REPL"},
+  {"name": "embassy-rs", "url": "https://github.com/embassy-rs/embassy", "why": "Async embedded Rust — HAL, timers, networking, no-alloc patterns"}
+]

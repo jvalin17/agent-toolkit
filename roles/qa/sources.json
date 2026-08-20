@@ -1,0 +1,37 @@
+[
+  {
+    "name": "microsoft-playwright",
+    "url": "https://github.com/microsoft/playwright",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:55:40.888455",
+    "knowledge_file": "microsoft-playwright.md"
+  },
+  {
+    "name": "cypress-io-cypress-realworld-app",
+    "url": "https://github.com/cypress-io/cypress-realworld-app",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:56:58.917320",
+    "knowledge_file": "cypress-io-cypress-realworld-app.md"
+  },
+  {
+    "name": "testing-library-react-testing-library",
+    "url": "https://github.com/testing-library/react-testing-library",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:58:15.307983",
+    "knowledge_file": "testing-library-react-testing-library.md"
+  },
+  {
+    "name": "pytest-dev-pytest",
+    "url": "https://github.com/pytest-dev/pytest",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:59:33.321360",
+    "knowledge_file": "pytest-dev-pytest.md"
+  },
+  {
+    "name": "stryker-mutator-stryker-js",
+    "url": "https://github.com/stryker-mutator/stryker-js",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:00:48.259533",
+    "knowledge_file": "stryker-mutator-stryker-js.md"
+  }
+]

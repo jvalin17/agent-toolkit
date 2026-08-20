@@ -1,0 +1,27 @@
+[
+  {
+    "name": "nestjs-nest",
+    "url": "https://github.com/nestjs/nest",
+    "why": "Production Node.js framework — middleware, guards, interceptors, DI patterns"
+  },
+  {
+    "name": "fastapi",
+    "url": "https://github.com/tiangolo/fastapi",
+    "why": "Python API framework — async, Pydantic validation, OpenAPI generation"
+  },
+  {
+    "name": "hono",
+    "url": "https://github.com/honojs/hono",
+    "why": "Lightweight modern web framework — middleware patterns, edge deployment"
+  },
+  {
+    "name": "cal-com",
+    "url": "https://github.com/calcom/cal.com",
+    "why": "Production SaaS — tRPC, Prisma, webhooks, auth, monorepo patterns"
+  },
+  {
+    "name": "medusa",
+    "url": "https://github.com/medusajs/medusa",
+    "why": "Headless commerce — plugin architecture, payment orchestration, multi-tenant"
+  }
+]

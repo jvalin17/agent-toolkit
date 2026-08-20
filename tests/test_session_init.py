@@ -639,3 +639,55 @@ class TestMain:
         context = data["hookSpecificOutput"]["additionalContext"]
         assert "CONTINUATION SESSION" in context
         assert "Build the widget" in context
+
+
+# --- Role integration ---
+
+
+class TestBuildContextWithRoles:
+    def test_role_context_included_when_provided(self):
+        context = build_context(
+            files=["- project-state.md (PRIORITY — read this first)"],
+            report_count=0,
+            warnings=[],
+            continuation=None,
+            role_context="ACTIVE ROLES: backend, frontend\n\n## Manager Principles\n\n1. QUALITY",
+        )
+        assert "ACTIVE ROLES: backend, frontend" in context
+        assert "QUALITY" in context
+
+    def test_no_role_context_when_none(self):
+        context = build_context(
+            files=["- project-state.md (PRIORITY — read this first)"],
+            report_count=0,
+            warnings=[],
+            continuation=None,
+            role_context=None,
+        )
+        assert "ACTIVE ROLES" not in context
+
+    def test_no_role_context_when_empty(self):
+        context = build_context(
+            files=[],
+            report_count=0,
+            warnings=[],
+            continuation=None,
+            role_context="",
+        )
+        assert "ACTIVE ROLES" not in context
+
+    def test_role_context_appears_after_config(self):
+        context = build_context(
+            files=["- project-state.md (PRIORITY — read this first)"],
+            report_count=0,
+            warnings=[],
+            continuation=None,
+            session_config={"tdd": True, "skill_routing": True,
+                            "compact_at_minutes": 70, "max_session_minutes": 200,
+                            "model": "auto", "gate_protect": True,
+                            "report_protect": True},
+            role_context="ACTIVE ROLES: backend",
+        )
+        config_pos = context.find("Config:")
+        role_pos = context.find("ACTIVE ROLES:")
+        assert config_pos < role_pos

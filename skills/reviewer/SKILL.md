@@ -43,6 +43,7 @@ Read the target code. Understand its purpose, public API, dependencies, and cons
 2. **Read upstream docs** — `requirements/$TOPIC.md` and `architecture/$TOPIC.md` for decisions that shape the review.
 3. **Detect tech stack** — scan for package.json, pyproject.toml, Cargo.toml, go.mod, etc.
 4. **Read existing tests** — understand test framework, patterns, naming, coverage.
+5. **Check active roles** — apply role quality checks from session context (see manager principles).
 
 ## Step 3: Review Menu
 

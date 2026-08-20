@@ -1,0 +1,7 @@
+[
+  {"name": "cal-com", "url": "https://github.com/calcom/cal.com", "why": "Well-documented features — clear specs, PR templates, feature flags"},
+  {"name": "plane", "url": "https://github.com/makeplane/plane", "why": "Project management tool — issue tracking patterns, requirement management"},
+  {"name": "documenso", "url": "https://github.com/documenso/documenso", "why": "Document workflows — clear acceptance criteria, multi-step feature specs"},
+  {"name": "next-intl", "url": "https://github.com/amannn/next-intl", "why": "i18n library — localization patterns, translation management, RTL support"},
+  {"name": "i18next", "url": "https://github.com/i18next/i18next", "why": "i18n framework — interpolation, pluralization, namespace, lazy loading"}
+]

@@ -1,0 +1,37 @@
+[
+  {
+    "name": "donnemartin-system-design-primer",
+    "url": "https://github.com/donnemartin/system-design-primer",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:25:37.665543",
+    "knowledge_file": "donnemartin-system-design-primer.md"
+  },
+  {
+    "name": "awesome-selfhosted-awesome-selfhosted",
+    "url": "https://github.com/awesome-selfhosted/awesome-selfhosted",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:26:35.580640",
+    "knowledge_file": "awesome-selfhosted-awesome-selfhosted.md"
+  },
+  {
+    "name": "codecrafters-io-build-your-own-x",
+    "url": "https://github.com/codecrafters-io/build-your-own-x",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:27:33.259754",
+    "knowledge_file": "codecrafters-io-build-your-own-x.md"
+  },
+  {
+    "name": "papers-we-love-papers-we-love",
+    "url": "https://github.com/papers-we-love/papers-we-love",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:28:31.072501",
+    "knowledge_file": "papers-we-love-papers-we-love.md"
+  },
+  {
+    "name": "ebookfoundation-free-programming-books",
+    "url": "https://github.com/EbookFoundation/free-programming-books",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:29:35.729482",
+    "knowledge_file": "ebookfoundation-free-programming-books.md"
+  }
+]

@@ -1,0 +1,7 @@
+[
+  {"name": "playwright", "url": "https://github.com/microsoft/playwright", "why": "E2E testing — browser automation, assertions, test patterns, CI integration"},
+  {"name": "cypress-realworld-app", "url": "https://github.com/cypress-io/cypress-realworld-app", "why": "Real-world E2E — full app test suite, data seeding, CI, test patterns"},
+  {"name": "testing-library", "url": "https://github.com/testing-library/react-testing-library", "why": "Component testing — behavior-driven, accessibility queries, best practices"},
+  {"name": "pytest", "url": "https://github.com/pytest-dev/pytest", "why": "Python testing — fixtures, parametrize, plugins, test organization"},
+  {"name": "stryker-mutator", "url": "https://github.com/stryker-mutator/stryker-js", "why": "Mutation testing — test quality beyond coverage, finding weak tests"}
+]

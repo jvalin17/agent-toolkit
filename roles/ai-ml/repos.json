@@ -1,0 +1,7 @@
+[
+  {"name": "dify", "url": "https://github.com/langgenius/dify", "why": "LLM platform — RAG pipeline, multi-model, workflow DAGs, agent tool calling"},
+  {"name": "open-webui", "url": "https://github.com/open-webui/open-webui", "why": "LLM interface — streaming, multi-model, RAG with uploads, plugin system"},
+  {"name": "mem0", "url": "https://github.com/mem0ai/mem0", "why": "Memory layer — embeddings, vector search, multi-user, API design"},
+  {"name": "litellm", "url": "https://github.com/BerriAI/litellm", "why": "LLM proxy — multi-provider routing, rate limiting, cost tracking"},
+  {"name": "ollama", "url": "https://github.com/ollama/ollama", "why": "Local LLM — model management, inference serving, REST API, streaming"}
+]

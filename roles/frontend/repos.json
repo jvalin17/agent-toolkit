@@ -1,0 +1,27 @@
+[
+  {
+    "name": "next-js-examples",
+    "url": "https://github.com/vercel/next.js",
+    "why": "Canonical React framework — SSR, data fetching, routing, API routes"
+  },
+  {
+    "name": "shadcn-ui",
+    "url": "https://github.com/shadcn-ui/ui",
+    "why": "Component architecture, accessibility, composition patterns"
+  },
+  {
+    "name": "tanstack-query",
+    "url": "https://github.com/TanStack/query",
+    "why": "Server state management, caching, pagination, optimistic updates"
+  },
+  {
+    "name": "twenty-crm",
+    "url": "https://github.com/twentyhq/twenty",
+    "why": "Production React app — dashboard, data tables, charts, responsive"
+  },
+  {
+    "name": "hoppscotch",
+    "url": "https://github.com/hoppscotch/hoppscotch",
+    "why": "Vue.js production app — PWA, real-time, offline-first"
+  }
+]

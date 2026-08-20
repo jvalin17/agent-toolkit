@@ -1,0 +1,37 @@
+[
+  {
+    "name": "microsoft-playwright",
+    "url": "https://github.com/microsoft/playwright",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:09:19.868783",
+    "knowledge_file": "microsoft-playwright.md"
+  },
+  {
+    "name": "cypress-io-cypress-realworld-app",
+    "url": "https://github.com/cypress-io/cypress-realworld-app",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:10:36.335748",
+    "knowledge_file": "cypress-io-cypress-realworld-app.md"
+  },
+  {
+    "name": "posthog-posthog",
+    "url": "https://github.com/PostHog/posthog",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:11:50.603896",
+    "knowledge_file": "posthog-posthog.md"
+  },
+  {
+    "name": "appflowy-io-appflowy",
+    "url": "https://github.com/AppFlowy-IO/AppFlowy",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:13:08.321229",
+    "knowledge_file": "appflowy-io-appflowy.md"
+  },
+  {
+    "name": "mattermost-mattermost",
+    "url": "https://github.com/mattermost/mattermost",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:14:38.640042",
+    "knowledge_file": "mattermost-mattermost.md"
+  }
+]

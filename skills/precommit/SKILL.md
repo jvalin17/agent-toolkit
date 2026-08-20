@@ -96,6 +96,39 @@ Grep CLAUDE.md, project-state.md, DECISIONS.md, architecture docs. BLOCKED on co
 
 See `references/readme-validation.md`.
 
+## Step 5c: Role Quality Checks
+
+If roles are active (check session context for "ACTIVE ROLES:"), run each active role's quality checks against the changed files:
+
+1. Read each active role's `role.md` — find the "## Quality Checks" section
+2. For each checklist item, verify against the changed code
+3. Report findings:
+
+| Role | Check | Pass/Fail | Evidence |
+|------|-------|-----------|----------|
+| frontend | No heavy computation on page mount | ✓ or ✗ | file:line |
+| backend | All endpoints have input validation | ✓ or ✗ | file:line |
+| dba | Queries are parameterized | ✓ or ✗ | file:line |
+| security | No secrets in source code | ✓ or ✗ | file:line |
+
+**BLOCKED** if any role quality check fails with HIGH severity (security violations, data integrity risks).
+
+**WARNING** for MEDIUM severity (performance, conventions) — note in findings but don't block.
+
+Include role check results in `findings.json` under a `"role_checks"` key:
+```json
+"role_checks": {
+  "roles_active": ["frontend", "backend", "dba"],
+  "passed": 12,
+  "failed": 2,
+  "blocked": false,
+  "items": [
+    {"role": "frontend", "check": "No heavy computation on mount", "pass": true},
+    {"role": "dba", "check": "Queries parameterized", "pass": false, "file": "src/routes/stats.ts:42"}
+  ]
+}
+```
+
 ## Step 6: Submit Findings (do NOT write the report yourself)
 
 Reports/ is owned by hooks (G-REPORT-1). Do not write to `reports/` directly —

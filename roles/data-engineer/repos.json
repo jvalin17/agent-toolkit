@@ -1,0 +1,7 @@
+[
+  {"name": "dagster", "url": "https://github.com/dagster-io/dagster", "why": "Data orchestration — DAGs, assets, partitions, data quality"},
+  {"name": "dbt-core", "url": "https://github.com/dbt-labs/dbt-core", "why": "Data transformation — SQL modeling, testing, documentation, lineage"},
+  {"name": "posthog", "url": "https://github.com/PostHog/posthog", "why": "Kafka→ClickHouse pipeline — event ingestion at scale, documented migration"},
+  {"name": "great-expectations", "url": "https://github.com/great-expectations/great_expectations", "why": "Data quality framework — validation, profiling, documentation"},
+  {"name": "airbyte", "url": "https://github.com/airbytehq/airbyte", "why": "Data integration — CDC, connectors, sync patterns, schema evolution"}
+]

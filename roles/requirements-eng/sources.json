@@ -1,0 +1,37 @@
+[
+  {
+    "name": "calcom-cal-com",
+    "url": "https://github.com/calcom/cal.com",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:18:18.289475",
+    "knowledge_file": "calcom-cal-com.md"
+  },
+  {
+    "name": "makeplane-plane",
+    "url": "https://github.com/makeplane/plane",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:19:36.033987",
+    "knowledge_file": "makeplane-plane.md"
+  },
+  {
+    "name": "documenso-documenso",
+    "url": "https://github.com/documenso/documenso",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:20:51.378124",
+    "knowledge_file": "documenso-documenso.md"
+  },
+  {
+    "name": "amannn-next-intl",
+    "url": "https://github.com/amannn/next-intl",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:22:24.015390",
+    "knowledge_file": "amannn-next-intl.md"
+  },
+  {
+    "name": "i18next-i18next",
+    "url": "https://github.com/i18next/i18next",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:23:43.772410",
+    "knowledge_file": "i18next-i18next.md"
+  }
+]

@@ -1,0 +1,27 @@
+[
+  {
+    "name": "prisma-examples",
+    "url": "https://github.com/prisma/prisma-examples",
+    "why": "ORM patterns — schema design, migrations, relations, query optimization"
+  },
+  {
+    "name": "drizzle-orm",
+    "url": "https://github.com/drizzle-team/drizzle-orm",
+    "why": "Type-safe SQL — query builder, migrations, schema patterns"
+  },
+  {
+    "name": "saleor",
+    "url": "https://github.com/saleor/saleor",
+    "why": "Django + PostgreSQL at scale — complex schema, GraphQL queries, multi-tenant"
+  },
+  {
+    "name": "posthog",
+    "url": "https://github.com/PostHog/posthog",
+    "why": "PostgreSQL + ClickHouse — analytics schema, migration from PG to CH documented"
+  },
+  {
+    "name": "supabase",
+    "url": "https://github.com/supabase/supabase",
+    "why": "PostgreSQL-native — row-level security, extensions, real-time subscriptions"
+  }
+]

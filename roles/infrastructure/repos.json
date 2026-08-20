@@ -1,0 +1,27 @@
+[
+  {
+    "name": "docker-awesome-compose",
+    "url": "https://github.com/docker/awesome-compose",
+    "why": "Docker Compose patterns — multi-service, networking, volumes, health checks"
+  },
+  {
+    "name": "gitea",
+    "url": "https://github.com/go-gitea/gitea",
+    "why": "Self-hosted service — CI/CD (Actions), Docker deployment, reverse proxy"
+  },
+  {
+    "name": "signoz",
+    "url": "https://github.com/SigNoz/signoz",
+    "why": "Observability stack — Prometheus, ClickHouse, alerting, Kubernetes deployment"
+  },
+  {
+    "name": "crossplane",
+    "url": "https://github.com/crossplane/crossplane",
+    "why": "K8s operators, CRDs, IaC patterns, cloud-native control plane"
+  },
+  {
+    "name": "jellyfin",
+    "url": "https://github.com/jellyfin/jellyfin",
+    "why": "Self-hosted deployment — Docker, reverse proxy, hardware acceleration config"
+  }
+]

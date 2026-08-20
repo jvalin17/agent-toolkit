@@ -25,6 +25,8 @@ Extract: tech stack, project structure, data layer, API layer, frontend approach
 
 Read `project-state.md` if it exists — check decisions, warnings, feature status.
 
+**Role-aware scan:** If active roles are in session context, include their quality checks in your assessment. See manager principles.
+
 ## Phase 2: Map Data Flow
 
 Trace how data moves through the system for the primary user flow:

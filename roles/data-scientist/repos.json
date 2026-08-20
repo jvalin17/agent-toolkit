@@ -1,0 +1,7 @@
+[
+  {"name": "scikit-learn", "url": "https://github.com/scikit-learn/scikit-learn", "why": "ML library — pipeline patterns, cross-validation, preprocessing, metrics"},
+  {"name": "pandas", "url": "https://github.com/pandas-dev/pandas", "why": "Data manipulation — DataFrame patterns, groupby, merge, time series"},
+  {"name": "seaborn", "url": "https://github.com/mwaskom/seaborn", "why": "Statistical visualization — chart selection, distribution plots"},
+  {"name": "statsmodels", "url": "https://github.com/statsmodels/statsmodels", "why": "Statistical testing — hypothesis tests, regression, time series analysis"},
+  {"name": "evidently", "url": "https://github.com/evidentlyai/evidently", "why": "ML monitoring — data drift, model performance, test suites"}
+]

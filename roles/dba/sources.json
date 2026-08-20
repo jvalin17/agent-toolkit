@@ -1,0 +1,51 @@
+[
+  {
+    "name": "prisma-prisma-examples",
+    "url": "https://github.com/prisma/prisma-examples",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:43:10.273768",
+    "knowledge_file": "prisma-prisma-examples.md"
+  },
+  {
+    "name": "drizzle-team-drizzle-orm",
+    "url": "https://github.com/drizzle-team/drizzle-orm",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:44:20.124774",
+    "knowledge_file": "drizzle-team-drizzle-orm.md"
+  },
+  {
+    "name": "saleor-saleor",
+    "url": "https://github.com/saleor/saleor",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:45:37.346479",
+    "knowledge_file": "saleor-saleor.md"
+  },
+  {
+    "name": "posthog-posthog",
+    "url": "https://github.com/PostHog/posthog",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:47:13.691911",
+    "knowledge_file": "posthog-posthog.md"
+  },
+  {
+    "name": "supabase-supabase",
+    "url": "https://github.com/supabase/supabase",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:48:48.184612",
+    "knowledge_file": "supabase-supabase.md"
+  },
+  {
+    "name": "blog-how-we-turned-clickhouse-into-our-event-store",
+    "url": "https://posthog.com/blog/how-we-turned-clickhouse-into-our-event-store",
+    "type": "url",
+    "studied_at": "2026-08-17T00:49:14.085031",
+    "knowledge_file": "blog-how-we-turned-clickhouse-into-our-event-store.md"
+  },
+  {
+    "name": "blog-schemaless-part-one-mysql-datastore",
+    "url": "https://www.uber.com/blog/schemaless-part-one-mysql-datastore/",
+    "type": "url",
+    "studied_at": "2026-08-17T00:49:23.397450",
+    "knowledge_file": "blog-schemaless-part-one-mysql-datastore.md"
+  }
+]

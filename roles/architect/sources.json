@@ -1,0 +1,51 @@
+[
+  {
+    "name": "donnemartin-system-design-primer",
+    "url": "https://github.com/donnemartin/system-design-primer",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:02:49.074751",
+    "knowledge_file": "donnemartin-system-design-primer.md"
+  },
+  {
+    "name": "kubernetes-kubernetes",
+    "url": "https://github.com/kubernetes/kubernetes",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:04:17.112945",
+    "knowledge_file": "kubernetes-kubernetes.md"
+  },
+  {
+    "name": "posthog-posthog",
+    "url": "https://github.com/PostHog/posthog",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:05:34.760207",
+    "knowledge_file": "posthog-posthog.md"
+  },
+  {
+    "name": "calcom-cal-com",
+    "url": "https://github.com/calcom/cal.com",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:06:49.627199",
+    "knowledge_file": "calcom-cal-com.md"
+  },
+  {
+    "name": "supabase-supabase",
+    "url": "https://github.com/supabase/supabase",
+    "type": "repo",
+    "studied_at": "2026-08-17T02:08:03.861410",
+    "knowledge_file": "supabase-supabase.md"
+  },
+  {
+    "name": "articles-microservices-html",
+    "url": "https://martinfowler.com/articles/microservices.html",
+    "type": "url",
+    "studied_at": "2026-08-17T02:09:12.862238",
+    "knowledge_file": "articles-microservices-html.md"
+  },
+  {
+    "name": "framework-welcome-html",
+    "url": "https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html",
+    "type": "url",
+    "studied_at": "2026-08-17T02:09:54.373788",
+    "knowledge_file": "framework-welcome-html.md"
+  }
+]

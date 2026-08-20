@@ -1,0 +1,7 @@
+[
+  {"name": "system-design-primer", "url": "https://github.com/donnemartin/system-design-primer", "why": "System design knowledge — scaling patterns, trade-offs, real-world architectures"},
+  {"name": "awesome-selfhosted", "url": "https://github.com/awesome-selfhosted/awesome-selfhosted", "why": "Comprehensive catalog of open-source alternatives to commercial services"},
+  {"name": "build-your-own-x", "url": "https://github.com/codecrafters-io/build-your-own-x", "why": "How things work from scratch — databases, web servers, Git, Docker, etc."},
+  {"name": "papers-we-love", "url": "https://github.com/papers-we-love/papers-we-love", "why": "Curated academic papers relevant to software engineering"},
+  {"name": "free-programming-books", "url": "https://github.com/EbookFoundation/free-programming-books", "why": "Comprehensive learning resources across all technology domains"}
+]

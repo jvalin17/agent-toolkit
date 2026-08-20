@@ -1,0 +1,51 @@
+[
+  {
+    "name": "vercel-next-js",
+    "url": "https://github.com/vercel/next.js",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:34:21.287196",
+    "knowledge_file": "vercel-next-js.md"
+  },
+  {
+    "name": "shadcn-ui-ui",
+    "url": "https://github.com/shadcn-ui/ui",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:35:34.898878",
+    "knowledge_file": "shadcn-ui-ui.md"
+  },
+  {
+    "name": "tanstack-query",
+    "url": "https://github.com/TanStack/query",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:36:47.209232",
+    "knowledge_file": "tanstack-query.md"
+  },
+  {
+    "name": "twentyhq-twenty",
+    "url": "https://github.com/twentyhq/twenty",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:38:14.454507",
+    "knowledge_file": "twentyhq-twenty.md"
+  },
+  {
+    "name": "hoppscotch-hoppscotch",
+    "url": "https://github.com/hoppscotch/hoppscotch",
+    "type": "repo",
+    "studied_at": "2026-08-17T00:39:25.324711",
+    "knowledge_file": "hoppscotch-hoppscotch.md"
+  },
+  {
+    "name": "blog-how-core-web-vitals-affect-seo",
+    "url": "https://vercel.com/blog/how-core-web-vitals-affect-seo",
+    "type": "url",
+    "studied_at": "2026-08-17T00:40:45.625048",
+    "knowledge_file": "blog-how-core-web-vitals-affect-seo.md"
+  },
+  {
+    "name": "airbnb-engineering-recent-web-performance-fixes-on-airbnb-listing-pages-6004f87c7f78",
+    "url": "https://medium.com/airbnb-engineering/recent-web-performance-fixes-on-airbnb-listing-pages-6004f87c7f78",
+    "type": "url",
+    "studied_at": "2026-08-17T00:41:04.538412",
+    "knowledge_file": "airbnb-engineering-recent-web-performance-fixes-on-airbnb-listing-pages-6004f87c7f78.md"
+  }
+]

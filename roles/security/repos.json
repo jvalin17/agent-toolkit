@@ -1,0 +1,27 @@
+[
+  {
+    "name": "owasp-cheatsheets",
+    "url": "https://github.com/OWASP/CheatSheetSeries",
+    "why": "Authoritative security patterns — auth, input validation, cryptography, headers"
+  },
+  {
+    "name": "infisical",
+    "url": "https://github.com/Infisical/infisical",
+    "why": "Secrets management — encryption, RBAC, audit logging, zero-knowledge architecture"
+  },
+  {
+    "name": "lucia-auth",
+    "url": "https://github.com/lucia-auth/lucia",
+    "why": "Auth library — session management, OAuth, password hashing patterns"
+  },
+  {
+    "name": "helmet-js",
+    "url": "https://github.com/helmetjs/helmet",
+    "why": "Security headers — CSP, HSTS, X-Content-Type-Options implementation"
+  },
+  {
+    "name": "vaultwarden",
+    "url": "https://github.com/dani-garcia/vaultwarden",
+    "why": "Rust security app — encryption at rest, 2FA, secure API design"
+  }
+]

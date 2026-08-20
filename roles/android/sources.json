@@ -1,0 +1,37 @@
+[
+  {
+    "name": "signalapp-signal-android",
+    "url": "https://github.com/signalapp/Signal-Android",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:23:57.890148",
+    "knowledge_file": "signalapp-signal-android.md"
+  },
+  {
+    "name": "wikimedia-apps-android-wikipedia",
+    "url": "https://github.com/wikimedia/apps-android-wikipedia",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:25:22.526965",
+    "knowledge_file": "wikimedia-apps-android-wikipedia.md"
+  },
+  {
+    "name": "mozilla-mobile-firefox-android",
+    "url": "https://github.com/mozilla-mobile/firefox-android",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:26:50.617359",
+    "knowledge_file": "mozilla-mobile-firefox-android.md"
+  },
+  {
+    "name": "android-architecture-samples",
+    "url": "https://github.com/android/architecture-samples",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:27:56.740718",
+    "knowledge_file": "android-architecture-samples.md"
+  },
+  {
+    "name": "android-nowinandroid",
+    "url": "https://github.com/android/nowinandroid",
+    "type": "repo",
+    "studied_at": "2026-08-17T01:29:18.460346",
+    "knowledge_file": "android-nowinandroid.md"
+  }
+]

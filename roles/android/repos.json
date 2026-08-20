@@ -1,0 +1,7 @@
+[
+  {"name": "signal-android", "url": "https://github.com/signalapp/Signal-Android", "why": "Production Android — encrypted DB, JNI/Rust, FCM fallback, Java→Kotlin migration"},
+  {"name": "wikipedia-android", "url": "https://github.com/wikimedia/apps-android-wikipedia", "why": "Production Android — multi-module, offline-first, content editing, i18n"},
+  {"name": "firefox-android", "url": "https://github.com/mozilla-mobile/firefox-android", "why": "Large Kotlin app — GeckoView, monorepo, Jetpack, WebExtensions"},
+  {"name": "architecture-samples", "url": "https://github.com/android/architecture-samples", "why": "Official Android architecture — MVVM, Compose, Room, Flow"},
+  {"name": "nowinandroid", "url": "https://github.com/android/nowinandroid", "why": "Modern Android — Compose, Hilt, Kotlin Serialization, multi-module"}
+]

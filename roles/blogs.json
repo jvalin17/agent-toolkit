@@ -1,0 +1,31 @@
+{
+  "backend": [
+    {"name": "stripe-rate-limiters", "url": "https://stripe.com/blog/rate-limiters", "why": "Rate limiting patterns at scale"},
+    {"name": "uber-microservices", "url": "https://www.uber.com/blog/microservice-architecture/", "why": "Microservice architecture evolution"},
+    {"name": "netflix-api-gateway", "url": "https://netflixtechblog.com/zuul-2-the-netflix-journey-to-asynchronous-non-blocking-systems-45947377fb5c", "why": "API gateway async patterns"}
+  ],
+  "frontend": [
+    {"name": "vercel-core-web-vitals", "url": "https://vercel.com/blog/how-core-web-vitals-affect-seo", "why": "Web Vitals impact and optimization"},
+    {"name": "airbnb-react-perf", "url": "https://medium.com/airbnb-engineering/recent-web-performance-fixes-on-airbnb-listing-pages-6004f87c7f78", "why": "Real-world React performance fixes"}
+  ],
+  "dba": [
+    {"name": "posthog-pg-to-clickhouse", "url": "https://posthog.com/blog/how-we-turned-clickhouse-into-our-event-store", "why": "PostgreSQL to ClickHouse migration"},
+    {"name": "uber-schemaless", "url": "https://www.uber.com/blog/schemaless-part-one-mysql-datastore/", "why": "Database design at Uber scale"}
+  ],
+  "security": [
+    {"name": "cloudflare-zero-trust", "url": "https://blog.cloudflare.com/introducing-cloudflare-one/", "why": "Zero-trust architecture in practice"},
+    {"name": "github-supply-chain", "url": "https://github.blog/security/supply-chain-security/", "why": "Supply chain security patterns"}
+  ],
+  "infrastructure": [
+    {"name": "netflix-chaos-engineering", "url": "https://netflixtechblog.com/tagged/chaos-engineering", "why": "Chaos engineering at scale"},
+    {"name": "cloudflare-workers", "url": "https://blog.cloudflare.com/workers/", "why": "Edge computing and serverless patterns"}
+  ],
+  "ai-ml": [
+    {"name": "anthropic-prompt-eng", "url": "https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview", "why": "Prompt engineering best practices"},
+    {"name": "spotify-ml-platform", "url": "https://engineering.atspotify.com/2024/03/the-rise-and-lessons-learned-of-ml-models-to-personalize-content-on-home-part-i/", "why": "ML platform at scale"}
+  ],
+  "architect": [
+    {"name": "martin-fowler-microservices", "url": "https://martinfowler.com/articles/microservices.html", "why": "Microservices architecture definition"},
+    {"name": "aws-well-architected", "url": "https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html", "why": "Cloud architecture best practices"}
+  ]
+}

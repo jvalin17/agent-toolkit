@@ -28,3 +28,9 @@ memory/
 .gate/gate-token.jwt
 .gate/attestation.json
 .gate/signing.meta.json
+
+# Role knowledge — only synthesis files are needed at runtime
+# Intermediate extractions can be regenerated with learn.py
+roles/*/knowledge/*.md
+!roles/*/knowledge/_synthesis.md
+roles/.learn-cache/

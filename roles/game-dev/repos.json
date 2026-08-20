@@ -1,0 +1,7 @@
+[
+  {"name": "godot", "url": "https://github.com/godotengine/godot", "why": "Full game engine — scene tree, GDScript, Vulkan rendering, physics, editor"},
+  {"name": "bevy", "url": "https://github.com/bevyengine/bevy", "why": "Modern ECS engine in Rust — data-driven, parallel systems, hot reloading"},
+  {"name": "phaser", "url": "https://github.com/phaserjs/phaser", "why": "Web game framework — 2D rendering, physics, input, audio, scene management"},
+  {"name": "love2d", "url": "https://github.com/love2d/love", "why": "Lightweight 2D engine — game loop, rendering, simple architecture"},
+  {"name": "open-source-games", "url": "https://github.com/michelpereira/awesome-open-source-games", "why": "Curated list of open-source games — real implementations to study"}
+]
