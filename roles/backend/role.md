@@ -47,6 +47,28 @@ You are working on a backend project. Apply these principles:
 - Validate all input at API boundaries (Zod, Pydantic, class-validator)
 - Never do synchronous I/O in request handlers
 
+## Design Patterns (apply where relevant)
+
+**Structural** (Gang of Four / Clean Code / Pragmatic Programmer):
+- Repository Pattern — abstract data access behind interfaces
+- Service Layer — business logic separate from controllers/routes
+- Factory Pattern — create objects without exposing creation logic
+- Strategy Pattern — swap algorithms (e.g., payment processors, auth providers)
+- Middleware/Pipeline — chain of responsibility for request processing
+- Decorator — add behavior without modifying existing code (logging, caching, auth)
+
+**Architecture** (Clean Architecture / 12-Factor App):
+- Dependencies point inward — controllers → services → repositories → domain
+- Config from environment — never hardcode URLs, keys, or connection strings
+- Stateless processes — store state in database/cache, not in-memory
+- Dev/prod parity — same backing services in development and production
+- Treat logs as event streams — structured JSON, not printf
+
+**Reusability**:
+- Extract shared validation logic into a utils/validation library after 3 uses
+- Shared error types/response formatters as a common module
+- Don't prematurely abstract — wait for the third instance
+
 ## Anti-Patterns (flag these)
 
 - Sync I/O in request handlers (blocks event loop / thread pool)
@@ -57,6 +79,8 @@ You are working on a backend project. Apply these principles:
 - No error handling on external service calls (add circuit breaker/retry)
 - Computing expensive results on every request instead of caching
 - Returning full objects when client only needs a subset
+- God controller — single file handling validation, business logic, DB queries, and response formatting
+- No service layer — business logic scattered across route handlers
 
 ## Quality Checks
 
