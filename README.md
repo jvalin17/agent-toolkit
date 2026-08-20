@@ -2,10 +2,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-Skills, guardrails, and structural hooks for AI coding agents. Plan, build, test, debug, and ship — any repo, any language.
-
-**Best on [Claude Code](https://docs.anthropic.com/en/docs/claude-code)** — hooks enforce rules the model cannot bypass.  
-**Also works on** Cursor, Codex, Gemini, Windsurf, Aider — via project rules ([setup guide](docs/other-llms.md)).
+Make any AI coding agent build production-quality software. 19 specialized roles, 13 skills, quality gates, and guardrails — works with **Claude Code, Cursor, Gemini, Codex, Windsurf, Aider**, or any AI tool.
 
 ---
 
@@ -59,15 +56,6 @@ Claude Code gets the full experience: auto-detection, hooks that enforce quality
 ```
 
 The toolkit's roles (backend, frontend, security, DBA, etc.) activate automatically based on your project and guide the AI to make better decisions.
-
-**Auto-continuation** — sessions use a two-layer limit: at 70 min a breadcrumb is saved to `HANDOFF.md` (session continues); at 200 min (or first compaction) a hard stop fires with a restart prompt. Two ways to run long tasks:
-
-```bash
-agent-toolkit-continue "Build auth system"   # interactive — restarts in same terminal
-claude-auto "Build auth system"              # headless — for CI/background tasks
-```
-
-Or set `"continue": true` in `gates.json` for in-hook restart (headless only). Set `"continue": false` to disable (session will warn but keep running).
 
 Install details & updates: [docs/install-and-updates.md](docs/install-and-updates.md)
 
@@ -231,36 +219,14 @@ Knowledge stored in `roles/knowledge.json` — one JSON file, easy to review and
 7. **USE SKILLS** — roles provide knowledge, skills provide process — use both
 8. **ROLE CHECKS** — apply role quality checks in every skill
 
-### Using with any AI tool
+### Tool-specific setup details
 
-One command sets up roles for whatever tool you're using:
-
-```bash
-cd /path/to/your-project
-python3 /path/to/agent-toolkit/roles/context.py --setup
-```
-
-This auto-detects your AI tool and writes the right config:
-
-| Tool | What it creates |
-|------|----------------|
-| **Claude Code** | Nothing — hooks handle it automatically |
-| **Cursor** | `.cursor/rules/roles.md` |
-| **Gemini** | `.gemini/rules/roles.md` |
-| **Codex / other** | `AGENTS.md` |
-
-Re-run `--setup` anytime roles or knowledge changes. Other useful commands:
-
-```bash
-# Print role context to stdout (pipe to clipboard, file, etc.)
-python3 roles/context.py /path/to/project
-
-# JSON output (for custom tooling / API integration)
-python3 roles/context.py /path/to/project --json
-
-# Force specific roles
-python3 roles/context.py /path/to/project --roles backend,security
-```
+| Tool | How roles load | Setup |
+|------|---------------|-------|
+| **Claude Code** | Automatic via hooks | `./install.sh` (once) |
+| **Cursor** | `.cursor/rules/roles.md` | `python3 roles/context.py --setup` |
+| **Gemini** | `.gemini/rules/roles.md` | `python3 roles/context.py --setup` |
+| **Codex / Windsurf / other** | `AGENTS.md` | `python3 roles/context.py --setup` |
 
 → Architecture: [`architecture/role-context-layer.md`](architecture/role-context-layer.md) · Roles: [`roles/ROLES-FINAL.md`](roles/ROLES-FINAL.md)
 
@@ -478,13 +444,17 @@ Sessions use a **two-layer** limit system. Layer 1 (`compact_at_minutes`) writes
 
 ## Advanced
 
-| Feature | Doc |
-|---------|-----|
-| Auto-continuation (long tasks) | `agent-toolkit-continue` (interactive) / `claude-auto` (headless) · [architecture/auto-continuation.md](architecture/auto-continuation.md) |
-| TDD strict mode | `"tdd_mode": "strict"` in `gates.json` — blocks source edits until tests exist |
-| Strict mode (anti-fake) | [shared/strict-mode.md](shared/strict-mode.md) |
-| Signed gates (teams / CI) | [shared/gate-unlock.md](shared/gate-unlock.md) |
-| Auto mode (`/skill auto`) | [shared/orchestrator.md](shared/orchestrator.md) |
+| Feature | What it does |
+|---------|-------------|
+| Auto-continuation | Long tasks auto-restart across sessions · `agent-toolkit-continue "Build auth"` |
+| Bootstrap knowledge | Study 95+ repos to improve role knowledge · `bash roles/bootstrap.sh` |
+| Learn new patterns | `python3 roles/learn.py --role backend --repo <url>` |
+| Filter knowledge | Remove opinions, keep objective patterns · `python3 roles/learn.py --filter --role all` |
+| TDD strict mode | `"tdd_mode": "strict"` — blocks source edits until tests exist |
+| Signed gates (teams) | JWT-based gate verification for CI/CD · [shared/gate-unlock.md](shared/gate-unlock.md) |
+| Auto mode | Run skills without confirmation · `"auto": true` |
+
+→ [Auto-continuation architecture](architecture/auto-continuation.md) · [Strict mode](shared/strict-mode.md) · [Orchestrator](shared/orchestrator.md)
 
 ---
 
