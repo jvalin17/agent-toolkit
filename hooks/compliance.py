@@ -30,6 +30,64 @@ from typing import Any, Dict, List, Optional
 
 COMPLIANCE_FILE = "compliance.json"
 
+
+def get_session_skill_usage() -> Dict[str, Any]:
+    """Read Claude Code session log to verify which skills were actually called.
+
+    Returns tool call counts, skills invoked, agents spawned.
+    Cannot be faked — JSONL is written by Claude Code, not the agent.
+    """
+    claude_projects = Path.home() / ".claude" / "projects"
+    if not claude_projects.is_dir():
+        return {"available": False, "reason": "no Claude Code logs found"}
+
+    # Find current project's log dir
+    cwd_slug = str(Path.cwd()).replace("/", "-")
+    project_dir = None
+    for d in claude_projects.iterdir():
+        if cwd_slug.lstrip("-") in d.name:
+            project_dir = d
+            break
+
+    if not project_dir:
+        return {"available": False, "reason": "no logs for current project"}
+
+    # Find latest session JSONL
+    logs = sorted(project_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
+    if not logs:
+        return {"available": False, "reason": "no session logs found"}
+
+    log_path = logs[-1]
+    tools: Dict[str, int] = {}
+    skills: list = []
+
+    for line in log_path.read_text(errors="ignore").split("\n"):
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+            msg = entry.get("message", {})
+            content = msg.get("content", [])
+            if isinstance(content, list):
+                for block in content:
+                    if block.get("type") == "tool_use":
+                        name = block.get("name", "")
+                        tools[name] = tools.get(name, 0) + 1
+                        if name == "Skill":
+                            skill = block.get("input", {}).get("skill", "?")
+                            skills.append(skill)
+        except (json.JSONDecodeError, TypeError, KeyError):
+            pass
+
+    return {
+        "available": True,
+        "session_id": log_path.stem,
+        "tools": tools,
+        "skills": skills,
+        "skill_count": len(skills),
+        "precommit_called": "precommit" in skills,
+    }
+
 # Patterns that indicate real evidence (command output, file references)
 EVIDENCE_PATTERNS = [
     re.compile(r"\$\s+\w"),          # command: $ pytest, $ curl

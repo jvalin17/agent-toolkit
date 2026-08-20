@@ -165,7 +165,28 @@ Record `git rev-parse HEAD` at the start of verification. Include in findings:
 
 If HEAD changes between verification and commit, the verification is stale — re-run `/precommit`.
 
-## Step 5e: Compliance Summary
+## Step 5e: Session Audit Verification
+
+Run this to verify what actually happened in this session:
+
+```python
+from compliance import get_session_skill_usage
+usage = get_session_skill_usage()
+```
+
+Include the result in findings under `"session_audit"`:
+
+```json
+"session_audit": {
+  "skills_invoked": ["/requirements", "/implementation", "/precommit"],
+  "precommit_called": true,
+  "tool_calls": {"Bash": 45, "Edit": 22, "Read": 18, "Skill": 3}
+}
+```
+
+This is read from Claude Code's JSONL log — the agent cannot fake it. If the agent claims it ran `/reviewer` but the audit shows no Skill call for "reviewer", flag it.
+
+## Step 5f: Compliance Summary
 
 If role quality checks were run, include a compliance summary in findings:
 
@@ -181,7 +202,7 @@ If role quality checks were run, include a compliance summary in findings:
 }
 ```
 
-This tracks which rules the LLM followed vs ignored across the session. Over time, patterns emerge — rules that are consistently ignored may need to be reinforced or the role knowledge updated.
+This tracks which rules the LLM followed vs ignored across the session.
 
 ## Step 6: Submit Findings (do NOT write the report yourself)
 
