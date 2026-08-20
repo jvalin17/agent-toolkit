@@ -28,13 +28,21 @@ Read `project-state.md` at start. If it doesn't exist, create it from `shared/pr
 
 ## Intake
 
+STOP. Ask questions FIRST. Do NOT draft, design, or write anything until the user answers.
+
+Ask Q1. Wait for the user's response. Then ask Q4. Wait again. Only after you have answers, draft.
+
 **Q1:** What are you building?
-**Q2:** How do you do this today? What's painful? (prevents building the wrong product)
-**Q3:** What existing tools do this? How is yours different?
+  → WAIT for user response before continuing.
 **Q4:** What's the ONE thing this must do well?
+  → WAIT for user response before continuing.
+
+Then go deeper as needed (one question at a time, wait each time):
+**Q2:** How do you do this today? What's painful?
+**Q3:** What existing tools do this? How is yours different?
 **Q5:** Does this need... (UI, storage, auth, payments, mobile, real-time, file uploads, ML/AI)
 **Q6:** What should this NOT do?
-**Q7:** Name your key features (naming shapes perception — name before building)
+**Q7:** Name your key features
 
 ## Mode
 

@@ -85,6 +85,11 @@ If no orchestration plan is in context, proceed normally — roles still inject 
 
 ## Build Mode: Sequence
 
+STOP. Before writing ANY code, verify:
+1. Requirements exist (`requirements/<slug>.md`) — if not, tell user: "Run /requirements first."
+2. Architecture exists (`architecture/<slug>.md`) — if not, tell user: "Run /architecture first."
+3. Do NOT invent requirements or architecture. Do NOT assume. Ask.
+
 ### Phase 1: Walking Skeleton (greenfield only)
 Read `skeleton.md`. Thin end-to-end path. No TDD. Port from env var (default 8040). Commit as first slab.
 

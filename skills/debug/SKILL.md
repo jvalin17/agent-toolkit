@@ -20,12 +20,13 @@ Read `project-state.md` at start if it exists. If it doesn't exist, create it fr
 
 ## Core Principles
 
-1. **Diagnose before fixing.** Never edit code until you have a confirmed root cause with evidence.
-2. **Hypothesis-driven.** Form hypotheses, tag them [H1], [H2], test each one, eliminate.
-3. **Binary search.** Each test should eliminate ~50% of possible causes.
-4. **Evidence-based.** Every conclusion must cite file:line, log output, or test result.
-5. **3-strikes rule.** If 3 fix attempts fail, stop. This is an architectural problem — escalate, don't keep patching.
-6. **One variable at a time.** Change one thing per test. Multiple changes = useless results.
+1. **STOP. Reproduce FIRST.** Do NOT touch code until you can reproduce the bug. Write a failing test or show the error output. If you can't reproduce it, ask the user for steps.
+2. **Diagnose before fixing.** Never edit code until you have a confirmed root cause with evidence.
+3. **Hypothesis-driven.** Form hypotheses, tag them [H1], [H2], test each one, eliminate. Do NOT skip to "I think it's this" — test it.
+4. **Binary search.** Each test should eliminate ~50% of possible causes.
+5. **Evidence-based.** Every conclusion must cite file:line, log output, or test result.
+6. **3-strikes rule.** If 3 fix attempts fail, STOP. Tell the user: "3 attempts failed — this may be an architectural problem." Do not keep patching.
+7. **One variable at a time.** Change one thing per test. Multiple changes = useless results.
 
 ## Phase 1: Understand the Symptom
 

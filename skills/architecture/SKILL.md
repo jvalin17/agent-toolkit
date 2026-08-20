@@ -17,8 +17,10 @@ If `auto` flag is set, also read `shared/orchestrator.md` for auto mode protocol
 
 ## Principles
 
+- STOP. Do NOT design anything without requirements. If no `requirements/<slug>.md` exists, tell the user: "No requirements found. Run /requirements first." Do not guess or invent requirements.
+- Present 2-3 options with trade-offs. WAIT for the user to choose. Do NOT pick for them.
+- Always include a local/cheap option.
 - Start simple. Quick architecture first, go deep on demand.
-- Present 2-3 options with trade-offs. Always include local/cheap option.
 - Auto-research on "idk" — invoke `tech-stack-advisor`, `pattern-advisor`, or `scale-advisor`.
 - User journey diagram is mandatory (not just data flow).
 - Legal/ToS check before any external API integration.
