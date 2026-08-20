@@ -208,25 +208,36 @@ Knowledge stored in `roles/knowledge.json` — one JSON file, easy to review and
 7. **USE SKILLS** — roles provide knowledge, skills provide process — use both
 8. **ROLE CHECKS** — apply role quality checks in every skill
 
-### Using with other LLMs (Gemini, Codex, Cursor, etc.)
+### Using with any AI tool
 
-Roles auto-detect on Claude Code via hooks. On other LLMs, add role context manually:
+One command sets up roles for whatever tool you're using:
 
-1. Copy the relevant `roles/*/role.md` content into your project's rules file (`.cursor/rules/`, `AGENTS.md`, etc.)
-2. Copy `roles/manager.md` into the same rules file
-3. Point the LLM at `roles/knowledge.json` for learned knowledge
-
-Or add to your project's `AGENTS.md` / `.cursorrules`:
-```markdown
-Read and follow these role files:
-- roles/backend/role.md (if backend project)
-- roles/frontend/role.md (if frontend project)
-- roles/security/role.md (always)
-- roles/manager.md (always)
-- roles/knowledge.json (for learned patterns — load your role's section)
+```bash
+cd /path/to/your-project
+python3 /path/to/agent-toolkit/roles/context.py --setup
 ```
 
-Hooks (auto-detection, gate enforcement) only work on Claude Code. On other LLMs, roles are advisory — the LLM sees them but nothing enforces compliance except `/precommit` if you run it manually.
+This auto-detects your AI tool and writes the right config:
+
+| Tool | What it creates |
+|------|----------------|
+| **Claude Code** | Nothing — hooks handle it automatically |
+| **Cursor** | `.cursor/rules/roles.md` |
+| **Gemini** | `.gemini/rules/roles.md` |
+| **Codex / other** | `AGENTS.md` |
+
+Re-run `--setup` anytime roles or knowledge changes. Other useful commands:
+
+```bash
+# Print role context to stdout (pipe to clipboard, file, etc.)
+python3 roles/context.py /path/to/project
+
+# JSON output (for custom tooling / API integration)
+python3 roles/context.py /path/to/project --json
+
+# Force specific roles
+python3 roles/context.py /path/to/project --roles backend,security
+```
 
 → Architecture: [`architecture/role-context-layer.md`](architecture/role-context-layer.md) · Roles: [`roles/ROLES-FINAL.md`](roles/ROLES-FINAL.md)
 
