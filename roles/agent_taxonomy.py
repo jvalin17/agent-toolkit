@@ -186,13 +186,90 @@ MODEL_CAPABILITIES = {
     },
 }
 
-# Model ID mapping
+# Model ID mapping — multi-provider
 MODEL_IDS = {
+    # Anthropic
     "haiku": "claude-haiku-4-5-20251001",
     "sonnet": "claude-sonnet-4-6",
     "opus": "claude-opus-4-6",
     "fable": "claude-fable-5",
+    # Google Gemini
+    "gemini-flash-lite": "gemini-2.5-flash-lite",
+    "gemini-flash": "gemini-2.5-flash",
+    "gemini-pro": "gemini-2.5-pro",
+    # OpenAI
+    "gpt-nano": "gpt-4.1-nano",
+    "gpt-mini": "gpt-4.1-mini",
+    "gpt-4.1": "gpt-4.1",
+    "codex-mini": "codex-mini-latest",
+    "o3": "o3",
+    "o4-mini": "o4-mini",
+    # Ollama (local)
+    "ollama-small": "llama3.1:8b-instruct-q5_K_M",
+    "ollama-code": "qwen3-coder-next",
+    "ollama-medium": "qwen3.6:27b",
 }
+
+# Provider detection — check which APIs are available
+PROVIDER_ENV_KEYS = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "ollama": "OLLAMA_HOST",  # or probe localhost:11434
+}
+
+# Map each tier to models per provider (preferred order)
+TIER_MODELS = {
+    "cheap": {
+        "anthropic": "haiku",
+        "gemini": "gemini-flash-lite",
+        "openai": "gpt-nano",
+        "ollama": "ollama-small",
+    },
+    "mid": {
+        "anthropic": "sonnet",
+        "gemini": "gemini-flash",
+        "openai": "gpt-4.1",
+        "ollama": "ollama-code",
+    },
+    "expensive": {
+        "anthropic": "fable",
+        "gemini": "gemini-pro",
+        "openai": "o3",
+        "ollama": "ollama-medium",
+    },
+}
+
+
+def detect_available_providers() -> List[str]:
+    """Detect which AI providers are available based on environment variables."""
+    import os
+    available = []
+    for provider, env_key in PROVIDER_ENV_KEYS.items():
+        if os.environ.get(env_key):
+            available.append(provider)
+    # Check Ollama by probing localhost
+    if "ollama" not in available:
+        try:
+            import urllib.request
+            urllib.request.urlopen("http://localhost:11434/api/tags", timeout=1)
+            available.append("ollama")
+        except Exception:
+            pass
+    return available if available else ["anthropic"]  # default assumption
+
+
+def get_available_models(providers: Optional[List[str]] = None) -> List[str]:
+    """Get all available model names based on detected providers."""
+    if providers is None:
+        providers = detect_available_providers()
+    models = []
+    for tier_models in TIER_MODELS.values():
+        for provider in providers:
+            model = tier_models.get(provider)
+            if model:
+                models.append(model)
+    return list(set(models))
 
 
 def select_agent(

@@ -66,6 +66,18 @@ Apply these in every architecture decision:
 - But don't prematurely abstract — three instances is the threshold
 - Prefer composition over inheritance
 
+**Data-Intensive Applications** (Martin Kleppmann — DDIA):
+- Reliability — tolerate hardware faults, software errors, human mistakes
+- Scalability — describe load (QPS, data volume), measure performance (p99 latency)
+- Maintainability — operability, simplicity, evolvability
+- Data models: relational vs document vs graph — choose based on access patterns
+- Storage engines: B-trees (reads) vs LSM-trees (writes) — know the tradeoff
+- Replication: leader-follower, multi-leader, leaderless — pick based on consistency needs
+- Partitioning: by key range vs hash — avoid hot spots
+- Transactions: ACID vs BASE, isolation levels matter
+- Stream processing: event logs, CDC, exactly-once semantics
+- Batch vs stream: Lambda architecture is usually overkill — pick one
+
 **Diagrams** (always include):
 - Use Mermaid syntax for all diagrams (renders in GitHub, docs, most tools)
 - Include: system context, component diagram, data flow, sequence diagram for key flows
