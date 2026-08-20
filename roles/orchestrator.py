@@ -25,6 +25,13 @@ from typing import Any, Dict, List, Optional
 
 ROLES_DIR = Path(__file__).resolve().parent
 
+# Import taxonomy for model selection
+try:
+    from agent_taxonomy import select_agent, MODEL_IDS
+except ImportError:
+    select_agent = None  # type: ignore
+    MODEL_IDS = {"haiku": "haiku", "sonnet": "sonnet", "opus": "opus", "fable": "fable"}
+
 MODEL_MAP = {
     "cheap": "haiku",
     "mid": "sonnet",
@@ -382,5 +389,8 @@ def plan_to_context(plan: Dict[str, Any]) -> str:
 
     lines.append("Follow these steps in order. Do not skip steps or change the sequence.")
     lines.append("For PARALLEL steps: use the Agent tool to spawn multiple subagents in a single message.")
+    lines.append("")
+    lines.append("Model guide: haiku=mechanical/cheap, sonnet=implementation/mid, opus/fable=reasoning/expensive.")
+    lines.append("Use the cheapest model that can handle the task. Fetch/lint/search → haiku. Code/review → sonnet. Architecture/security → opus/fable.")
 
     return "\n".join(lines)
