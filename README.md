@@ -125,6 +125,10 @@ Each role has two layers of knowledge:
 
 Code can't be committed unless it passes role quality checks. Security violations are hard blocks. The agent cannot fake gate results — hooks enforce this.
 
+### Skill enforcement
+
+In strict mode, the agent can't edit code without following a skill workflow (`/implementation`, `/debug`, `/architecture`). In normal mode, it warns but doesn't block. Set via `"mode": "strict"` in `gates.json`.
+
 ### Model routing
 
 Agents automatically use the right model for the right task:

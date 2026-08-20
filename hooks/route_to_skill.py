@@ -209,6 +209,20 @@ _INTENT_TO_TASK_TYPE = {
 }
 
 
+def _track_skill_routed(project_dir: Path, skill_key: str) -> None:
+    """Track which skill was routed — used by skill_enforce.py to verify."""
+    try:
+        state_dir = project_dir / ".session"
+        state_file = state_dir / "state.json"
+        state = {}
+        if state_file.is_file():
+            state = json.loads(state_file.read_text())
+        state["last_skill_routed"] = skill_key
+        state_file.write_text(json.dumps(state))
+    except (OSError, json.JSONDecodeError):
+        pass  # fail silently — don't break routing
+
+
 def _get_orchestration_plan(project_dir: Path, config: dict, intent: str) -> str:
     """Build an orchestration plan for the current task. Fails silently."""
     task_type = _INTENT_TO_TASK_TYPE.get(intent)
@@ -313,6 +327,9 @@ def run_route_to_skill(
     intent = detect_intent(prompt)
     if intent is None:
         return 0, ""
+
+    # Track which skill was routed — used by skill_enforce.py
+    _track_skill_routed(project_dir, intent)
 
     context = SKILL_CONTEXTS[intent]
 
