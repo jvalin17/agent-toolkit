@@ -73,11 +73,11 @@ def _check_skill_active(project_dir: Path) -> Tuple[bool, str]:
     Reads session state to see if route_to_skill injected a skill context.
     Also checks .session/state.json for recent skill invocations.
     """
-    # Check .session/state.json for skill tracking
-    state_file = project_dir / ".session" / "state.json"
-    if state_file.is_file():
+    # Check .scratch/skill_state.json for last routed skill
+    skill_state = project_dir / ".scratch" / "skill_state.json"
+    if skill_state.is_file():
         try:
-            state = json.loads(state_file.read_text())
+            state = json.loads(skill_state.read_text())
             last_skill = state.get("last_skill_routed", "")
             if last_skill in CODE_CHANGE_SKILLS:
                 return True, last_skill
@@ -88,8 +88,12 @@ def _check_skill_active(project_dir: Path) -> Tuple[bool, str]:
 
     # Check .scratch for recent precommit/skill findings
     scratch = project_dir / ".scratch"
-    if scratch.is_dir() and any(scratch.iterdir()):
-        return True, "scratch-active"
+    if scratch.is_dir():
+        try:
+            if any(scratch.iterdir()):
+                return True, "scratch-active"
+        except OSError:
+            pass
 
     # No skill detected — but don't block if we can't determine
     # (fail open to avoid breaking workflows)

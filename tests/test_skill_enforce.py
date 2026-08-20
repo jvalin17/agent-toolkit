@@ -91,9 +91,9 @@ class TestSkillEnforce:
     def test_allows_code_when_skill_active(self, tmp_path):
         from skill_enforce import run_skill_enforce
         # Simulate skill being active
-        session_dir = tmp_path / ".session"
-        session_dir.mkdir()
-        (session_dir / "state.json").write_text(
+        scratch_dir = tmp_path / ".scratch"
+        scratch_dir.mkdir()
+        (scratch_dir / "skill_state.json").write_text(
             json.dumps({"last_skill_routed": "build"})
         )
         (tmp_path / "gates.json").write_text('{"skill_enforce": "block"}')
