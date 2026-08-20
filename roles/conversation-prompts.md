@@ -227,3 +227,54 @@ do we really need to add at multiple places? couldn't we keep the repo simpler?
 
 ## Prompt 76
 save all prompts and commit everything we built. also will the roles be auto invoked?
+
+## Prompt 77
+push it. Update readme. Also are we really uploading so much data?
+
+## Prompt 78
+or we could have compressed version
+
+## Prompt 79
+do we really need to add so much data? couldn't we have encoded and indexed version before putting on git?
+
+## Prompt 80
+if we compress will it be still accessible? if not then let's just do json. so it's easy to modify
+
+## Prompt 81
+now use readme skill and update readme
+
+## Prompt 82
+give examples
+
+## Prompt 83
+also how to use them in a greenfield app
+
+## Prompt 84
+someone naive is using gemini and codex.. will this work?
+
+## Prompt 85
+could we add functionality or a layer such that any agent could use it?
+
+## Prompt 86
+it should be all automatic. like someone is say use agent toolkit and everything should be loaded and give best product
+
+## Prompt 87
+yes build it. then update readme and tags
+
+## Prompt 88
+is this in readme
+
+## Prompt 89
+what would be straightforward minimal use?
+
+## Prompt 90
+make it work for anyone who can type english. terminal commands are fine but keep as easy as possible. like "load agent toolkit" in gemini or cursor or anything
+
+## Prompt 91
+update readme
+
+## Prompt 92
+Thats a huge readme. Shorten it. just some examples is fine and other details. or link in elaborate concepts like architecture
+
+## Prompt 93
+save all prompts and commit
