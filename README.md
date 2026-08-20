@@ -54,9 +54,11 @@ Install details & updates: [docs/install-and-updates.md](docs/install-and-update
 
 | When | Do this |
 |------|---------|
-| **Building** | `/explore` or `/requirements` → `/implementation` |
-| **Committing** | `/precommit` → write findings → `finalize_report.py` → `git commit` |
+| **Starting** | Roles auto-detect — look for "ACTIVE ROLES:" in session context |
+| **Building** | `/explore` or `/requirements` → `/implementation` (roles inject domain knowledge) |
+| **Committing** | `/precommit` → role quality checks + findings → `finalize_report.py` → `git commit` |
 | **Pushing** (guarded) | `/evaluate` → finalize → `git push` |
+| **Learning** | `python3 roles/learn.py --role backend --repo <url>` → study new patterns |
 
 ```bash
 python3 hooks/finalize_report.py precommit .scratch/precommit_<slug>/findings.json
@@ -98,23 +100,133 @@ All 13 skills: [docs/skills.md](docs/skills.md)
 | **Specialized** | Game Dev, Embedded/IoT |
 | **Compliance** | Legal & Compliance |
 
-**Auto-detection:** Roles activate based on project signals (e.g., `package.json` + React → Frontend, `Podfile` → iOS, `Dockerfile` → Infrastructure). Override in `gates.json`:
+### How it works
+
+Roles activate automatically and inject domain knowledge into every skill:
+
+```
+You open a React + Express + Prisma project
+  → detect_role.py detects: frontend, backend, dba, security
+  → Each role's advisory + learned knowledge injected into session
+
+You type: "add a stats page"
+  → /implementation runs with role context:
+    Frontend: "don't compute stats on page load — defer to Web Worker"
+    Backend:  "paginate with cursors, not OFFSET"
+    DBA:      "add index on player_id"
+    Security: "validate input at API boundary"
+
+You run /precommit
+  → Role quality checks run against your code
+  → Backend: ✓ pagination on list endpoint
+  → DBA: ✗ missing index on foreign key → BLOCKED
+```
+
+### Examples
+
+```bash
+# Study a new repo to improve a role's knowledge
+python3 roles/learn.py --role backend --repo https://github.com/honojs/hono
+
+# Study a blog post
+python3 roles/learn.py --role frontend --url https://vercel.com/blog/core-web-vitals
+
+# Study your own codebase (all roles analyze it)
+python3 roles/learn.py --role all --path /path/to/project
+
+# Merge learnings into runtime knowledge
+python3 roles/learn.py --synthesize backend
+
+# Filter knowledge — remove opinions, keep objective patterns
+python3 roles/learn.py --filter --role all
+
+# Check knowledge freshness
+python3 roles/learn.py --health backend
+```
+
+### Greenfield app example
+
+Starting a new project from scratch with roles:
+
+```bash
+mkdir my-saas && cd my-saas
+git init && claude
+
+# You: "Build a SaaS app with auth, payments, and a dashboard"
+
+# What happens:
+# 1. /requirements gathers specs — Requirements Engineer tracks completeness
+# 2. /architecture designs system — System Architect evaluates tradeoffs
+#    Research Engineer compares: Next.js vs Remix, Prisma vs Drizzle, Stripe vs Paddle
+#    Requirements Engineer documents tech choices with rationale
+# 3. /implementation builds slab by slab:
+#    - Backend role: API with validation, pagination, error handling
+#    - Frontend role: lazy-loaded components, no heavy computation on mount
+#    - DBA role: indexed foreign keys, cursor pagination, parameterized queries
+#    - Security role: bcrypt passwords, CSRF protection, no secrets in code
+# 4. /precommit: all role quality checks must pass before commit
+# 5. Production Engineer: run the app, click through flows, verify it works
+```
+
+No configuration needed — roles detect from the files you create (package.json, Prisma schema, Dockerfile) and activate automatically.
+
+### Configuration
+
+Roles auto-detect by default. Override in `gates.json`:
 
 ```json
 {
   "roles": ["backend", "frontend", "dba"],
   "roles_add": ["security"],
-  "roles_exclude": ["infrastructure"]
+  "roles_exclude": ["infrastructure"],
+  "roles_max": 4
 }
 ```
 
-**Knowledge:** Each role has pre-learned knowledge from production open-source repos (NestJS, FastAPI, Signal, cal.com, PostHog, etc.). Bootstrap your own:
+### Bootstrap knowledge
+
+Pre-learn from 95+ production repos (NestJS, FastAPI, Signal, cal.com, PostHog, Kubernetes, etc.):
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-... bash roles/bootstrap.sh
+read -s -p 'API key: ' ANTHROPIC_API_KEY && export ANTHROPIC_API_KEY
+bash roles/bootstrap.sh    # ~45-90 min, ~$14-18
+unset ANTHROPIC_API_KEY
 ```
 
-**Manager guardrail:** 8 principles enforce quality, scope, risk awareness, and skill usage across all roles. Role quality checks are part of `/precommit` — code can't be committed if it violates active role checks.
+Knowledge stored in `roles/knowledge.json` — one JSON file, easy to review and edit.
+
+### Manager guardrail
+
+8 principles injected into every session when roles are active:
+
+1. **QUALITY** — check anti-patterns before implementing
+2. **SCOPE** — solve exactly what was asked
+3. **DEPENDENCIES** — check all applicable roles
+4. **RISK** — address flagged risks, don't defer
+5. **ESCALATION** — follow user when guidance conflicts
+6. **INFORM** — surface concerns + alternatives, let user decide
+7. **USE SKILLS** — roles provide knowledge, skills provide process — use both
+8. **ROLE CHECKS** — apply role quality checks in every skill
+
+### Using with other LLMs (Gemini, Codex, Cursor, etc.)
+
+Roles auto-detect on Claude Code via hooks. On other LLMs, add role context manually:
+
+1. Copy the relevant `roles/*/role.md` content into your project's rules file (`.cursor/rules/`, `AGENTS.md`, etc.)
+2. Copy `roles/manager.md` into the same rules file
+3. Point the LLM at `roles/knowledge.json` for learned knowledge
+
+Or add to your project's `AGENTS.md` / `.cursorrules`:
+```markdown
+Read and follow these role files:
+- roles/backend/role.md (if backend project)
+- roles/frontend/role.md (if frontend project)
+- roles/security/role.md (always)
+- roles/manager.md (always)
+- roles/knowledge.json (for learned patterns — load your role's section)
+```
+
+Hooks (auto-detection, gate enforcement) only work on Claude Code. On other LLMs, roles are advisory — the LLM sees them but nothing enforces compliance except `/precommit` if you run it manually.
 
 → Architecture: [`architecture/role-context-layer.md`](architecture/role-context-layer.md) · Roles: [`roles/ROLES-FINAL.md`](roles/ROLES-FINAL.md)
 
@@ -315,11 +427,13 @@ Sessions use a **two-layer** limit system. Layer 1 (`compact_at_minutes`) writes
 
 | Doc | For |
 |-----|-----|
-| [System overview](docs/system-overview.md) | How skills, hooks, gates, and reports connect |
+| [System overview](docs/system-overview.md) | How skills, hooks, gates, roles, and reports connect |
 | [Daily workflow](docs/workflow.md) | Commit, push, finalize, gate profiles |
 | [Install & updates](docs/install-and-updates.md) | First setup, auto-sync, manual refresh |
 | [Other LLMs](docs/other-llms.md) | Cursor, GPT, Gemini, Windsurf, Aider |
 | [Skills reference](docs/skills.md) | All 13 skills |
+| [Roles reference](roles/ROLES-FINAL.md) | All 19 roles, interactions, knowledge sources |
+| [Role architecture](architecture/role-context-layer.md) | How roles detect, inject, learn, evaluate |
 | [Configuration](docs/configuration.md) | `gates.json`, presets, signed mode |
 | [Gate unlock](shared/gate-unlock.md) | Legacy vs signed, rare options |
 | [Troubleshooting](shared/troubleshooting.md) | Common failures |
