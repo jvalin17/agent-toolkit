@@ -36,3 +36,4 @@ memory/
 roles/*/knowledge/
 roles/.learn-cache/
 roles/conversation-prompts.md
+roles/*/books/

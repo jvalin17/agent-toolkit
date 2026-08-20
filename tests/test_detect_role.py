@@ -325,7 +325,7 @@ class TestLoadRoleContext:
         context = load_role_context(["backend"], roles_dir=roles_root)
         assert "cursor pagination" in context
         assert "Connection pooling" in context
-        assert "Learned Knowledge" in context
+        assert "Practical Patterns" in context
 
     def test_skips_synthesis_if_missing(self, tmp_path):
         from detect_role import load_role_context
@@ -340,7 +340,7 @@ class TestLoadRoleContext:
 
         context = load_role_context(["frontend"], roles_dir=roles_root)
         assert "FE role" in context
-        assert "Learned Knowledge" not in context
+        assert "Practical Patterns" not in context
 
     def test_truncates_large_synthesis(self, tmp_path):
         from detect_role import load_role_context

@@ -324,6 +324,17 @@ def _load_knowledge_index(roles_dir: Path) -> Dict[str, str]:
         return {}
 
 
+def _load_books_knowledge(roles_dir: Path) -> Dict[str, str]:
+    """Load books-knowledge.json — foundational SE book principles per role."""
+    index_path = roles_dir / "books-knowledge.json"
+    if not index_path.is_file():
+        return {}
+    try:
+        return json.loads(index_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
 def _parse_role_md(role_path: Path) -> str:
     """Extract the body (after YAML frontmatter) from a role.md file."""
     content = role_path.read_text()
@@ -368,8 +379,9 @@ def load_role_context(
             parts.append("")
             parts.append(manager_body)
 
-    # Load knowledge index (single JSON file for all roles)
+    # Load knowledge indexes (two layers: repos + books)
     knowledge_index = _load_knowledge_index(roles_dir)
+    books_index = _load_books_knowledge(roles_dir)
 
     # Load each role's advisory + synthesized knowledge
     for role_name in active_roles:
@@ -380,14 +392,22 @@ def load_role_context(
                 parts.append("")
                 parts.append(body)
 
-        # Load synthesized knowledge from index
+        # Load foundational knowledge (books — principles, patterns, frameworks)
+        books = books_index.get(role_name, "")
+        if books:
+            if len(books) > 1500:
+                books = books[:1500] + "\n\n[... truncated — full in books-knowledge.json]"
+            parts.append("")
+            parts.append(f"## {role_name.upper()} — Foundational Principles")
+            parts.append(books)
+
+        # Load practical knowledge (repos — implementation patterns)
         synthesis = knowledge_index.get(role_name, "")
         if synthesis:
-            # Cap at ~2000 chars (~500 tokens) per role to keep context lean
-            if len(synthesis) > 2000:
-                synthesis = synthesis[:2000] + "\n\n[... truncated — full knowledge in knowledge.json]"
+            if len(synthesis) > 1500:
+                synthesis = synthesis[:1500] + "\n\n[... truncated — full in knowledge.json]"
             parts.append("")
-            parts.append(f"## {role_name.upper()} — Learned Knowledge")
+            parts.append(f"## {role_name.upper()} — Practical Patterns")
             parts.append(synthesis)
 
     return "\n".join(parts)

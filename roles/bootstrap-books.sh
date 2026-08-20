@@ -28,20 +28,112 @@ echo "  Book Knowledge Bootstrap"
 echo "========================================="
 echo ""
 
+BOOKS_DIR="$SCRIPT_DIR/books"
+
 study() {
     local role="$1" repo="$2" name="$3"
     echo "  [$role] Studying $name..."
+    # Store in roles/{role}/books/ instead of roles/{role}/knowledge/
+    local book_dir="$SCRIPT_DIR/$role/books"
+    mkdir -p "$book_dir"
     if python3 "$LEARN_PY" --role "$role" --repo "$repo" --cache-dir "$CACHE_DIR" 2>&1 | sed 's/^/    /'; then
-        echo "  [$role] ✓ $name"
+        # Move the knowledge file from knowledge/ to books/
+        local slug=$(python3 -c "from learn import slug; print(slug('$repo'))")
+        local src="$SCRIPT_DIR/$role/knowledge/${slug}.md"
+        local dst="$book_dir/${slug}.md"
+        if [ -f "$src" ]; then
+            mv "$src" "$dst"
+        fi
+        echo "  [$role] ✓ $name → books/"
     else
         echo "  [$role] ✗ $name FAILED (continuing...)"
     fi
 }
 
-synth() {
+synth_books() {
     local role="$1"
-    echo "  Synthesizing $role..."
-    python3 "$LEARN_PY" --role "$role" --synthesize 2>&1 | sed 's/^/    /'
+    echo "  Synthesizing $role books..."
+    # Synthesize only from books/ directory into _books_synthesis.md
+    local book_dir="$SCRIPT_DIR/$role/books"
+    if [ ! -d "$book_dir" ] || [ -z "$(ls "$book_dir"/*.md 2>/dev/null)" ]; then
+        echo "    No book knowledge for $role — skipping"
+        return
+    fi
+    python3 -c "
+import sys
+sys.path.insert(0, '$SCRIPT_DIR')
+from learn import call_llm
+from pathlib import Path
+import os, json
+from datetime import datetime
+
+role = '$role'
+book_dir = Path('$book_dir')
+files = sorted(book_dir.glob('*.md'))
+files = [f for f in files if f.name != '_books_synthesis.md']
+if not files:
+    print('  No book files to synthesize')
+    sys.exit(0)
+
+all_knowledge = ''
+for f in files:
+    all_knowledge += f'\n\n--- SOURCE: {f.stem} ---\n\n'
+    all_knowledge += f.read_text()
+
+role_md = Path('$SCRIPT_DIR/$role/role.md')
+scope = '$role'
+if role_md.is_file():
+    content = role_md.read_text()
+    if content.startswith('---'):
+        for line in content.split('---', 2)[1].split('\n'):
+            if line.strip().startswith('scope:'):
+                scope = line.partition(':')[2].strip()
+
+prompt = f'''Synthesize foundational SE book knowledge for the {role} role.
+Scope: {scope}
+
+These are notes from authoritative SE books and resources (not repo patterns).
+Extract PRINCIPLES, PATTERNS, and DECISION FRAMEWORKS — not implementation details.
+
+RULES:
+- Focus on timeless principles, not framework-specific advice
+- These are foundational — they apply regardless of language or framework
+- Rank by importance for this specific role
+- Keep under 2000 tokens
+
+SOURCES:
+{all_knowledge}
+
+OUTPUT:
+
+## Foundational Principles
+[Ranked by importance for this role]
+
+## Design Patterns to Apply
+[Patterns most relevant to this role, with when to use each]
+
+## Decision Frameworks
+[How to make decisions in this role\\'s domain — tradeoff analysis]
+
+## Common Mistakes (from books)
+[What the books say to avoid — with the correct approach]
+'''
+
+synth_model = os.environ.get('LEARN_SYNTH_MODEL', 'fable')
+result = call_llm(prompt, max_tokens=3000, model=synth_model)
+
+output = book_dir / '_books_synthesis.md'
+output.write_text(f'''---
+role: {role}
+type: foundational_books
+sources: {len(files)}
+synthesized_at: {datetime.now().isoformat()}
+---
+
+{result}
+''')
+print(f'    ✓ {role}/books/_books_synthesis.md')
+" 2>&1 | sed 's/^/    /'
 }
 
 echo "--- DDIA (Kleppmann) → architect, dba, data-engineer ---"
@@ -132,37 +224,32 @@ echo "========================================="
 echo ""
 
 for role in architect backend dba data-engineer code-health frontend qa production security ios android data-scientist ai-ml infrastructure research embedded game-dev legal requirements-eng; do
-    synth "$role"
+    synth_books "$role"
 done
 
 echo ""
-echo "Updating knowledge.json..."
+echo "Updating books-knowledge.json (separate from repo knowledge)..."
 python3 -c "
 import json
 from pathlib import Path
 
 roles_dir = Path('$SCRIPT_DIR')
-knowledge = {}
+books_knowledge = {}
 
-# Load existing knowledge.json
-kj = roles_dir / 'knowledge.json'
-if kj.is_file():
-    knowledge = json.loads(kj.read_text())
-
-# Update from fresh synthesis files
 for role_dir in sorted(roles_dir.iterdir()):
-    synthesis = role_dir / 'knowledge' / '_synthesis.md'
+    synthesis = role_dir / 'books' / '_books_synthesis.md'
     if synthesis.is_file():
         content = synthesis.read_text()
         if content.startswith('---'):
             parts = content.split('---', 2)
             if len(parts) >= 3:
                 content = parts[2].strip()
-        knowledge[role_dir.name] = content
-        print(f'  ✓ {role_dir.name} updated in knowledge.json')
+        books_knowledge[role_dir.name] = content
+        print(f'  ✓ {role_dir.name}')
 
-kj.write_text(json.dumps(knowledge, indent=2))
-print(f'  Written {len(knowledge)} roles to knowledge.json')
+bkj = roles_dir / 'books-knowledge.json'
+bkj.write_text(json.dumps(books_knowledge, indent=2))
+print(f'  Written {len(books_knowledge)} roles to books-knowledge.json')
 "
 
 echo ""
