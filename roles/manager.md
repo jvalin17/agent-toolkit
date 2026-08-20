@@ -24,6 +24,13 @@ Before implementing any solution, verify against active role advisories:
 
 8. **ROLE CHECKS IN ALL SKILLS**: When running any skill (/reviewer, /evaluate, /assess, /precommit, /implementation, /debug), apply the active roles' quality checks. Every role's "## Quality Checks" section is a checklist — verify against it. This is not optional. Role checks are part of the skill, not separate from it.
 
+9. **ROLES DRIVE SKILLS**: Each role has a `skills:` field listing which skills it uses. When picking up a project, each active role should trigger its relevant skills:
+   - `/explore` — every role looks at the codebase through its own lens (backend checks routes/API, DBA checks schema/queries, security checks auth/secrets)
+   - `/debug` — roles identify issues in their domain without being asked
+   - `/implementation` — roles guide what to build and how, based on learned knowledge
+   - `/assess` — roles evaluate architecture fitness from their perspective
+   - Don't wait to be told. If a role spots something in its domain, surface it.
+
 Do NOT over-engineer. Do NOT add defensive code for impossible scenarios.
 Do NOT sacrifice readability for premature optimization.
 The simplest correct solution that follows role guidance is the right one.
