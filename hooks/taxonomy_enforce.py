@@ -57,12 +57,25 @@ def detect_task_tier(description: str) -> str:
 
 
 def check_model_match(model: str, expected_tier: str) -> dict:
-    """Check if model matches expected tier. Returns warning if mismatch."""
-    if not model:
+    """Check if model matches expected tier. Returns warning only on clear mismatches.
+
+    Vague tasks (mid tier) are fine with any model — no warning.
+    Only warn when expensive↔cheap mismatch is clear.
+    """
+    # Vague/mid tasks — any model is fine
+    if expected_tier == "mid":
+        return {"warn": False}
+
+    # No model + clear tier → suggest, don't warn
+    if not model and expected_tier in ("cheap", "expensive"):
+        suggestion = "haiku" if expected_tier == "cheap" else "opus/fable"
         return {
-            "warn": True,
-            "message": "Agent spawned without model parameter. Set model='haiku' for cheap tasks, 'sonnet' for implementation, 'opus'/'fable' for reasoning.",
+            "warn": False,
+            "suggestion": f"Consider using {suggestion} for this task.",
         }
+
+    if not model:
+        return {"warn": False}
 
     model_lower = model.lower()
     actual_tier = "mid"  # default
@@ -71,18 +84,19 @@ def check_model_match(model: str, expected_tier: str) -> dict:
             actual_tier = tier
             break
 
-    # Check for waste: expensive model on cheap task
+    # Only warn on clear mismatches
+    # Expensive model on clearly cheap task = waste
     if actual_tier == "expensive" and expected_tier == "cheap":
         return {
             "warn": True,
-            "message": f"Expensive model ({model}) used for a cheap task. Use haiku instead.",
+            "message": f"Expensive model ({model}) used for a cheap task (file search/lint). Use haiku instead.",
         }
 
-    # Check for risk: cheap model on expensive task
+    # Cheap model on clearly expensive task = risk
     if actual_tier == "cheap" and expected_tier == "expensive":
         return {
             "warn": True,
-            "message": f"Cheap model ({model}) used for a task requiring deep reasoning. Use opus or fable instead.",
+            "message": f"Cheap model ({model}) used for deep reasoning task (architecture/security). Use opus or fable instead.",
         }
 
     return {"warn": False}

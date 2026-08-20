@@ -46,8 +46,8 @@ When spawning Agent subagents, you MUST set the `model` parameter according to t
 | Architecture decisions, security audit, complex debug, synthesis, cross-role evaluation, task decomposition, migration planning | `opus` or `fable` | Deep reasoning — worth the cost |
 
 **Enforcement rules:**
-- NEVER use opus/fable for file search, linting, or formatting
-- NEVER use haiku for architecture decisions or security audits
-- When spawning an Agent, ALWAYS include `model` parameter: `Agent(model="haiku", ...)` or `Agent(model="sonnet", ...)`
-- If unsure, default to sonnet — never default to the most expensive model
-- An Agent spawn without a `model` parameter is a violation
+- NEVER use opus/fable for file search, linting, or formatting — that's waste
+- NEVER use haiku for architecture decisions or security audits — that's risk
+- When the task is clearly cheap or expensive, set the `model` parameter
+- When the task is vague or general, any model is fine — don't overthink it
+- If unsure, default to sonnet

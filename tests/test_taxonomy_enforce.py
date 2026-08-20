@@ -31,11 +31,16 @@ class TestDetectTaskTier:
 
 
 class TestCheckModelMatch:
-    def test_no_model_warns(self):
+    def test_no_model_on_vague_task_ok(self):
+        from taxonomy_enforce import check_model_match
+        result = check_model_match("", "mid")
+        assert result["warn"] is False
+
+    def test_no_model_on_cheap_suggests(self):
         from taxonomy_enforce import check_model_match
         result = check_model_match("", "cheap")
-        assert result["warn"] is True
-        assert "without model" in result["message"]
+        assert result["warn"] is False
+        assert "haiku" in result.get("suggestion", "")
 
     def test_expensive_on_cheap_warns(self):
         from taxonomy_enforce import check_model_match
