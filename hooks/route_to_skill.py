@@ -201,6 +201,61 @@ def make_hook_response(message: str) -> str:
     )
 
 
+# Map skill routing intents to orchestration task types
+_INTENT_TO_TASK_TYPE = {
+    "build": "new_feature",
+    "debug": "bug_fix",
+    "refactor": "refactor",
+}
+
+
+def _get_orchestration_plan(project_dir: Path, config: dict, intent: str) -> str:
+    """Build an orchestration plan for the current task. Fails silently."""
+    task_type = _INTENT_TO_TASK_TYPE.get(intent)
+    if not task_type:
+        return ""
+
+    try:
+        roles_path = Path(__file__).resolve().parent.parent / "roles"
+        if str(roles_path) not in sys.path:
+            sys.path.insert(0, str(roles_path))
+
+        from detect_role import detect_roles
+        from orchestrator import build_orchestration_plan, plan_to_context
+
+        config_roles = get_config_value(config, "roles", None)
+        config_add = get_config_value(config, "roles_add", None)
+        config_exclude = get_config_value(config, "roles_exclude", None)
+        max_roles = get_config_value(config, "roles_max", 4)
+
+        detected = detect_roles(
+            project_dir,
+            config_roles=config_roles,
+            config_add=config_add,
+            config_exclude=config_exclude,
+            max_roles=max_roles,
+        )
+        if not detected:
+            return ""
+
+        role_names = [r["name"] for r in detected]
+        primary = role_names[0]  # highest confidence role is primary
+
+        plan = build_orchestration_plan(
+            primary_role=primary,
+            task_type=task_type,
+            active_roles=role_names,
+            roles_dir=roles_path,
+        )
+
+        if not plan.get("steps"):
+            return ""
+
+        return plan_to_context(plan)
+    except Exception:
+        return ""
+
+
 def _get_role_advisory(project_dir: Path, config: dict) -> str:
     """Load role advisory context for the current project. Fails silently."""
     try:
@@ -265,6 +320,11 @@ def run_route_to_skill(
     role_advisory = _get_role_advisory(project_dir, config)
     if role_advisory:
         context = context + "\n\n" + role_advisory
+
+    # Append orchestration plan if roles have invocations configured
+    orch_context = _get_orchestration_plan(project_dir, config, intent)
+    if orch_context:
+        context = context + "\n\n" + orch_context
 
     return 0, make_hook_response(context)
 

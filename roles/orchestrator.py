@@ -1,0 +1,377 @@
+#!/usr/bin/env python3
+"""Cross-role orchestration — deterministic role invocation and model routing.
+
+Reads `invokes:` and `cost_guidance:` from role.md files to build
+orchestration plans. The LLM follows the plan — it doesn't decide the plan.
+
+Usage:
+  from orchestrator import build_orchestration_plan, plan_to_context
+
+  plan = build_orchestration_plan(
+      primary_role="backend",
+      task_type="new_feature",
+      active_roles=["backend", "dba", "security", "qa"],
+      roles_dir=roles_dir,
+  )
+  context = plan_to_context(plan)
+  # → inject context into skill workflow
+"""
+
+import json
+import re
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+
+ROLES_DIR = Path(__file__).resolve().parent
+
+MODEL_MAP = {
+    "cheap": "haiku",
+    "mid": "sonnet",
+    "expensive": "opus",
+}
+
+
+def _parse_frontmatter(role_path: Path) -> Dict[str, Any]:
+    """Parse YAML-like frontmatter from role.md. Simple key: value parser."""
+    if not role_path.is_file():
+        return {}
+
+    content = role_path.read_text()
+    if not content.startswith("---"):
+        return {}
+
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return {}
+
+    frontmatter = parts[1].strip()
+    result: Dict[str, Any] = {}
+    current_key = None
+    current_dict: Optional[Dict[str, Any]] = None
+
+    for line in frontmatter.split("\n"):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+
+        # Top-level key: value
+        if not line.startswith(" ") and not line.startswith("\t") and ":" in stripped:
+            key, _, value = stripped.partition(":")
+            key = key.strip()
+            value = value.strip()
+
+            if value:
+                # Try to parse as JSON (for lists like ["a", "b"])
+                try:
+                    result[key] = json.loads(value)
+                except (json.JSONDecodeError, ValueError):
+                    result[key] = value
+                current_key = None
+                current_dict = None
+            else:
+                # Start of a nested dict
+                current_key = key
+                current_dict = {}
+                result[key] = current_dict
+
+        elif current_dict is not None and (":" in stripped):
+            # Nested key: value
+            key, _, value = stripped.partition(":")
+            key = key.strip()
+            value = value.strip()
+            if key.startswith("- "):
+                # It's a list item, not a dict entry
+                if current_key and current_key in result and not isinstance(result[current_key], dict):
+                    pass
+            else:
+                try:
+                    current_dict[key] = json.loads(value)
+                except (json.JSONDecodeError, ValueError):
+                    current_dict[key] = value
+
+    return result
+
+
+def get_invocations(
+    role_name: str,
+    phase: str,
+    roles_dir: Optional[Path] = None,
+) -> List[str]:
+    """Get which roles to invoke at a given phase for a primary role.
+
+    Args:
+        role_name: Primary role (e.g., "backend")
+        phase: Invocation phase (e.g., "after_skeleton", "for_evaluation")
+        roles_dir: Path to roles/ directory
+
+    Returns:
+        List of role names to invoke, or empty list.
+    """
+    if roles_dir is None:
+        roles_dir = ROLES_DIR
+
+    role_md = roles_dir / role_name / "role.md"
+    config = _parse_frontmatter(role_md)
+    invokes = config.get("invokes", {})
+
+    if not isinstance(invokes, dict):
+        return []
+
+    result = invokes.get(phase, [])
+    if isinstance(result, str):
+        return [result]
+    if isinstance(result, list):
+        return result
+    return []
+
+
+def get_model_tier(
+    role_name: str,
+    task_type: str,
+    roles_dir: Optional[Path] = None,
+) -> str:
+    """Get recommended model tier for a task type within a role.
+
+    Returns: "cheap", "mid", or "expensive"
+    """
+    if roles_dir is None:
+        roles_dir = ROLES_DIR
+
+    role_md = roles_dir / role_name / "role.md"
+    config = _parse_frontmatter(role_md)
+    cost = config.get("cost_guidance", {})
+
+    if not isinstance(cost, dict):
+        return "mid"
+
+    for tier in ["cheap", "mid", "expensive"]:
+        tasks = cost.get(tier, [])
+        if isinstance(tasks, list) and task_type in tasks:
+            return tier
+
+    return "mid"  # default
+
+
+def build_orchestration_plan(
+    primary_role: str,
+    task_type: str,
+    active_roles: List[str],
+    roles_dir: Optional[Path] = None,
+) -> Dict[str, Any]:
+    """Build a deterministic orchestration plan for a task.
+
+    The plan defines what happens in what order. The LLM follows it.
+
+    Args:
+        primary_role: Role doing the main work (e.g., "backend")
+        task_type: "new_feature", "bug_fix", "refactor", "migration"
+        active_roles: All currently active roles
+        roles_dir: Path to roles/ directory
+
+    Returns:
+        Plan dict with ordered steps.
+    """
+    if roles_dir is None:
+        roles_dir = ROLES_DIR
+
+    active_set = set(active_roles)
+    steps = []
+
+    if task_type == "new_feature":
+        # Step 1: Primary role builds
+        steps.append({
+            "type": "build",
+            "role": primary_role,
+            "description": f"{primary_role} builds skeleton using learned knowledge",
+            "model_tier": get_model_tier(primary_role, "code-generation", roles_dir),
+        })
+
+        # Step 2: Post-skeleton evaluation
+        after_skeleton = get_invocations(primary_role, "after_skeleton", roles_dir)
+        active_evaluators = [r for r in after_skeleton if r in active_set]
+        if active_evaluators:
+            steps.append({
+                "type": "evaluate",
+                "roles": active_evaluators,
+                "description": f"Post-skeleton review by {', '.join(active_evaluators)}",
+                "model_tier": "cheap",
+                "parallel": True,
+            })
+
+            # Step 3: Primary applies feedback
+            steps.append({
+                "type": "apply_feedback",
+                "role": primary_role,
+                "description": f"{primary_role} applies evaluation feedback",
+                "model_tier": get_model_tier(primary_role, "code-generation", roles_dir),
+            })
+
+        # Step 4: Final evaluation
+        for_eval = get_invocations(primary_role, "for_evaluation", roles_dir)
+        active_final = [r for r in for_eval if r in active_set]
+        if active_final:
+            steps.append({
+                "type": "evaluate",
+                "roles": active_final,
+                "description": f"Final evaluation by {', '.join(active_final)}",
+                "model_tier": "cheap",
+                "parallel": True,
+            })
+
+    elif task_type == "bug_fix":
+        # Step 1: Primary diagnoses and fixes
+        steps.append({
+            "type": "fix",
+            "role": primary_role,
+            "description": f"{primary_role} diagnoses and fixes using learned patterns",
+            "model_tier": get_model_tier(primary_role, "bug-fix", roles_dir),
+        })
+
+        # Step 2: Evaluation to verify fix doesn't introduce issues
+        for_eval = get_invocations(primary_role, "for_evaluation", roles_dir)
+        active_eval = [r for r in for_eval if r in active_set]
+        if active_eval:
+            steps.append({
+                "type": "evaluate",
+                "roles": active_eval,
+                "description": f"Verify fix with {', '.join(active_eval)}",
+                "model_tier": "cheap",
+                "parallel": True,
+            })
+
+    elif task_type == "refactor":
+        # Step 1: Snapshot current behavior
+        steps.append({
+            "type": "snapshot",
+            "role": primary_role,
+            "description": "Snapshot current behavior (run all tests, capture outputs)",
+            "model_tier": "cheap",
+        })
+
+        # Step 2: Refactor
+        steps.append({
+            "type": "refactor",
+            "role": primary_role,
+            "description": f"{primary_role} refactors in small steps",
+            "model_tier": get_model_tier(primary_role, "code-generation", roles_dir),
+        })
+
+        # Step 3: Verify behavior unchanged
+        steps.append({
+            "type": "verify",
+            "role": primary_role,
+            "description": "Verify behavior unchanged (same tests pass, same outputs)",
+            "model_tier": "cheap",
+        })
+
+        # Step 4: Code health review
+        if "code-health" in active_set:
+            steps.append({
+                "type": "evaluate",
+                "roles": ["code-health"],
+                "description": "Code Health Engineer reviews refactor quality",
+                "model_tier": "cheap",
+                "parallel": False,
+            })
+
+    elif task_type == "migration":
+        # Step 1: Primary proposes approach
+        steps.append({
+            "type": "plan",
+            "role": primary_role,
+            "description": f"{primary_role} proposes migration approach",
+            "model_tier": "expensive",
+        })
+
+        # Step 2: ALL active roles evaluate the approach
+        other_roles = [r for r in active_roles if r != primary_role]
+        if other_roles:
+            steps.append({
+                "type": "evaluate",
+                "roles": other_roles,
+                "description": f"All roles evaluate migration approach: {', '.join(other_roles)}",
+                "model_tier": "mid",
+                "parallel": True,
+            })
+
+        # Step 3: Implement
+        steps.append({
+            "type": "build",
+            "role": primary_role,
+            "description": f"{primary_role} implements migration",
+            "model_tier": get_model_tier(primary_role, "code-generation", roles_dir),
+        })
+
+        # Step 4: Full evaluation
+        for_eval = get_invocations(primary_role, "for_evaluation", roles_dir)
+        active_final = [r for r in for_eval if r in active_set]
+        if active_final:
+            steps.append({
+                "type": "evaluate",
+                "roles": active_final,
+                "description": f"Post-migration evaluation by {', '.join(active_final)}",
+                "model_tier": "cheap",
+                "parallel": True,
+            })
+
+    else:
+        # Generic: just build + evaluate
+        steps.append({
+            "type": "build",
+            "role": primary_role,
+            "description": f"{primary_role} implements task",
+            "model_tier": "mid",
+        })
+
+        for_eval = get_invocations(primary_role, "for_evaluation", roles_dir)
+        active_eval = [r for r in for_eval if r in active_set]
+        if active_eval:
+            steps.append({
+                "type": "evaluate",
+                "roles": active_eval,
+                "description": f"Evaluation by {', '.join(active_eval)}",
+                "model_tier": "cheap",
+                "parallel": True,
+            })
+
+    return {
+        "primary": primary_role,
+        "task_type": task_type,
+        "active_roles": active_roles,
+        "steps": steps,
+    }
+
+
+def plan_to_context(plan: Dict[str, Any]) -> str:
+    """Convert an orchestration plan to injectable context text.
+
+    This text gets injected into the skill workflow so the LLM
+    follows the plan deterministically.
+    """
+    lines = [
+        f"ORCHESTRATION PLAN ({plan['task_type']})",
+        f"Primary role: {plan['primary']}",
+        f"Active roles: {', '.join(plan['active_roles'])}",
+        "",
+    ]
+
+    for i, step in enumerate(plan["steps"], 1):
+        model = MODEL_MAP.get(step.get("model_tier", "mid"), step.get("model_tier", "sonnet"))
+        parallel = " (parallel)" if step.get("parallel") else ""
+
+        if "roles" in step:
+            roles_str = ", ".join(step["roles"])
+            lines.append(f"Step {i}: [{step['type'].upper()}] {step['description']}")
+            lines.append(f"  Roles: {roles_str}{parallel}")
+            lines.append(f"  Model: {model}")
+        else:
+            lines.append(f"Step {i}: [{step['type'].upper()}] {step['description']}")
+            lines.append(f"  Role: {step.get('role', plan['primary'])}")
+            lines.append(f"  Model: {model}")
+
+        lines.append("")
+
+    lines.append("Follow these steps in order. Do not skip steps or change the sequence.")
+
+    return "\n".join(lines)
