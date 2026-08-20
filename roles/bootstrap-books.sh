@@ -38,7 +38,7 @@ study() {
     mkdir -p "$book_dir"
     if python3 "$LEARN_PY" --role "$role" --repo "$repo" --cache-dir "$CACHE_DIR" 2>&1 | sed 's/^/    /'; then
         # Move the knowledge file from knowledge/ to books/
-        local slug=$(python3 -c "from learn import slug; print(slug('$repo'))")
+        local slug=$(python3 -c "import sys; sys.path.insert(0,'$SCRIPT_DIR'); from learn import slug; print(slug('$repo'))")
         local src="$SCRIPT_DIR/$role/knowledge/${slug}.md"
         local dst="$book_dir/${slug}.md"
         if [ -f "$src" ]; then
@@ -182,7 +182,7 @@ study ios "https://github.com/ochococo/Design-Patterns-In-Swift" "GoF Patterns i
 
 echo ""
 echo "--- Android → android ---"
-study android "https://github.com/nicehash/Android-Architecture-Samples" "Android Architecture"
+study android "https://github.com/android/architecture-samples" "Android Architecture"
 study android "https://github.com/dbacinski/Design-Patterns-In-Kotlin" "Design Patterns in Kotlin"
 
 echo ""
@@ -191,7 +191,7 @@ study data-scientist "https://github.com/jakevdp/PythonDataScienceHandbook" "Pyt
 
 echo ""
 echo "--- AI/ML → ai-ml ---"
-study ai-ml "https://github.com/huggingface/cookbook" "HuggingFace Cookbook"
+study ai-ml "https://github.com/mlabonne/llm-course" "LLM Course"
 
 echo ""
 echo "--- Infrastructure → infrastructure ---"
