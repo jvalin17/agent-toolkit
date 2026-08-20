@@ -142,6 +142,29 @@ Every claim in findings MUST have concrete evidence — not just "tests pass" or
 
 The `finalize_report.py` hook re-runs test and lint commands independently — you cannot fake those results. For role quality checks, include the file:line where each check was verified.
 
+## Step 5d-ii: Declare What You Could NOT Check
+
+You MUST include an `"unseen"` field in findings listing anything you could not verify and why:
+
+```json
+"unseen": [
+  "Could not verify mobile responsiveness — no mobile viewport test available",
+  "Could not verify email delivery — no SMTP server in dev environment"
+]
+```
+
+If you could check everything, write `"unseen": []`. Never silently skip a check.
+
+## Step 5d-iii: HEAD Pinning
+
+Record `git rev-parse HEAD` at the start of verification. Include in findings:
+
+```json
+"verified_at_head": "abc1234"
+```
+
+If HEAD changes between verification and commit, the verification is stale — re-run `/precommit`.
+
 ## Step 5e: Compliance Summary
 
 If role quality checks were run, include a compliance summary in findings:
