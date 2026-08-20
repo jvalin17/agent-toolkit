@@ -35,12 +35,19 @@ Do NOT over-engineer. Do NOT add defensive code for impossible scenarios.
 Do NOT sacrifice readability for premature optimization.
 The simplest correct solution that follows role guidance is the right one.
 
-## Model Routing
+## Model Routing (MANDATORY — not advisory)
 
-Use the right model for the right task:
+When spawning Agent subagents, you MUST set the `model` parameter according to this taxonomy. This is not optional.
 
-- **Fable 5 / Opus**: Task breakdown, architecture decisions, complex debugging, cross-role evaluation, synthesis — anything requiring deep reasoning
-- **Sonnet**: Code generation, studying repos, standard implementation, bug fixes, test writing — the workhorse
-- **Haiku**: File search, linting, formatting, boilerplate, simple lookups — mechanical tasks
+| Task | Model | Why |
+|------|-------|-----|
+| File search, grep, lint, format, boilerplate | `haiku` | Mechanical — cheapest |
+| Study repos, code generation, bug fix, test writing, code review | `sonnet` | Implementation — workhorse |
+| Architecture decisions, security audit, complex debug, synthesis, cross-role evaluation, task decomposition, migration planning | `opus` or `fable` | Deep reasoning — worth the cost |
 
-Rule: if a bad answer costs more than the model cost difference, use Fable/Opus.
+**Enforcement rules:**
+- NEVER use opus/fable for file search, linting, or formatting
+- NEVER use haiku for architecture decisions or security audits
+- When spawning an Agent, ALWAYS include `model` parameter: `Agent(model="haiku", ...)` or `Agent(model="sonnet", ...)`
+- If unsure, default to sonnet — never default to the most expensive model
+- An Agent spawn without a `model` parameter is a violation
