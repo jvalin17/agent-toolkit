@@ -358,13 +358,21 @@ def plan_to_context(plan: Dict[str, Any]) -> str:
 
     for i, step in enumerate(plan["steps"], 1):
         model = MODEL_MAP.get(step.get("model_tier", "mid"), step.get("model_tier", "sonnet"))
-        parallel = " (parallel)" if step.get("parallel") else ""
+        is_parallel = step.get("parallel", False)
 
         if "roles" in step:
             roles_str = ", ".join(step["roles"])
             lines.append(f"Step {i}: [{step['type'].upper()}] {step['description']}")
-            lines.append(f"  Roles: {roles_str}{parallel}")
+            lines.append(f"  Roles: {roles_str}")
             lines.append(f"  Model: {model}")
+
+            if is_parallel and len(step["roles"]) > 1:
+                lines.append(f"  Execution: PARALLEL — spawn {len(step['roles'])} Agent subagents simultaneously:")
+                for role in step["roles"]:
+                    lines.append(f"    → Agent(model={model}): \"Review as {role} role. Check {role} quality checks against the code. Return structured findings.\"")
+                lines.append(f"  Wait for ALL agents to complete before proceeding to Step {i + 1}.")
+            else:
+                lines.append(f"  Execution: sequential")
         else:
             lines.append(f"Step {i}: [{step['type'].upper()}] {step['description']}")
             lines.append(f"  Role: {step.get('role', plan['primary'])}")
@@ -373,5 +381,6 @@ def plan_to_context(plan: Dict[str, Any]) -> str:
         lines.append("")
 
     lines.append("Follow these steps in order. Do not skip steps or change the sequence.")
+    lines.append("For PARALLEL steps: use the Agent tool to spawn multiple subagents in a single message.")
 
     return "\n".join(lines)

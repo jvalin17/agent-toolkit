@@ -52,6 +52,37 @@ Detect mode from the user's words, the project state, and CLAUDE.md. Don't ask "
 | No existing code, greenfield | **Build** → skeleton → slabs |
 | Change is trivial (1-2 files, no DB) | **Direct** → just build with TDD |
 
+## Role Orchestration
+
+If session context contains an "ORCHESTRATION PLAN", follow it exactly. The plan defines:
+- Which role builds (primary)
+- Which roles evaluate after each phase (post-skeleton, final)
+- Whether evaluation steps run in parallel (use Agent tool to spawn subagents)
+- Which model tier to use per step (haiku for mechanical, sonnet for implementation, opus for architecture)
+
+**Parallel evaluation:** When the plan says `(parallel)`, spawn one Agent subagent per evaluator role. Each subagent gets the role's knowledge + quality checks and reviews independently. Collect all results before proceeding.
+
+```
+Example plan execution:
+
+Step 1: [BUILD] backend builds API skeleton
+  → You write the code (sonnet)
+
+Step 2: [EVALUATE] Post-skeleton review by dba, security (parallel)
+  → Spawn Agent: "Review as DBA role — check schema, indexes, queries"
+  → Spawn Agent: "Review as Security role — check auth, input validation, secrets"
+  → Wait for both to complete
+
+Step 3: [APPLY_FEEDBACK] backend applies evaluation feedback
+  → You apply the fixes from both evaluations
+
+Step 4: [EVALUATE] Final evaluation by qa, production (parallel)
+  → Spawn Agent: "Review as QA role — check test coverage, edge cases"
+  → Spawn Agent: "Review as Production role — run the app, verify it works"
+```
+
+If no orchestration plan is in context, proceed normally — roles still inject advisory context into every step.
+
 ## Build Mode: Sequence
 
 ### Phase 1: Walking Skeleton (greenfield only)
