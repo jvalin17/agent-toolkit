@@ -129,6 +129,37 @@ Include role check results in `findings.json` under a `"role_checks"` key:
 }
 ```
 
+## Step 5d: Evidence-Based Verification
+
+Every claim in findings MUST have concrete evidence — not just "tests pass" or "it works."
+
+**Required evidence types:**
+- Test results: actual command output (`$ pytest\n24 passed in 0.5s`)
+- API verification: actual curl output (`$ curl localhost:3000/health\n{"status":"ok"}`)
+- Code reference: file:line with relevant code (`src/routes/users.ts:42 — z.object({...})`)
+
+**BLOCKED** if any claim has no evidence or vague evidence ("tests pass", "it works", "verified").
+
+The `finalize_report.py` hook re-runs test and lint commands independently — you cannot fake those results. For role quality checks, include the file:line where each check was verified.
+
+## Step 5e: Compliance Summary
+
+If role quality checks were run, include a compliance summary in findings:
+
+```json
+"compliance": {
+  "total": 12,
+  "obeyed": 10,
+  "violated": 2,
+  "compliance_rate": 83.3,
+  "violated_rules": [
+    {"role": "dba", "rule": "no SELECT *", "evidence": "src/user.ts:15"}
+  ]
+}
+```
+
+This tracks which rules the LLM followed vs ignored across the session. Over time, patterns emerge — rules that are consistently ignored may need to be reinforced or the role knowledge updated.
+
 ## Step 6: Submit Findings (do NOT write the report yourself)
 
 Reports/ is owned by hooks (G-REPORT-1). Do not write to `reports/` directly —
