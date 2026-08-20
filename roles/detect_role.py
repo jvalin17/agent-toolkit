@@ -313,6 +313,17 @@ def detect_roles(
     return detected[:max_roles]
 
 
+def _load_knowledge_index(roles_dir: Path) -> Dict[str, str]:
+    """Load knowledge.json — single file with all role knowledge."""
+    index_path = roles_dir / "knowledge.json"
+    if not index_path.is_file():
+        return {}
+    try:
+        return json.loads(index_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
 def _parse_role_md(role_path: Path) -> str:
     """Extract the body (after YAML frontmatter) from a role.md file."""
     content = role_path.read_text()
@@ -357,6 +368,9 @@ def load_role_context(
             parts.append("")
             parts.append(manager_body)
 
+    # Load knowledge index (single JSON file for all roles)
+    knowledge_index = _load_knowledge_index(roles_dir)
+
     # Load each role's advisory + synthesized knowledge
     for role_name in active_roles:
         role_path = roles_dir / role_name / "role.md"
@@ -366,16 +380,14 @@ def load_role_context(
                 parts.append("")
                 parts.append(body)
 
-        # Load synthesized knowledge (learned from repos)
-        synthesis_path = roles_dir / role_name / "knowledge" / "_synthesis.md"
-        if synthesis_path.is_file():
-            synthesis = _parse_role_md(synthesis_path)
-            if synthesis:
-                # Cap at ~2000 chars (~500 tokens) per role to keep context lean
-                if len(synthesis) > 2000:
-                    synthesis = synthesis[:2000] + "\n\n[... truncated — full knowledge in _synthesis.md]"
-                parts.append("")
-                parts.append(f"## {role_name.upper()} — Learned Knowledge")
-                parts.append(synthesis)
+        # Load synthesized knowledge from index
+        synthesis = knowledge_index.get(role_name, "")
+        if synthesis:
+            # Cap at ~2000 chars (~500 tokens) per role to keep context lean
+            if len(synthesis) > 2000:
+                synthesis = synthesis[:2000] + "\n\n[... truncated — full knowledge in knowledge.json]"
+            parts.append("")
+            parts.append(f"## {role_name.upper()} — Learned Knowledge")
+            parts.append(synthesis)
 
     return "\n".join(parts)

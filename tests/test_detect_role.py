@@ -311,19 +311,18 @@ class TestLoadRoleContext:
     def test_loads_synthesis_knowledge(self, tmp_path):
         from detect_role import load_role_context
 
-        role_dir = tmp_path / "roles" / "backend"
+        roles_root = tmp_path / "roles"
+        role_dir = roles_root / "backend"
         role_dir.mkdir(parents=True)
         (role_dir / "role.md").write_text(
             "---\nname: backend\nscope: API\n---\n\n## Advisory\n\nBackend role.\n"
         )
-        knowledge_dir = role_dir / "knowledge"
-        knowledge_dir.mkdir()
-        (knowledge_dir / "_synthesis.md").write_text(
-            "---\nrole: backend\n---\n\n## Best Practices\n\n"
-            "- Use cursor pagination\n- Connection pooling\n"
-        )
+        # Knowledge in JSON index
+        (roles_root / "knowledge.json").write_text(json.dumps({
+            "backend": "## Best Practices\n\n- Use cursor pagination\n- Connection pooling\n"
+        }))
 
-        context = load_role_context(["backend"], roles_dir=tmp_path / "roles")
+        context = load_role_context(["backend"], roles_dir=roles_root)
         assert "cursor pagination" in context
         assert "Connection pooling" in context
         assert "Learned Knowledge" in context
@@ -331,30 +330,30 @@ class TestLoadRoleContext:
     def test_skips_synthesis_if_missing(self, tmp_path):
         from detect_role import load_role_context
 
-        role_dir = tmp_path / "roles" / "frontend"
+        roles_root = tmp_path / "roles"
+        role_dir = roles_root / "frontend"
         role_dir.mkdir(parents=True)
         (role_dir / "role.md").write_text(
             "---\nname: frontend\nscope: UI\n---\n\n## Advisory\n\nFE role.\n"
         )
-        # No knowledge/ directory
+        # No knowledge.json
 
-        context = load_role_context(["frontend"], roles_dir=tmp_path / "roles")
+        context = load_role_context(["frontend"], roles_dir=roles_root)
         assert "FE role" in context
         assert "Learned Knowledge" not in context
 
     def test_truncates_large_synthesis(self, tmp_path):
         from detect_role import load_role_context
 
-        role_dir = tmp_path / "roles" / "backend"
+        roles_root = tmp_path / "roles"
+        role_dir = roles_root / "backend"
         role_dir.mkdir(parents=True)
         (role_dir / "role.md").write_text(
             "---\nname: backend\n---\n\n## Advisory\n\nBE.\n"
         )
-        knowledge_dir = role_dir / "knowledge"
-        knowledge_dir.mkdir()
-        (knowledge_dir / "_synthesis.md").write_text(
-            "---\nrole: backend\n---\n\n" + "x" * 5000
-        )
+        (roles_root / "knowledge.json").write_text(json.dumps({
+            "backend": "x" * 5000
+        }))
 
-        context = load_role_context(["backend"], roles_dir=tmp_path / "roles")
+        context = load_role_context(["backend"], roles_dir=roles_root)
         assert "truncated" in context
