@@ -394,9 +394,15 @@ class TestHealthCheck:
 
 
 class TestCallLLM:
-    def test_calls_anthropic_api(self, monkeypatch):
-        from learn import call_llm
+    @pytest.fixture(autouse=True)
+    def _mock_httpx(self, monkeypatch):
+        """Replace learn.httpx with a mock module so tests work with or without httpx installed."""
+        import learn
+        self._mock = MagicMock()
+        monkeypatch.setattr(learn, "httpx", self._mock)
 
+    def test_calls_anthropic_api(self, monkeypatch):
+        import learn
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
 
         mock_response = MagicMock()
@@ -404,19 +410,17 @@ class TestCallLLM:
         mock_response.json.return_value = {
             "content": [{"type": "text", "text": "## Patterns\n- Middleware chain"}],
         }
+        self._mock.post.return_value = mock_response
 
-        with patch("learn.httpx.post", return_value=mock_response) as mock_post:
-            result = call_llm("test prompt", model="sonnet")
+        result = learn.call_llm("test prompt", model="sonnet")
 
         assert "Middleware chain" in result
-        # Verify correct model was sent
-        call_json = mock_post.call_args[1]["json"]
+        call_json = self._mock.post.call_args[1]["json"]
         assert call_json["model"] == "claude-sonnet-4-6"
         assert call_json["messages"][0]["content"] == "test prompt"
 
     def test_opus_model_mapping(self, monkeypatch):
-        from learn import call_llm
-
+        import learn
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
 
         mock_response = MagicMock()
@@ -424,37 +428,34 @@ class TestCallLLM:
         mock_response.json.return_value = {
             "content": [{"type": "text", "text": "synthesis"}],
         }
+        self._mock.post.return_value = mock_response
 
-        with patch("learn.httpx.post", return_value=mock_response) as mock_post:
-            call_llm("test", model="opus")
+        learn.call_llm("test", model="opus")
 
-        call_json = mock_post.call_args[1]["json"]
+        call_json = self._mock.post.call_args[1]["json"]
         assert call_json["model"] == "claude-opus-4-6"
 
     def test_raises_without_api_key(self, monkeypatch):
         from learn import call_llm
-
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
 
         with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
             call_llm("test")
 
     def test_raises_on_api_error(self, monkeypatch):
-        from learn import call_llm
-
+        import learn
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
 
         mock_response = MagicMock()
         mock_response.status_code = 401
         mock_response.text = "Invalid API key"
+        self._mock.post.return_value = mock_response
 
-        with patch("learn.httpx.post", return_value=mock_response):
-            with pytest.raises(RuntimeError, match="401"):
-                call_llm("test")
+        with pytest.raises(RuntimeError, match="401"):
+            learn.call_llm("test")
 
     def test_supports_full_model_id(self, monkeypatch):
-        from learn import call_llm
-
+        import learn
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
 
         mock_response = MagicMock()
@@ -462,11 +463,11 @@ class TestCallLLM:
         mock_response.json.return_value = {
             "content": [{"type": "text", "text": "ok"}],
         }
+        self._mock.post.return_value = mock_response
 
-        with patch("learn.httpx.post", return_value=mock_response) as mock_post:
-            call_llm("test", model="claude-sonnet-4-6")
+        learn.call_llm("test", model="claude-sonnet-4-6")
 
-        call_json = mock_post.call_args[1]["json"]
+        call_json = self._mock.post.call_args[1]["json"]
         assert call_json["model"] == "claude-sonnet-4-6"
 
 
