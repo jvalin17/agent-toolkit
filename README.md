@@ -26,16 +26,39 @@ Prompt rules can be ignored. **Hooks cannot.** On other LLMs you get skills + gu
 
 ## Quick start
 
-```bash
-git clone https://github.com/jvalin17/agent-toolkit.git
-cd agent-toolkit && ./install.sh          # once — needs python3, jq, Claude Code
+### Any AI tool (Cursor, Gemini, Codex, Windsurf, etc.)
 
-cd /path/to/your-project && claude        # hooks inject context; look for "AGENT TOOLKIT ACTIVE"
-/explore .                                # understand the codebase
-/precommit                                # before commit (default gate)
+Open your terminal in your project folder and run:
+
+```bash
+curl -s https://raw.githubusercontent.com/jvalin17/agent-toolkit/main/setup.sh | bash
 ```
 
-Natural language works: *"fix the login bug"* routes to `/debug`. Chain hands-off: `/requirements auto my-app`.
+That's it. Now open your AI tool and start building — it has 19 specialized roles loaded.
+
+### Claude Code (full experience with enforcement)
+
+```bash
+git clone https://github.com/jvalin17/agent-toolkit.git
+cd agent-toolkit && ./install.sh
+
+cd /path/to/your-project && claude
+```
+
+Claude Code gets the full experience: auto-detection, hooks that enforce quality, gates that block bad commits, and skill routing from natural language.
+
+### What you can say (in any tool)
+
+```
+"Build a login page with email and password"
+"Fix the slow database query"
+"Add a REST API for user profiles"
+"Make this app work on mobile"
+"Set up Docker for this project"
+"Review this code for security issues"
+```
+
+The toolkit's roles (backend, frontend, security, DBA, etc.) activate automatically based on your project and guide the AI to make better decisions.
 
 **Auto-continuation** — sessions use a two-layer limit: at 70 min a breadcrumb is saved to `HANDOFF.md` (session continues); at 200 min (or first compaction) a hard stop fires with a restart prompt. Two ways to run long tasks:
 
