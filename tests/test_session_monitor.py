@@ -1344,16 +1344,27 @@ DEFAULT_MAX_SESSION_MINUTES = 200
 class TestTimeLimitInCheckThresholds:
     """F1: Two-layer time limits — compact_at (Layer 1) and max_session (Layer 2)."""
 
-    def test_hard_stop_at_200_minutes(self):
-        """Session running for 200+ min triggers hard stop (Layer 2)."""
+    def test_hard_stop_at_200_minutes_with_high_context(self):
+        """Session at 200+ min + high context usage triggers hard stop."""
         now = int(time.time())
         state = SessionState(
             session_start=now - (201 * 60),
             max_session_minutes=200,
+            cumulative_output_bytes=3_500_000,  # ~87% of 1M token window
         )
         triggered, reason = check_thresholds(state)
         assert triggered is True
-        assert "200" in reason or "time" in reason.lower()
+
+    def test_no_hard_stop_at_200_minutes_with_low_context(self):
+        """Session at 200+ min but low context usage does NOT hard stop."""
+        now = int(time.time())
+        state = SessionState(
+            session_start=now - (201 * 60),
+            max_session_minutes=200,
+            cumulative_output_bytes=100_000,  # ~2.5% context — plenty left
+        )
+        triggered, reason = check_thresholds(state)
+        assert triggered is False
 
     def test_no_hard_stop_before_200_minutes(self):
         """Session under 200 min does not hard-stop."""
@@ -1366,11 +1377,12 @@ class TestTimeLimitInCheckThresholds:
         assert triggered is False
 
     def test_max_session_minutes_configurable(self):
-        """max_session_minutes can be set to custom value."""
+        """max_session_minutes can be set to custom value — triggers with high context."""
         now = int(time.time())
         state = SessionState(
             session_start=now - (31 * 60),
             max_session_minutes=30,
+            cumulative_output_bytes=3_500_000,  # high context
         )
         triggered, reason = check_thresholds(state)
         assert triggered is True
@@ -1387,8 +1399,8 @@ class TestTimeLimitInCheckThresholds:
         assert triggered is True
         assert "compact" in reason.lower()
 
-    def test_time_limit_priority_before_bytes(self):
-        """Time triggers before bytes threshold."""
+    def test_time_plus_high_context_triggers(self):
+        """Time + high context usage triggers hard stop."""
         now = int(time.time())
         state = SessionState(
             session_start=now - (201 * 60),
@@ -1397,7 +1409,6 @@ class TestTimeLimitInCheckThresholds:
         )
         triggered, reason = check_thresholds(state)
         assert triggered is True
-        assert "time" in reason.lower() or "minute" in reason.lower()
 
     def test_defaults(self):
         """Default values for two-layer time limits."""

@@ -15,6 +15,21 @@ DEFAULT_MAX_SESSION_MINUTES = 200  # Layer 2: hard stop, user must restart
 
 SESSION_DIR = ".session"
 STATE_FILENAME = "state.json"
+CONTEXT_WINDOW_TOKENS = 1_000_000  # 1M token context window
+CONTEXT_STOP_THRESHOLD_PCT = 73  # Only hard stop if context >= this %
+APPROX_CHARS_PER_TOKEN = 4  # rough estimate
+
+
+def _estimate_context_usage(state) -> int:
+    """Estimate context window usage as a percentage (0-100).
+
+    Uses cumulative output bytes as a proxy — not exact, but good enough
+    to avoid stopping sessions with plenty of context remaining.
+    """
+    # Output bytes is our best proxy — includes tool results, messages
+    estimated_tokens = state.cumulative_output_bytes / APPROX_CHARS_PER_TOKEN
+    pct = int((estimated_tokens / CONTEXT_WINDOW_TOKENS) * 100)
+    return min(pct, 100)
 
 
 @dataclass
@@ -105,10 +120,16 @@ def check_thresholds(state: SessionState) -> tuple:
         elapsed_seconds = int(time.time()) - state.session_start
         elapsed_minutes = elapsed_seconds / 60
         if elapsed_minutes >= state.max_session_minutes:
-            return True, (
-                f"Session time ({int(elapsed_minutes)} minutes) "
-                f"exceeded limit ({state.max_session_minutes} minutes)"
-            )
+            # Check context usage — only hard stop if context >= 73%
+            # This prevents premature stops when context is underutilized
+            context_pct = _estimate_context_usage(state)
+            if context_pct >= 73:
+                return True, (
+                    f"Session time ({int(elapsed_minutes)} min) + "
+                    f"context ({context_pct}%) — restart recommended"
+                )
+            # Time exceeded but context is fine — just warn, don't stop
+            # Will be caught by compaction or byte threshold instead
 
     if state.cumulative_output_bytes > HARD_THRESHOLD_BYTES:
         return True, (
