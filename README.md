@@ -121,22 +121,13 @@ Each role has two layers of knowledge:
 | `/verify` | Verify changes work |
 | `/updater` | Audit toolkit health |
 
-### Quality gates
+### Enforcement (hooks — can't be bypassed)
 
-Code can't be committed unless it passes role quality checks. Security violations are hard blocks. The agent cannot fake gate results — hooks enforce this.
-
-### Skill enforcement
-
-In strict mode, the agent can't edit code without following a skill workflow (`/implementation`, `/debug`, `/architecture`). In normal mode, it warns but doesn't block. Set via `"mode": "strict"` in `gates.json`.
-
-### Model routing
-
-Agents automatically use the right model for the right task:
-- **Haiku** — file search, linting, formatting (cheapest)
-- **Sonnet** — code generation, bug fixes, testing (workhorse)
-- **Opus/Fable** — architecture, security, complex debugging (deep reasoning)
-
-Taxonomy enforcement hook warns on clear mismatches (opus for lint = waste, haiku for architecture = risk). Session audit tracks model usage at precommit.
+- **Quality gates** — code can't be committed without passing role quality checks
+- **Skill enforcement** — strict mode blocks code edits without `/implementation`, `/debug`, or `/architecture`
+- **Model routing** — haiku for search/lint, sonnet for code, opus/fable for architecture. Hook warns on mismatches.
+- **Evidence verification** — claims must have real output (test results, curl responses), not "it works"
+- **Session audit** — tracks what the agent actually did vs what it claims
 
 → [All 19 roles](roles/ROLES-FINAL.md) · [Architecture](architecture/role-context-layer.md) · [Skills reference](docs/skills.md)
 
