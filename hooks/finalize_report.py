@@ -199,19 +199,61 @@ def _emit_response(payload: dict, ok: bool) -> int:
     return 0 if ok else 1
 
 
+def _check_session_audit() -> dict:
+    """Mechanical check: read session JSONL for skill/role usage.
+
+    Returns audit dict with warnings (not blocking — preferred, not required).
+    """
+    try:
+        from compliance import get_session_skill_usage
+        usage = get_session_skill_usage()
+        if not usage.get("available"):
+            return {"available": False}
+
+        warnings = []
+        if usage.get("skill_count", 0) == 0:
+            warnings.append("No skills invoked this session — consider using /implementation, /debug, or /architecture")
+        if usage.get("agents_without_model", 0) > 0:
+            count = usage["agents_without_model"]
+            warnings.append(f"{count} agent(s) spawned without model parameter — consider setting model for cost efficiency")
+
+        return {
+            "available": True,
+            "skills_invoked": usage.get("skills", []),
+            "skill_count": usage.get("skill_count", 0),
+            "agents_without_model": usage.get("agents_without_model", 0),
+            "warnings": warnings,
+        }
+    except Exception:
+        return {"available": False}
+
+
 def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     findings = validate_precommit_findings(read_findings(findings_path))
     config = load_gate_config(project_dir)
 
     test, lint = _run_mechanical(project_dir, config)
     ready, reasons = _decide_precommit(findings, test, lint)
+
+    # Session audit — warnings only, not blocking
+    session_audit = _check_session_audit()
+
     report_id = uuid.uuid4().hex[:8]
     markdown = compose_precommit_markdown(
         findings, test, lint, ready, reasons, report_id
     )
 
-    out_path = _report_path(project_dir, "precommit", findings["slug"], report_id)
-    out_path.write_text(markdown, encoding="utf-8")
+    # Append audit warnings to report
+    if session_audit.get("warnings"):
+        audit_section = "\n\n## Session Audit (automated)\n\n"
+        for w in session_audit["warnings"]:
+            audit_section += f"- ⚠ {w}\n"
+        audit_section += f"\nSkills invoked: {session_audit.get('skills_invoked', [])}\n"
+        out_path = _report_path(project_dir, "precommit", findings["slug"], report_id)
+        out_path.write_text(markdown + audit_section, encoding="utf-8")
+    else:
+        out_path = _report_path(project_dir, "precommit", findings["slug"], report_id)
+        out_path.write_text(markdown, encoding="utf-8")
 
     gate_flag = _write_gate_flag(project_dir, "precommit") if ready else None
 
@@ -227,6 +269,7 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
                 "lint_passed": lint.passed,
             },
             "blocking_reasons": reasons,
+            "session_audit": session_audit,
         },
         ready,
     )
