@@ -2,7 +2,7 @@
   {
     "name": "next-js-examples",
     "url": "https://github.com/vercel/next.js",
-    "why": "Canonical React framework — SSR, data fetching, routing, API routes"
+    "why": "Canonical React framework \u2014 SSR, data fetching, routing, API routes"
   },
   {
     "name": "shadcn-ui",
@@ -17,11 +17,16 @@
   {
     "name": "twenty-crm",
     "url": "https://github.com/twentyhq/twenty",
-    "why": "Production React app — dashboard, data tables, charts, responsive"
+    "why": "Production React app \u2014 dashboard, data tables, charts, responsive"
   },
   {
     "name": "hoppscotch",
     "url": "https://github.com/hoppscotch/hoppscotch",
-    "why": "Vue.js production app — PWA, real-time, offline-first"
+    "why": "Vue.js production app \u2014 PWA, real-time, offline-first"
+  },
+  {
+    "name": "react-native-universal-monorepo",
+    "url": "https://github.com/mmazzarolo/react-native-universal-monorepo",
+    "why": "Shared code web+mobile+desktop, react-native-web patterns"
   }
 ]

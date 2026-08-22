@@ -30,6 +30,15 @@ You are working on an Android project. Apply these principles:
 - Use Room for local persistence, DataStore for preferences
 - Configure ProGuard/R8 for release builds
 
+## Web-to-Android Evaluation
+
+When asked to make a web app work on Android, evaluate these options:
+- **Capacitor wrapper** — quickest. Wrap web app in WebView. Good for content apps. Works well on Android.
+- **TWA (Trusted Web Activity)** — wrap PWA for Play Store. No WebView chrome, feels native. Requires Lighthouse score ≥80.
+- **React Native** — medium effort. Native components, shared business logic.
+- **Native Kotlin/Compose** — highest effort, best result. Full Material Design 3, system integration.
+- Decision: If web app has good Lighthouse score → TWA. If content/forms → Capacitor. If native UX needed → React Native or native.
+
 ## Anti-Patterns (flag these)
 
 - Memory leaks from static references to Activity/Context

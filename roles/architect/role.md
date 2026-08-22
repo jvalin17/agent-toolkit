@@ -78,6 +78,20 @@ Apply these in every architecture decision:
 - Stream processing: event logs, CDC, exactly-once semantics
 - Batch vs stream: Lambda architecture is usually overkill — pick one
 
+**Web-to-Mobile Strategies** (evaluate when user wants mobile):
+- Capacitor — wrap any web app (React/Vue/Angular) in native WebView. Lowest effort, same codebase.
+- Tauri v2 — Rust backend + web frontend, native WebView. Small app size, good performance.
+- PWA + TWA — Android via Trusted Web Activity, iOS via PWABuilder (Apple review risk).
+- React Native Web — shared components between React web + React Native. Medium effort.
+- Flutter — full rewrite, 6 platforms from one codebase. Highest effort but most native.
+- Decision: Start with Capacitor if existing web app works. Go React Native/Flutter only if native UX is critical.
+
+**Feature Flags & Gradual Rollout:**
+- Use feature flags for incremental feature releases (10% → 50% → 100%)
+- Open-source options: Unleash, GrowthBook (with A/B testing), Flipt
+- Pattern: flag disabled by default → enable for segment → monitor → full rollout → archive flag
+- Server-side flags for backend, client-side SDK for frontend
+
 **Diagrams** (always include):
 - Use Mermaid syntax for all diagrams (renders in GitHub, docs, most tools)
 - Include: system context, component diagram, data flow, sequence diagram for key flows

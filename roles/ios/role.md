@@ -30,6 +30,15 @@ You are working on an iOS project. Apply these principles:
 - Use Auto Layout constraints, not hardcoded frames
 - Test on multiple screen sizes and iOS versions
 
+## Web-to-iOS Evaluation
+
+When asked to make a web app work on iOS, evaluate these options:
+- **Capacitor wrapper** — quickest. Wrap existing web app in WKWebView. Good for content apps, forms, dashboards. Bad for camera-heavy, gesture-heavy, or performance-critical apps.
+- **React Native** — medium effort. Rewrite UI with native components, share business logic. Better native feel than WebView.
+- **Native Swift/SwiftUI** — highest effort, best result. Full native UX, animations, gestures, system integration.
+- **PWA via PWABuilder** — lowest effort but Apple review risk (Guideline 4.2 rejections common). Add native features to pass review.
+- Decision: If the web app is primarily content/forms → Capacitor. If it needs native feel → React Native or native.
+
 ## Anti-Patterns (flag these)
 
 - Force-unwrapping optionals (!) without nil checks

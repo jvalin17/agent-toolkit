@@ -41,6 +41,14 @@ You are working on a frontend project. Apply these principles:
 - Use URL state for shareable views (search params)
 - Local state > global state unless truly shared across components
 
+## Cross-Platform & PWA
+
+- PWA: add manifest.json, service worker, offline support → installable on any device
+- Capacitor: wrap existing frontend in native shell → deploy to iOS/Android app stores
+- React Native Web: share components between web + mobile via react-native-web
+- Responsive ≠ mobile app: responsive layout is step 1, Capacitor wrapper is step 2
+- Test on real mobile devices — emulators miss touch/scroll/performance issues
+
 ## Anti-Patterns (flag these)
 
 - Heavy computation in component mount/render (useEffect with sync work)

@@ -69,6 +69,14 @@ You are working on a backend project. Apply these principles:
 - Shared error types/response formatters as a common module
 - Don't prematurely abstract — wait for the third instance
 
+## Feature Flags & Gradual Rollout
+
+- Use feature flags for new features: disabled by default → enable for % → full rollout → archive
+- Open-source: Unleash (production rollouts), GrowthBook (flags + A/B testing), Flipt (self-hosted)
+- Server-side evaluation: flag check in API handlers, not client-side (prevents leaking unreleased features)
+- Pattern: `if (featureFlags.isEnabled("new-stats-page", user)) { ... }`
+- Clean up: remove flag code after full rollout — dead flags are tech debt
+
 ## Anti-Patterns (flag these)
 
 - Sync I/O in request handlers (blocks event loop / thread pool)

@@ -2,26 +2,31 @@
   {
     "name": "nestjs-nest",
     "url": "https://github.com/nestjs/nest",
-    "why": "Production Node.js framework — middleware, guards, interceptors, DI patterns"
+    "why": "Production Node.js framework \u2014 middleware, guards, interceptors, DI patterns"
   },
   {
     "name": "fastapi",
     "url": "https://github.com/tiangolo/fastapi",
-    "why": "Python API framework — async, Pydantic validation, OpenAPI generation"
+    "why": "Python API framework \u2014 async, Pydantic validation, OpenAPI generation"
   },
   {
     "name": "hono",
     "url": "https://github.com/honojs/hono",
-    "why": "Lightweight modern web framework — middleware patterns, edge deployment"
+    "why": "Lightweight modern web framework \u2014 middleware patterns, edge deployment"
   },
   {
     "name": "cal-com",
     "url": "https://github.com/calcom/cal.com",
-    "why": "Production SaaS — tRPC, Prisma, webhooks, auth, monorepo patterns"
+    "why": "Production SaaS \u2014 tRPC, Prisma, webhooks, auth, monorepo patterns"
   },
   {
     "name": "medusa",
     "url": "https://github.com/medusajs/medusa",
-    "why": "Headless commerce — plugin architecture, payment orchestration, multi-tenant"
+    "why": "Headless commerce \u2014 plugin architecture, payment orchestration, multi-tenant"
+  },
+  {
+    "name": "unleash",
+    "url": "https://github.com/getunleash/unleash",
+    "why": "Feature flag system \u2014 gradual rollout, activation strategies"
   }
 ]
