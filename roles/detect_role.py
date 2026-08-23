@@ -369,7 +369,23 @@ def load_role_context(
     # Cap roles
     active_roles = role_names[:max_roles]
 
-    parts = [f"ACTIVE ROLES: {', '.join(active_roles)}"]
+    # Load knowledge indexes (two layers: repos + books)
+    knowledge_index = _load_knowledge_index(roles_dir)
+    books_index = _load_books_knowledge(roles_dir)
+
+    # Build status line showing what's loaded
+    loaded = []
+    for role_name in active_roles:
+        layers = []
+        if (roles_dir / role_name / "role.md").is_file():
+            layers.append("role")
+        if role_name in knowledge_index:
+            layers.append("repos")
+        if role_name in books_index:
+            layers.append("books")
+        loaded.append(f"{role_name}({'+'.join(layers)})")
+
+    parts = [f"ACTIVE ROLES: {', '.join(loaded)}"]
 
     # Load manager principles if available
     manager_path = roles_dir / "manager.md"
@@ -378,10 +394,6 @@ def load_role_context(
         if manager_body:
             parts.append("")
             parts.append(manager_body)
-
-    # Load knowledge indexes (two layers: repos + books)
-    knowledge_index = _load_knowledge_index(roles_dir)
-    books_index = _load_books_knowledge(roles_dir)
 
     # Load each role's advisory + synthesized knowledge
     for role_name in active_roles:
