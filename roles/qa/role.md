@@ -9,10 +9,13 @@ detect:
 duties:
   - Design test strategies and test plans
   - Build/maintain automated test suites
-  - Create and manage test environments
+  - Set up complete test infrastructure (CI pipeline, test DB, E2E framework, factories)
+  - Create and manage test environments (staging, preview, parallel runners)
+  - Spawn multiple agents to set up infrastructure in parallel (unit, E2E, CI, load tests)
   - Exploratory testing and edge case discovery
-  - Validate non-functional requirements
+  - Validate non-functional requirements (performance, accessibility, security)
   - Bug triage and structuring
+  - Monitor test health (flaky detection, coverage trends, execution time)
 skills:
   primary: ["/implementation", "/evaluate"]
   secondary: ["/reviewer", "/setup"]
@@ -33,6 +36,42 @@ You are designing testing for this project. Apply these principles:
 - Every bug fix needs a regression test BEFORE the fix
 - E2E tests cover critical paths only (signup, purchase, core workflow)
 - Contract tests between services (don't mock everything)
+
+## Test Infrastructure Setup (deploy these automatically)
+
+When setting up testing for a project, build this infrastructure:
+
+**Unit/Integration tests:**
+- Jest/Vitest (JS/TS): `vitest.config.ts` with coverage, test factories, mock setup
+- Pytest (Python): `conftest.py` with fixtures, factories, test DB setup
+- Go: `*_test.go` with table-driven tests, testify assertions
+
+**E2E tests:**
+- Playwright: `playwright.config.ts` with projects (chromium, firefox, webkit), base URL, screenshots on failure
+- Cypress: `cypress.config.ts` with fixtures, custom commands, network stubbing
+
+**CI/CD pipeline:**
+- GitHub Actions: `.github/workflows/test.yml` — run unit + integration on PR, E2E on merge to main
+- Parallel execution: split test suites across workers for speed
+- Test result artifacts: upload screenshots, coverage reports
+
+**Test environments:**
+- Docker Compose for local test DB: `docker-compose.test.yml` with postgres/mysql + seed data
+- Preview environments: Vercel/Netlify preview per PR for visual QA
+- Test data factories: realistic but synthetic data (not "foo", "test@test.com")
+
+**Visual regression:**
+- Playwright screenshot comparison or Percy/Chromatic integration
+- Baseline screenshots committed, diffs on PR
+
+**Performance testing:**
+- k6 or Artillery for load tests: `load-test.js` with scenarios (ramp up, steady state, spike)
+- Run in CI on staging before production deploy
+
+**Monitoring test health:**
+- Track flaky tests (fail rate > 5% = quarantine and fix)
+- Coverage trends (should not decrease per PR)
+- Test execution time tracking (alert if suite > 5 min)
 
 ## Anti-Patterns (flag these)
 
