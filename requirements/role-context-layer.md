@@ -38,7 +38,7 @@ A **role context layer** that auto-detects or manually assigns domain roles (fro
 | Role advisory content | Domain-specific guidelines per skill phase | Context string injected into skill | Design | must |
 | Role scope boundaries | What each role covers and explicitly doesn't | Prevents overstep between roles | Design | must |
 
-**Initial role catalog (16 roles):**
+**Initial role catalog (19 roles):**
 
 | # | Role | Auto-detect signals | Key anti-patterns caught |
 |---|------|-------------------|------------------------|
@@ -174,7 +174,7 @@ SKILL.md execution → role context visible to agent → advisory influence
 | Section | Status | Notes |
 |---------|--------|-------|
 | Problem Statement | [x] | |
-| Functional Requirements | [x] | 6 feature groups, 16 roles defined |
+| Functional Requirements | [x] | 6 feature groups, 19 roles defined |
 | UI/UX Requirements | [-] | No UI — hook-based injection |
 | ML/AI Requirements | [-] | No ML — pattern matching only |
 | Testing Requirements | [ ] | Not yet explored |

@@ -1,6 +1,6 @@
 # Roles — FINAL (Approved 2026-08-16)
 
-> 18 roles locked in. Ready for knowledge acquisition.
+> 19 roles locked in. Ready for knowledge acquisition.
 > Sources: SWEBOK v4, IEEE/ACM, FAANG + startup role research, user review
 > Principle: Roles add DOMAIN KNOWLEDGE only. Workflow/process lives in skills.
 

@@ -1,7 +1,6 @@
 {
-  "_comment": "Reference copy — same schema as templates/gates.json. Copy to project root as gates.json or use install.sh.",
+  "_comment": "Reference copy \u2014 same schema as templates/gates.json. Copy to project root as gates.json or use install.sh.",
   "_usage": "Set gate_mode, enforcement, and profile. Skill requirements come from profiles.<name>.",
-
   "gate_mode": "legacy",
   "enforcement": "block",
   "profile": "minimal",
@@ -9,7 +8,7 @@
   "compact_at_minutes": 70,
   "max_session_minutes": 200,
   "auto": false,
-  "continue": false,
+  "continue": true,
   "tdd": true,
   "tdd_mode": "remind",
   "skill_routing": true,
@@ -18,20 +17,39 @@
   "report_protect": true,
   "profiles": {
     "minimal": {
-      "commit_requires": ["precommit"],
+      "commit_requires": [
+        "precommit"
+      ],
       "push_requires": []
     },
     "standard": {
-      "commit_requires": ["precommit"],
-      "push_requires": ["evaluate"]
+      "commit_requires": [
+        "precommit"
+      ],
+      "push_requires": [
+        "evaluate"
+      ]
     },
     "strict": {
-      "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["evaluate", "reviewer"]
+      "commit_requires": [
+        "precommit",
+        "evaluate"
+      ],
+      "push_requires": [
+        "evaluate",
+        "reviewer"
+      ]
     },
     "paranoid": {
-      "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["evaluate", "reviewer", "assess"]
+      "commit_requires": [
+        "precommit",
+        "evaluate"
+      ],
+      "push_requires": [
+        "evaluate",
+        "reviewer",
+        "assess"
+      ]
     }
   }
 }

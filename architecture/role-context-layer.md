@@ -117,7 +117,7 @@ role_context = load_role_preambles(detected_roles)  # read .md files
 Heavy checks run on a schedule or on-demand, never at session startup.
 
 ```python
-# roles/role_init.py — called by /updater or cron, NOT session_init
+# roles/role_init.py (NOT BUILT — use learn.py --health instead) — called by /updater or cron, NOT session_init
 
 def check_all_roles_health() -> List[RoleHealthReport]:
     """Full health check for all roles. Run weekly/monthly or via /updater."""
@@ -495,10 +495,10 @@ Roles provide **fixes, not just findings**. Each finding includes a ready-made s
 6. Tests for all above
 
 ### Phase 2: Knowledge Pipeline
-7. `indexer/parse_structure.py` — parse repo structure (no LLM)
-8. `indexer/extract_files.py` — heuristic file extraction (no LLM)
-9. `indexer/index_repo.py` — full repo indexing (Python + LLM)
-10. `indexer/synthesize.py` — merge repo learnings (LLM)
+7. `learn.py (consolidated)` — parse repo structure (no LLM)
+8. `learn.py (consolidated)` — heuristic file extraction (no LLM)
+9. `learn.py (consolidated)` — full repo indexing (Python + LLM)
+10. `learn.py (consolidated)` — merge repo learnings (LLM)
 11. Prompt templates for extract + synthesize
 12. Curate `repos.json` for 6 starter roles
 13. Run indexer — generate knowledge files with bug fix patterns

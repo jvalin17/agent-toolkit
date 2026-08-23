@@ -156,6 +156,8 @@ install_hooks() {
     local route_cmd="python3 $toolkit_path/hooks/route_to_skill.py"
     local session_init_cmd="python3 $toolkit_path/hooks/session_init.py"
     local tdd_cmd="python3 $toolkit_path/hooks/tdd_enforce.py"
+    local skill_enforce_cmd="python3 $toolkit_path/hooks/skill_enforce.py"
+    local taxonomy_cmd="python3 $toolkit_path/hooks/taxonomy_enforce.py"
     local monitor_cmd="python3 $toolkit_path/hooks/session_monitor.py"
     local doc_guard_cmd="bash $toolkit_path/hooks/check_doc_write.sh"
 
@@ -362,6 +364,26 @@ HOOKEOF
         echo "  [installed] TDD enforcement hook (reminds about test-first on source edits)"
     else
         echo "  [skip] TDD enforcement hook (already installed)"
+    fi
+
+    # Add skill-enforce hook (PreToolUse on Edit/Write — warns/blocks code edits without skill)
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("skill_enforce"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$skill_enforce_cmd" '
+            .hooks.PreToolUse += [{"matcher": "Edit|Write", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Checking skill workflow..."}]}]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] skill enforcement hook (warns if no skill workflow active)"
+    else
+        echo "  [skip] skill enforcement hook (already installed)"
+    fi
+
+    # Add taxonomy-enforce hook (PreToolUse on Agent — checks model parameter)
+    if ! jq -e '.hooks.PreToolUse[]? | select(.hooks[]? | .command | contains("taxonomy_enforce"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$taxonomy_cmd" '
+            .hooks.PreToolUse += [{"matcher": "Agent", "hooks": [{"type": "command", "command": $cmd, "timeout": 5}]}]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] taxonomy enforcement hook (checks model parameter on Agent calls)"
+    else
+        echo "  [skip] taxonomy enforcement hook (already installed)"
     fi
 
     # Add doc-guard hook (PreToolUse on Write — blocks writes outside project dir)

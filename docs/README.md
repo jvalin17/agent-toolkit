@@ -29,7 +29,7 @@ Product intent and acceptance criteria — written before implementation.
 
 | Doc | Topic |
 |-----|-------|
-| [Guardrails](../shared/guardrails.md) | All 21 guardrail groups (G-*) |
+| [Guardrails](../shared/guardrails.md) | 26 guardrail rules across 9 groups (G-*) |
 | [Orchestrator](../shared/orchestrator.md) | `/skill auto` chaining |
 | [Report format](../shared/report-format.md) | Canonical report schema |
 | [Troubleshooting](../shared/troubleshooting.md) | Common gate/hook failures |
