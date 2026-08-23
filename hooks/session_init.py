@@ -505,8 +505,12 @@ def main() -> int:
         )
         if detected:
             role_names = [r["name"] for r in detected]
+            transparent = get_config_value(
+                load_gate_config(project_dir), "transparent", False,
+            )
             role_context = load_role_context(role_names, roles_dir=roles_dir,
-                                             max_roles=max_roles)
+                                             max_roles=max_roles,
+                                             transparent=transparent)
     except Exception as exc:
         sys.stderr.write(f"Role detection skipped: {exc}\n")
 

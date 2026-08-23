@@ -349,6 +349,7 @@ def load_role_context(
     role_names: List[str],
     roles_dir: Optional[Path] = None,
     max_roles: int = 4,
+    **kwargs,
 ) -> str:
     """Load role preamble text for injection into session context.
 
@@ -373,19 +374,22 @@ def load_role_context(
     knowledge_index = _load_knowledge_index(roles_dir)
     books_index = _load_books_knowledge(roles_dir)
 
-    # Build status line showing what's loaded
-    loaded = []
-    for role_name in active_roles:
-        layers = []
-        if (roles_dir / role_name / "role.md").is_file():
-            layers.append("role")
-        if role_name in knowledge_index:
-            layers.append("repos")
-        if role_name in books_index:
-            layers.append("books")
-        loaded.append(f"{role_name}({'+'.join(layers)})")
-
-    parts = [f"ACTIVE ROLES: {', '.join(loaded)}"]
+    # Default: just role names. Transparent mode: show loaded layers.
+    transparent = kwargs.get("transparent", False)
+    if transparent:
+        loaded = []
+        for role_name in active_roles:
+            layers = []
+            if (roles_dir / role_name / "role.md").is_file():
+                layers.append("role")
+            if role_name in knowledge_index:
+                layers.append("repos")
+            if role_name in books_index:
+                layers.append("books")
+            loaded.append(f"{role_name}({'+'.join(layers)})")
+        parts = [f"ACTIVE ROLES: {', '.join(loaded)}"]
+    else:
+        parts = [f"ACTIVE ROLES: {', '.join(active_roles)}"]
 
     # Load manager principles if available
     manager_path = roles_dir / "manager.md"
