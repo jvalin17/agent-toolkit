@@ -187,7 +187,9 @@ def _make_gate_finish(
     """Return a callback that emits block or warn based on enforcement level."""
 
     def gate_finish(msg: str) -> tuple:
-        if enforcement == "block":
+        # Precommit is always mandatory — "warn" mode still blocks on
+        # missing precommit. Only other gates (evaluate, reviewer) can warn.
+        if enforcement == "block" or "precommit" in msg.lower():
             return 0, make_block_response(f"BLOCKED: {msg}")
         gates_dir = project_dir / ".gates"
         gates_dir.mkdir(exist_ok=True)

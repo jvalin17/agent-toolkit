@@ -205,8 +205,8 @@ class TestRunGate:
         )
         assert exit_code == 0
 
-    def test_warn_mode_exits_zero_with_warning(self, project_dir):
-        # Switch to warn mode
+    def test_warn_mode_still_blocks_precommit(self, project_dir):
+        """Precommit is always mandatory — even warn mode blocks missing precommit."""
         gates = json.loads((project_dir / "gates.json").read_text())
         gates["enforcement"] = "warn"
         (project_dir / "gates.json").write_text(json.dumps(gates))
@@ -216,24 +216,22 @@ class TestRunGate:
             project_dir,
         )
         assert exit_code == 0
-        assert "GATE WARNING" in output
+        assert "BLOCKED" in output
 
-    def test_auto_escalation_on_warn(self, project_dir):
-        """First warn violation writes .gates/enforcement-override=block."""
+    def test_precommit_always_blocks_even_in_warn(self, project_dir):
+        """Precommit gate always blocks — no escalation needed."""
         gates = json.loads((project_dir / "gates.json").read_text())
         gates["enforcement"] = "warn"
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
-        run_gate(
+        _, output = run_gate(
             '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
         )
-        override_file = project_dir / ".gates" / "enforcement-override"
-        assert override_file.exists()
-        assert override_file.read_text().strip() == "block"
+        assert "BLOCKED" in output
 
-    def test_second_commit_blocked_after_escalation(self, project_dir):
-        """After auto-escalation, next commit is hard-blocked."""
+    def test_second_commit_also_blocked(self, project_dir):
+        """Second commit also blocked without precommit."""
         gates = json.loads((project_dir / "gates.json").read_text())
         gates["enforcement"] = "warn"
         (project_dir / "gates.json").write_text(json.dumps(gates))
