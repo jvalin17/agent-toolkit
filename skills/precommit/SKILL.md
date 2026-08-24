@@ -60,6 +60,8 @@ Detect runner (package.json, pytest, go, cargo, Makefile). Run if present.
 
 Do not install new runners or skip flaky failures.
 
+**Lint issues:** If lint finds ANY issue — fix it. Do NOT claim "pre-existing, not from our changes." If you see it, you fix it. No exceptions.
+
 ## Step 3: Code Standards + Principles
 
 ### 3a: SOLID, DRY, KISS, YAGNI

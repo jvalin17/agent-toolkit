@@ -40,6 +40,7 @@ You are maintaining code health for this project. Apply these principles:
 - Ignoring flaky tests (erodes trust in entire suite)
 - No complexity metrics (can't improve what you don't measure)
 - Big-bang refactors instead of incremental changes
+- Skipping pre-existing lint/type errors — fix them when you encounter them, don't excuse them as "not from our changes"
 
 ## Quality Checks
 
