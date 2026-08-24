@@ -98,24 +98,21 @@ Grep CLAUDE.md, project-state.md, DECISIONS.md, architecture docs. BLOCKED on co
 
 See `references/readme-validation.md`.
 
-## Step 5c: Role Quality Checks
+## Step 5c: Parallel Role Review (MANDATORY)
 
-If roles are active (check session context for "ACTIVE ROLES:"), run each active role's quality checks against the changed files:
+Spawn one Agent per detected role (parallel, haiku) to review the changed code:
 
-1. Read each active role's `role.md` — find the "## Quality Checks" section
-2. For each checklist item, verify against the changed code
-3. Report findings:
+```
+For each role in ACTIVE ROLES:
+  Agent(model="haiku"): "Review as [ROLE]. Check quality checks, anti-patterns,
+    foundational principles, practical patterns against changed files.
+    Return: findings with file:line evidence."
+```
 
-| Role | Check | Pass/Fail | Evidence |
-|------|-------|-----------|----------|
-| frontend | No heavy computation on page mount | ✓ or ✗ | file:line |
-| backend | All endpoints have input validation | ✓ or ✗ | file:line |
-| dba | Queries are parameterized | ✓ or ✗ | file:line |
-| security | No secrets in source code | ✓ or ✗ | file:line |
+Each role self-selects what's relevant to its expertise. Merge all findings.
 
-**BLOCKED** if any role quality check fails with HIGH severity (security violations, data integrity risks).
-
-**WARNING** for MEDIUM severity (performance, conventions) — note in findings but don't block.
+**BLOCKED** if any role finds HIGH severity issues (security violations, data integrity risks).
+**WARNING** for MEDIUM severity (performance, conventions).
 
 Include role check results in `findings.json` under a `"role_checks"` key:
 ```json
