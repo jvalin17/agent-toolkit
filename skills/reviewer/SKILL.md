@@ -43,18 +43,7 @@ Read the target code. Understand its purpose, public API, dependencies, and cons
 2. **Read upstream docs** — `requirements/$TOPIC.md` and `architecture/$TOPIC.md` for decisions that shape the review.
 3. **Detect tech stack** — scan for package.json, pyproject.toml, Cargo.toml, go.mod, etc.
 4. **Read existing tests** — understand test framework, patterns, naming, coverage.
-5. **Review through ALL detected roles** — run `detect_role.py` logic (or read "ACTIVE ROLES" from session context). Apply EVERY detected role's review, not just the obvious ones. A backend project still needs QA, security, production, code health, and architect review. For each role:
-   - **Foundational Principles** (books) — SOLID, DDD, Clean Architecture, DDIA, testing best practices
-   - **Practical Patterns** (repos) — compare against production repo patterns
-   - **Quality Checks** — every checklist item is a review criterion
-   - **Anti-Patterns** — flag anything that matches
-
-   Always include these cross-cutting roles regardless of project type:
-   - **QA** — test coverage, test quality, edge cases, regression risk
-   - **Security** — auth, input validation, secrets, dependencies
-   - **Production** — does it actually work? performance? error handling?
-   - **Code Health** — complexity, tech debt, refactoring safety, lint issues
-   - **Architect** — SOLID, boundaries, coupling, consistency model
+5. **Review through all 19 roles** — apply every role's quality checks, anti-patterns, foundational principles, and practical patterns to the review. Detection and manager handle which are relevant — your job is to check all of them.
 
 ## Step 3: Review Menu
 
