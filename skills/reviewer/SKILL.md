@@ -43,7 +43,20 @@ Read the target code. Understand its purpose, public API, dependencies, and cons
 2. **Read upstream docs** — `requirements/$TOPIC.md` and `architecture/$TOPIC.md` for decisions that shape the review.
 3. **Detect tech stack** — scan for package.json, pyproject.toml, Cargo.toml, go.mod, etc.
 4. **Read existing tests** — understand test framework, patterns, naming, coverage.
-5. **Review through all 19 roles** — apply every role's quality checks, anti-patterns, foundational principles, and practical patterns to the review. Detection and manager handle which are relevant — your job is to check all of them.
+5. **Role-based review** — detect applicable roles, then spawn each as a reviewer:
+
+   a. Read "ACTIVE ROLES" from session context (already detected by `detect_role.py`)
+   b. For each detected role, spawn an Agent subagent (parallel, model=haiku for speed):
+      ```
+      Agent(model="haiku", description="Review as [ROLE] role.
+        Read the [ROLE] quality checks, anti-patterns, foundational principles, and practical patterns.
+        Check the changed code against all of them.
+        Return: what matches your expertise, what passes, what fails, with file:line evidence.")
+      ```
+   c. Collect all role reviews
+   d. Merge findings — deduplicate, rank by severity
+
+   Each role only reviews what matches its expertise. Backend reviews API patterns, DBA reviews queries, Security reviews auth — they self-select based on their scope.
 
 ## Step 3: Review Menu
 
