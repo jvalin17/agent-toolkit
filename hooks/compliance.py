@@ -31,6 +31,66 @@ from typing import Any, Dict, List, Optional
 COMPLIANCE_FILE = "compliance.json"
 
 
+def get_user_requests() -> List[str]:
+    """Extract meaningful user prompts from session JSONL.
+
+    Filters out: commands, system messages, short replies (<20 chars).
+    Returns list of user requests — what they actually asked for.
+    Use in /reviewer to verify code delivers what was asked.
+    """
+    claude_projects = Path.home() / ".claude" / "projects"
+    if not claude_projects.is_dir():
+        return []
+
+    cwd_slug = str(Path.cwd()).replace("/", "-")
+    project_dir = None
+    for d in claude_projects.iterdir():
+        if cwd_slug.lstrip("-") in d.name:
+            project_dir = d
+            break
+
+    if not project_dir:
+        return []
+
+    logs = sorted(project_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
+    if not logs:
+        return []
+
+    requests = []
+    for line in logs[-1].read_text(errors="ignore").split("\n"):
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+            if entry.get("type") != "user":
+                continue
+            msg = entry.get("message", {})
+            content = msg.get("content", "")
+
+            text = ""
+            if isinstance(content, str):
+                text = content
+            elif isinstance(content, list):
+                for block in content:
+                    if block.get("type") == "text":
+                        text = block.get("text", "")
+                        break
+
+            # Filter: skip commands, system messages, short replies
+            if not text or len(text) < 20:
+                continue
+            if text.startswith("<local-command") or text.startswith("<command"):
+                continue
+            if text.startswith("<system-reminder"):
+                continue
+
+            requests.append(text[:300])  # cap each at 300 chars
+        except (json.JSONDecodeError, TypeError, KeyError):
+            pass
+
+    return requests
+
+
 def get_session_skill_usage() -> Dict[str, Any]:
     """Read Claude Code session log to verify which skills were actually called.
 

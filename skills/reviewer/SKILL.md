@@ -43,7 +43,8 @@ Read the target code. Understand its purpose, public API, dependencies, and cons
 2. **Read upstream docs** — `requirements/$TOPIC.md` and `architecture/$TOPIC.md` for decisions that shape the review.
 3. **Detect tech stack** — scan for package.json, pyproject.toml, Cargo.toml, go.mod, etc.
 4. **Read existing tests** — understand test framework, patterns, naming, coverage.
-5. **Role-based review** — detect applicable roles, then spawn each as a reviewer:
+5. **Read user requests** — call `get_user_requests()` from `compliance.py` to see what the user actually asked for this session. Compare delivered code against these requests. Flag anything asked for but not implemented, or implemented but not asked for.
+6. **Role-based review** — detect applicable roles, then spawn each as a reviewer:
 
    a. Read "ACTIVE ROLES" from session context (already detected by `detect_role.py`)
    b. For each detected role, spawn an Agent subagent (parallel, model=haiku for speed):
