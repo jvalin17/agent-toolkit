@@ -43,7 +43,11 @@ Read the target code. Understand its purpose, public API, dependencies, and cons
 2. **Read upstream docs** — `requirements/$TOPIC.md` and `architecture/$TOPIC.md` for decisions that shape the review.
 3. **Detect tech stack** — scan for package.json, pyproject.toml, Cargo.toml, go.mod, etc.
 4. **Read existing tests** — understand test framework, patterns, naming, coverage.
-5. **Check active roles** — apply role quality checks from session context (see manager principles).
+5. **Review through active roles** — for each active role in session context:
+   - Read the role's **Foundational Principles** (books knowledge) — apply SOLID, DDD, Clean Architecture, DDIA principles to the review
+   - Read the role's **Practical Patterns** (repo knowledge) — compare code against patterns from production repos
+   - Check the role's **Quality Checks** — every checklist item is a review criterion
+   - Example: if backend role is active, check for N+1 queries, missing pagination, sync I/O in handlers — because the role knowledge says production repos avoid these
 
 ## Step 3: Review Menu
 
