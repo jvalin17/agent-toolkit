@@ -83,16 +83,6 @@ Step 4: [EVALUATE] Final evaluation by qa, production (parallel)
 
 If no orchestration plan is in context, proceed normally — roles still inject advisory context into every step.
 
-## Apply Roles (MANDATORY — every slab)
-
-Before writing code, check ALL active roles + 5 mandatory cross-cutting roles (QA, Security, Production, Code Health, Architect). For each:
-- **Foundational** (books) — apply SOLID, DDD, Clean Architecture, DDIA, testing principles
-- **Practical** (repos) — use patterns from production repos (how NestJS/PostHog/cal.com do it)
-- **Anti-Patterns** — if your code matches any role's anti-pattern, redesign before writing
-- **Manager** — all 9 principles apply. QUALITY, SCOPE, INFORM, USE SKILLS, ROLE CHECKS.
-
-This is not optional. Roles provide the domain knowledge. Skills provide the workflow. Both required.
-
 ## Build Mode: Sequence
 
 STOP. Before writing ANY code, verify:
