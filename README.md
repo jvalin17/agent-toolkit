@@ -80,7 +80,9 @@ You say: "add a stats page"
   → Security: "validate input at API boundary"
 
 You commit
-  → Role quality checks run → missing index? BLOCKED
+  → Every detected role reviews in parallel (backend, dba, security, qa...)
+  → Each role checks from its expertise using book + repo knowledge
+  → Missing index? BLOCKED. No secrets check? BLOCKED.
 ```
 
 ---
@@ -123,11 +125,13 @@ Each role has two layers of knowledge:
 
 ### Enforcement (hooks — can't be bypassed)
 
-- **Quality gates** — code can't be committed without passing role quality checks
-- **Skill enforcement** — strict mode blocks code edits without `/implementation`, `/debug`, or `/architecture`
-- **Model routing** — haiku for search/lint, sonnet for code, opus/fable for architecture. Hook warns on mismatches.
-- **Evidence verification** — claims must have real output (test results, curl responses), not "it works"
-- **Session audit** — tracks what the agent actually did vs what it claims
+- **Parallel role review** — every commit triggers all detected roles to review in parallel, each from its expertise
+- **Precommit mandatory** — even `enforcement: "warn"` can't skip precommit
+- **Skill enforcement** — strict mode blocks code edits without a skill workflow
+- **Model routing** — haiku for search, sonnet for code, opus/fable for architecture. Hook warns on mismatches.
+- **Evidence verification** — claims must have real output, not "it works"
+- **Session audit** — mechanically tracks what the agent actually did
+- **No excuses** — pre-existing lint issues must be fixed, not skipped
 
 → [All 19 roles](roles/ROLES-FINAL.md) · [Architecture](architecture/role-context-layer.md) · [Skills reference](docs/skills.md)
 
