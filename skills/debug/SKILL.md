@@ -18,6 +18,14 @@ If `auto` flag is set, also read `shared/orchestrator.md` for auto mode protocol
 
 Read `project-state.md` at start if it exists. If it doesn't exist, create it from `shared/project-state-template.md`.
 
+## Apply Roles (MANDATORY)
+
+Check ALL active roles + cross-cutting roles (QA, Security, Code Health, Architect). Use their knowledge to diagnose:
+- **Foundational** (books) — does the bug violate SOLID, Clean Architecture, DDIA principles?
+- **Practical** (repos) — how do production repos handle this pattern? Is there a known fix?
+- **Anti-Patterns** — does the buggy code match a known anti-pattern from any role?
+- **Manager** — all 9 principles apply throughout debugging.
+
 ## Core Principles
 
 1. **STOP. Reproduce FIRST.** Do NOT touch code until you can reproduce the bug. Write a failing test or show the error output. If you can't reproduce it, ask the user for steps.
