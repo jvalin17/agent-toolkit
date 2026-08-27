@@ -212,7 +212,7 @@ def _check_session_audit() -> dict:
 
         warnings = []
         if usage.get("skill_count", 0) == 0:
-            warnings.append("No skills invoked this session — consider using /implementation, /debug, or /architecture")
+            warnings.append("No skills invoked this session — consider using /implementation, /debug_tool, or /architecture")
         if usage.get("agents_without_model", 0) > 0:
             count = usage["agents_without_model"]
             warnings.append(f"{count} agent(s) spawned without model parameter — consider setting model for cost efficiency")

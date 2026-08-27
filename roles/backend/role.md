@@ -16,7 +16,7 @@ duties:
   - Implement caching layers
   - Build background jobs and task queues
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/architecture", "/setup", "/precommit"]
   evaluation: ["/reviewer", "/evaluate"]
 invokes:

@@ -16,7 +16,7 @@ duties:
   - Test edge cases in real environments
   - Verify data migrations completed correctly
 skills:
-  primary: ["/verify", "/debug"]
+  primary: ["/verify", "/debug_tool"]
   secondary: ["/evaluate", "/explore"]
   evaluation: ["/evaluate"]
 invokes:

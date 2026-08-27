@@ -12,7 +12,7 @@ duties:
   - Implement MLOps (experiment tracking, model registry, versioning)
   - Optimize models for production (quantization, pruning)
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/architecture", "/setup"]
 invokes:
   for_model_dev: ["data-scientist"]

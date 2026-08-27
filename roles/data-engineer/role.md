@@ -13,7 +13,7 @@ duties:
   - Manage orchestration (Airflow, Dagster, Prefect)
   - Set up CDC and streaming pipelines
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/setup", "/architecture"]
 invokes:
   for_source_data: ["dba"]

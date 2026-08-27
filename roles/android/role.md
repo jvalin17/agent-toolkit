@@ -11,7 +11,7 @@ duties:
   - Battery and memory optimization
   - Play Store releases, staged rollouts
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/setup", "/precommit"]
 invokes:
   for_api_contracts: ["backend"]

@@ -2,7 +2,7 @@
 """Regression test: all skills must have disable-model-invocation: false.
 
 Setting it to true prevents the Skill tool from invoking the skill,
-which breaks /debug and any other skill that gets flipped.
+which breaks /debug_tool and any other skill that gets flipped.
 """
 
 from pathlib import Path

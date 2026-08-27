@@ -13,7 +13,7 @@ duties:
   - Implement client-side routing, forms, error boundaries
   - Ensure accessibility (ARIA, keyboard nav, screen readers)
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/explore", "/precommit"]
   evaluation: ["/reviewer", "/evaluate"]
 invokes:

@@ -356,20 +356,20 @@ fi
 echo ""
 echo "=== route_to_skill.py ==="
 
-# Test 12: "fix the bug" → debug routing
+# Test 12: "fix the bug" → debug_tool routing
 OUTPUT=$(echo '{"prompt":"fix the login bug"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "debug"; then
-  pass "\"fix the login bug\" routes to debug"
+if echo "$OUTPUT" | grep -q "debug_tool"; then
+  pass "\"fix the login bug\" routes to debug_tool"
 else
-  fail "should route to debug" "got: $OUTPUT"
+  fail "should route to debug_tool" "got: $OUTPUT"
 fi
 
-# Test 13: "fix the design" → should NOT route to debug
+# Test 13: "fix the design" → should NOT route to debug_tool
 OUTPUT=$(echo '{"prompt":"fix the design of the homepage"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "debug"; then
-  fail "\"fix the design\" should NOT route to debug" "false positive"
+if echo "$OUTPUT" | grep -q "debug_tool"; then
+  fail "\"fix the design\" should NOT route to debug_tool" "false positive"
 else
-  pass "\"fix the design\" does not route to debug"
+  pass "\"fix the design\" does not route to debug_tool"
 fi
 
 # Test 14: "build an inventory app" → implementation routing
@@ -380,10 +380,10 @@ else
   fail "should route to implementation" "got: $OUTPUT"
 fi
 
-# Test 15: "/debug something" → no injection (user invoked directly)
-OUTPUT=$(echo '{"prompt":"/debug something"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
+# Test 15: "/debug_tool something" → no injection (user invoked directly)
+OUTPUT=$(echo '{"prompt":"/debug_tool something"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
-  pass "\"/debug\" prefix skips routing"
+  pass "\"/debug_tool\" prefix skips routing"
 else
   fail "slash-command should skip routing" "got: $OUTPUT"
 fi
@@ -396,12 +396,12 @@ else
   fail "should route to refactor mode" "got: $OUTPUT"
 fi
 
-# Test 17: "the search is broken" → debug routing
+# Test 17: "the search is broken" → debug_tool routing
 OUTPUT=$(echo '{"prompt":"the search is broken"}' | python3 "$HOOKS_DIR/route_to_skill.py" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "debug"; then
-  pass "\"broken\" routes to debug"
+if echo "$OUTPUT" | grep -q "debug_tool"; then
+  pass "\"broken\" routes to debug_tool"
 else
-  fail "should route to debug" "got: $OUTPUT"
+  fail "should route to debug_tool" "got: $OUTPUT"
 fi
 
 # Test 18: generic prompt → no routing

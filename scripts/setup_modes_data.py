@@ -13,7 +13,7 @@ SETTINGS = [
         "key": "skill_routing",
         "label": "Skill routing",
         "description": "Auto-detects what you're doing and suggests the right workflow",
-        "example": '"fix the login bug" -> routes to /debug skill',
+        "example": '"fix the login bug" -> routes to /debug_tool skill',
         "type": "bool",
         "options": ["on", "off"],
     },

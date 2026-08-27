@@ -8,7 +8,7 @@ How to build, commit, and push with Agent Toolkit gates.
 |-----------|------------|
 | New project | `/requirements` → `/architecture` → `/implementation` |
 | Existing repo | `/explore .` → `/implementation` |
-| Bug | "fix …" or `/debug` |
+| Bug | "fix …" or `/debug_tool` |
 | Before release | `/reviewer` → `/evaluate` |
 | Hands-off pipeline | `/requirements auto my-app` — see [orchestrator](../shared/orchestrator.md) |
 

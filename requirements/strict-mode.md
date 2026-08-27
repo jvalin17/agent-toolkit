@@ -117,7 +117,7 @@ In strict mode, the slab cycle gains a mandatory step between SETUP and TDD:
 
 ## What Strict Mode Does NOT Change
 
-- Skill workflows (/implementation, /debug, etc.) — same, just stricter enforcement
+- Skill workflows (/implementation, /debug_tool, etc.) — same, just stricter enforcement
 - Gate mechanism (legacy/signed) — same, just requires /evaluate too
 - Auto-continuation — same, but drift can trigger restart
 - Normal sessions — unaffected when mode != strict

@@ -27,7 +27,7 @@ class TestSlashCommandsBypass:
 
     @pytest.mark.parametrize("prompt", [
         "/precommit", "/evaluate", "/implementation build a thing",
-        "/debug fix the crash", "/status",
+        "/debug_tool fix the crash", "/status",
     ])
     def test_slash_commands_ignored(self, tmp_path, prompt):
         exit_code, output = run_route_to_skill(make_input(prompt), tmp_path)
@@ -49,15 +49,15 @@ class TestBugFixRouting:
     def test_debug_routing(self, tmp_path, prompt):
         _, output = run_route_to_skill(make_input(prompt), tmp_path)
         context = parse_context(output)
-        assert "/debug" in context
+        assert "/debug_tool" in context
 
     def test_fix_the_design_not_routed_to_debug(self, tmp_path):
-        """'fix the design' is not a bug — should NOT route to debug."""
+        """'fix the design' is not a bug — should NOT route to debug_tool."""
         _, output = run_route_to_skill(make_input("fix the design of the homepage"), tmp_path)
-        # Should not contain /debug routing
+        # Should not contain /debug_tool routing
         if output:
             context = parse_context(output)
-            assert "/debug" not in context
+            assert "/debug_tool" not in context
 
 
 class TestBuildRouting:
@@ -182,7 +182,7 @@ class TestEdgeCases:
     def test_case_insensitive(self, tmp_path):
         _, output = run_route_to_skill(make_input("FIX THE BUG"), tmp_path)
         context = parse_context(output)
-        assert "/debug" in context
+        assert "/debug_tool" in context
 
 
 class TestSkillRoutingConfigToggle:
@@ -201,7 +201,7 @@ class TestSkillRoutingConfigToggle:
         stdin = make_input("fix the bug")
         exit_code, output = run_route_to_skill(stdin, tmp_path)
         assert exit_code == 0
-        assert "/debug" in output
+        assert "/debug_tool" in output
 
     def test_env_var_override(self, tmp_path, monkeypatch):
         """AGENT_TOOLKIT_SKILL_ROUTING=false overrides gates.json."""
@@ -235,7 +235,7 @@ class TestRoleContextInRouting:
         assert output != ""
         context = parse_context(output)
         # Should have skill routing AND role context
-        assert "/debug" in context
+        assert "/debug_tool" in context
 
     def test_routing_works_without_role_files(self, tmp_path):
         """Skill routing should work even if role detection fails."""
@@ -244,4 +244,4 @@ class TestRoleContextInRouting:
         assert exit_code == 0
         assert output != ""
         context = parse_context(output)
-        assert "/debug" in context
+        assert "/debug_tool" in context

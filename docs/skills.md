@@ -10,7 +10,7 @@ Append **`auto`** to chain skills without stopping: `/requirements auto my-app`.
 | `/requirements` | Gather and validate requirements |
 | `/architecture` | Design with trade-offs and user journey |
 | `/implementation` | TDD — skeleton → slabs; fix, refactor, demo modes |
-| `/debug` | Hypothesis-driven debugging with reproduction tests |
+| `/debug_tool` | Hypothesis-driven debugging with reproduction tests |
 | `/assess` | Architecture fitness audit |
 | `/verify` | Output quality check — is it useful, not just correct? |
 | `/precommit` | Pre-commit quality gate (required before commit by default) |
@@ -35,10 +35,10 @@ Skill definitions live in `skills/*/SKILL.md`.
 
 ## Skill tool errors
 
-If `/debug` (or another skill) errors with `disable-model-invocation`:
+If `/debug_tool` (or another skill) errors with `disable-model-invocation`:
 
 ```
-Read skills/debug/SKILL.md and follow it
+Read skills/debug_tool/SKILL.md and follow it
 ```
 
 Or use natural language: "debug the failing test in …"

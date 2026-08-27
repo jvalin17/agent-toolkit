@@ -6,7 +6,7 @@
 
 ## What Existing Skills Already Cover (DON'T repeat in roles)
 
-Our `/implementation`, `/debug`, `/reviewer`, `/precommit`, `/architecture` skills already handle:
+Our `/implementation`, `/debug_tool`, `/reviewer`, `/precommit`, `/architecture` skills already handle:
 - Programming fundamentals, data structures, algorithms
 - Git workflow, version control
 - Testing principles (TDD, unit/integration)

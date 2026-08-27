@@ -13,7 +13,7 @@ duties:
   - Implement multiplayer networking (if applicable)
   - Integrate art/animation/audio assets
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/setup", "/architecture"]
 invokes:
   for_multiplayer: ["backend"]

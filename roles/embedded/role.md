@@ -13,7 +13,7 @@ duties:
   - Design communication protocols (MQTT, BLE, LoRa)
   - Implement OTA firmware update systems
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/setup", "/architecture"]
 invokes:
   for_firmware_signing: ["security"]

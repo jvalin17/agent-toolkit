@@ -11,7 +11,7 @@ duties:
   - Platform-specific UX (haptics, gestures, system integration)
   - App Store submission, TestFlight
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/setup", "/precommit"]
 invokes:
   for_api_contracts: ["backend"]

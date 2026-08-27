@@ -41,7 +41,7 @@ reports/
 ├── evaluate/        eval_<topic>_<uuid8>.md
 ├── assess/          assess_<topic>_<uuid8>.md
 ├── reviewer/        review_<topic>_<uuid8>.md
-├── debug/           debug_<topic>_<uuid8>.md
+├── debug_tool/      debug_<topic>_<uuid8>.md
 ├── precommit/       pc_<topic>_<uuid8>.md
 ├── explore/         explore_<topic>_<uuid8>.md
 ├── setup/           setup_<topic>_<uuid8>.md
@@ -132,7 +132,7 @@ Each skill adds its own sections after the header and progress:
 - Per-finding: file:line, severity, fix
 - Summary counts by severity
 
-### /debug report adds:
+### /debug_tool report adds:
 - Symptom description
 - Hypotheses ranked with confidence
 - Evidence per hypothesis ([H1] CONFIRMED / ELIMINATED)

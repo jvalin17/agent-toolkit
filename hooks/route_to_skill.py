@@ -34,7 +34,7 @@ INTENT_PATTERNS = [
             r"|throwing.*error|getting.*error",
             re.IGNORECASE,
         ),
-        "debug",
+        "debug_tool",
     ),
     # Deploy / setup — before build so "set up env" matches setup not build
     (
@@ -119,10 +119,10 @@ INTENT_PATTERNS = [
 ]
 
 SKILL_CONTEXTS = {
-    "debug": (
-        "SKILL ROUTING: This looks like a bug fix. Follow the /debug workflow.\n"
-        "1. Read skills/debug/SKILL.md with the Read tool — follow it strictly\n"
-        "2. Do NOT call the Skill tool (use Read instead; Skill tool may error on /debug)\n"
+    "debug_tool": (
+        "SKILL ROUTING: This looks like a bug fix. Follow the /debug_tool workflow.\n"
+        "1. Read skills/debug_tool/SKILL.md with the Read tool — follow it strictly\n"
+        "2. Do NOT call the Skill tool (use Read instead; Skill tool may error on /debug_tool)\n"
         "3. Hypothesis-driven: form hypotheses, test them, eliminate\n"
         "4. Write a FAILING test that reproduces the bug BEFORE fixing\n"
         "5. Fix the code to make the test pass\n"
@@ -204,7 +204,7 @@ def make_hook_response(message: str) -> str:
 # Map skill routing intents to orchestration task types
 _INTENT_TO_TASK_TYPE = {
     "build": "new_feature",
-    "debug": "bug_fix",
+    "debug_tool": "bug_fix",
     "refactor": "refactor",
 }
 

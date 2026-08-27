@@ -1,5 +1,5 @@
 ---
-name: debug
+name: debug_tool
 description: "Systematic debugging when something is broken. Diagnose by layer, hypothesis-driven, reproduce with test, then fix. Keywords: debug, broken, not working, bug, crash, fix, error, failing, blank page, 0 results, silent failure"
 user-invocable: true
 disable-model-invocation: false
@@ -189,4 +189,4 @@ Before fixing, confirm with a reproducing test:
 
 ## Reporting
 
-Write debug report to `reports/debug/debug_<topic>_<uuid8>.md`. Update project-state.md with findings.
+Write debug report to `reports/debug_tool/debug_<topic>_<uuid8>.md`. Update project-state.md with findings.
