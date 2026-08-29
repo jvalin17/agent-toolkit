@@ -113,7 +113,7 @@ Each role has two layers of knowledge:
 | `/requirements` | Gather and track requirements |
 | `/architecture` | Design with tradeoffs |
 | `/implementation` | Build with TDD |
-| `/debug` | Hypothesis-driven debugging |
+| `/debug_tool` | Hypothesis-driven debugging |
 | `/precommit` | Quality gate before commit |
 | `/evaluate` | Quality score (push gate) |
 | `/reviewer` | Code review |

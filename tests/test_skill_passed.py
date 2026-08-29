@@ -85,7 +85,7 @@ class TestNonGatedSkills:
         assert "DEMO" in context
 
     def test_debug_ignored(self, project):
-        exit_code, output = run_skill_passed(make_input("debug"), project)
+        exit_code, output = run_skill_passed(make_input("debug_tool"), project)
         assert exit_code == 0
         assert output == ""
 

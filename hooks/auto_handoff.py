@@ -96,7 +96,7 @@ The agent did not write this file.
 
 ## Resume Command
 
-Read project-state.md and this file. Use agent-toolkit skills for all work (/implementation, /debug, /precommit, etc.). Continue from where the previous session stopped.
+Read project-state.md and this file. Use agent-toolkit skills for all work (/implementation, /debug_tool, /precommit, etc.). Continue from where the previous session stopped.
 """
     handoff_path.write_text(content, encoding="utf-8")
 

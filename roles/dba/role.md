@@ -14,7 +14,7 @@ duties:
   - Advise on data modeling (normalization vs denormalization)
   - Plan and review migrations
 skills:
-  primary: ["/debug", "/evaluate"]
+  primary: ["/debug_tool", "/evaluate"]
   secondary: ["/assess", "/explore"]
   evaluation: ["/reviewer"]
 invokes:

@@ -82,26 +82,25 @@ Exit code 0 means the gate unlocked; exit code 1 means score or mechanical check
 
 ## Skill tool: "cannot be used due to disable-model-invocation"
 
-**Symptom:** `/debug` or `Skill(debug)` fails with:
+**Symptom:** `/debug_tool` or `Skill(debug_tool)` fails with:
 ```
-Skill debug cannot be used with Skill tool due to disable-model-invocation
+Skill debug_tool cannot be used with Skill tool due to disable-model-invocation
 ```
 
-**Cause:** Known Claude Code behavior — the Skill tool is invoked twice (slash command loads the skill, then the model calls Skill tool again). Toolkit skills set `disable-model-invocation: false` explicitly; the error can still appear on some Claude Code versions.
+**Cause:** This is a **Claude Code platform bug**, not a toolkit bug. The Skill tool double-invokes: the slash command loads the skill prompt, then the model calls the Skill tool again, which triggers the `disable-model-invocation` guard. Setting the frontmatter to `false` is necessary but **not sufficient** — the error can still appear on some Claude Code versions regardless of the setting.
 
-**Fix (pick one):**
+**Status:** All 13 toolkit skills have `disable-model-invocation: false`. A regression test (`tests/test_skill_frontmatter.py`) enforces this. The `/debug_tool` routing hook (`hooks/route_to_skill.py`) includes a permanent workaround that tells the model to use `Read` instead of the Skill tool.
 
-1. **Use Read, not Skill tool** — tell the agent:
-   ```
-   Read skills/debug/SKILL.md and follow it step by step. Do not use the Skill tool.
-   ```
-2. **Re-link skills** — symlinks may point at a stale clone (`/tmp/...`):
+**If you hit this error:**
+
+1. **Do nothing** — the routing hook already handles it. When the hook detects a debug task, it injects "Read skills/debug_tool/SKILL.md" instead of using the Skill tool. This is the primary mitigation.
+2. **Re-link skills** if symlinks are stale:
    ```bash
    cd /path/to/agent-toolkit && ./install.sh
    ```
 3. **Start a new session** after `./install.sh` so Claude picks up updated skill frontmatter.
 
-**Workaround for any skill:** Natural language + Read the SKILL.md file always works; slash commands may still trigger the Skill tool error until Claude Code fixes the double-invocation bug.
+**For any skill:** `Read skills/<name>/SKILL.md` and following it step by step always works. Slash commands may still trigger the double-invocation error until the Claude Code platform fixes it upstream.
 
 ## auto_continue.py doesn't restart
 

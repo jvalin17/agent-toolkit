@@ -256,4 +256,4 @@ after the report is written. Legacy: `finalize_report.py` writes `.gates/precomm
 
 ## Integration (G-PUSH-1)
 
-/implementation, /debug, and any skill running `git commit` MUST run `/precommit` first. No exceptions.
+/implementation, /debug_tool, and any skill running `git commit` MUST run `/precommit` first. No exceptions.

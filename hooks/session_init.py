@@ -354,7 +354,7 @@ def build_context(
     parts.append("")
     parts.append("""MANDATORY RULES:
 1. NEVER edit code without following a skill workflow. Read the skill .md file first.
-2. For bug fixes: follow /debug (hypothesis-driven, test-first)
+2. For bug fixes: follow /debug_tool (hypothesis-driven, test-first)
 3. For new features: follow /implementation (plan, TDD, slabs)
 4. For refactors: follow /implementation in refactor mode
 5. ALWAYS write a failing test BEFORE fixing or implementing
@@ -369,7 +369,7 @@ RESPONSE STYLE:
 - Show evidence (file:line) for every claim
 - If unsure, ask. Don't assume.
 
-AVAILABLE SKILLS: /requirements /architecture /implementation /debug /verify /precommit /evaluate /reviewer /assess /explore /setup /status /updater
+AVAILABLE SKILLS: /requirements /architecture /implementation /debug_tool /verify /precommit /evaluate /reviewer /assess /explore /setup /status /updater
 
 SESSION MONITOR ACTIVE: This session is tracked. Cumulative output bytes and context compaction are the active limits. Warning at 500KB output, hard stop at 700KB or first compaction — you get 10 tool calls to write HANDOFF.md and commit, then all non-handoff operations are blocked. Exchange count is tracked for diagnostics only.
 

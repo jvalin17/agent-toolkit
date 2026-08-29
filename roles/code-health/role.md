@@ -12,7 +12,7 @@ duties:
   - Track test suite quality (flaky tests, coverage gaps)
   - Manage safe migration patterns
 skills:
-  primary: ["/assess", "/debug"]
+  primary: ["/assess", "/debug_tool"]
   secondary: ["/reviewer", "/evaluate"]
 invokes:
   monitors: "ALL roles' code quality"

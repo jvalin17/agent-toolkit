@@ -16,7 +16,7 @@ duties:
   - Generate SBOM for audit
 skills:
   primary: ["/reviewer", "/evaluate"]
-  secondary: ["/assess", "/debug"]
+  secondary: ["/assess", "/debug_tool"]
   evaluation: ["/evaluate"]
 invokes:
   evaluates: "ALL roles (cross-cutting)"

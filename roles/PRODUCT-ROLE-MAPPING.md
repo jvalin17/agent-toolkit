@@ -23,7 +23,7 @@
 | **Research Engineer** | New robotics platforms, AMR vendor evaluation, industry 4.0 standards |
 | **Legal & Compliance** | Industrial safety regulations (OSHA), equipment certification, data retention for safety audits |
 
-**Skills used:** `/architecture` (layered system design), `/implementation` (WMS logic), `/debug` (equipment communication issues), `/setup` (edge deployment), `/evaluate` (system reliability)
+**Skills used:** `/architecture` (layered system design), `/implementation` (WMS logic), `/debug_tool` (equipment communication issues), `/setup` (edge deployment), `/evaluate` (system reliability)
 
 ---
 
@@ -45,7 +45,7 @@
 | **Requirements Engineer** | Spades rule variants tracking, tournament format specs |
 | **Legal & Compliance** | Gambling law implications (if real money), age restrictions by country |
 
-**Skills used:** `/implementation` (game server), `/architecture` (networking model), `/debug` (desync issues), `/verify` (rule correctness)
+**Skills used:** `/implementation` (game server), `/architecture` (networking model), `/debug_tool` (desync issues), `/verify` (rule correctness)
 
 ---
 
@@ -69,7 +69,7 @@
 | **Requirements Engineer** | 30+ civilization specs, tech tree tracking, balance requirements |
 | **Legal & Compliance** | Age ratings (ESRB/PEGI), in-app purchase regulations for mobile |
 
-**Skills used:** `/architecture` (engine + networking), `/implementation` (game systems), `/debug` (desync, pathfinding), `/evaluate` (performance), `/explore` (existing engine patterns)
+**Skills used:** `/architecture` (engine + networking), `/implementation` (game systems), `/debug_tool` (desync, pathfinding), `/evaluate` (performance), `/explore` (existing engine patterns)
 
 ---
 
@@ -115,7 +115,7 @@
 | **Requirements Engineer** | Supported languages, accuracy targets, supported video formats/sources |
 | **Legal & Compliance** | TOS implications of scraping videos from platforms, content storage policies, GDPR for processed data |
 
-**Skills used:** `/implementation` (pipeline), `/architecture` (GPU serving), `/setup` (infrastructure), `/debug` (accuracy issues), `/evaluate` (transcription quality)
+**Skills used:** `/implementation` (pipeline), `/architecture` (GPU serving), `/setup` (infrastructure), `/debug_tool` (accuracy issues), `/evaluate` (transcription quality)
 
 ---
 
@@ -166,7 +166,7 @@
 | **Requirements Engineer** | Feature parity across platforms, offline capability specs, audio quality tier definitions |
 | **Legal & Compliance*** | Music licensing (per-country rights), royalty tracking and reporting (legal requirement), DMCA compliance, territory restrictions |
 
-**Skills used:** `/architecture` (streaming + DRM), `/implementation` (player + API), `/debug` (playback issues), `/setup` (CDN + infrastructure), `/evaluate` (audio quality)
+**Skills used:** `/architecture` (streaming + DRM), `/implementation` (player + API), `/debug_tool` (playback issues), `/setup` (CDN + infrastructure), `/evaluate` (audio quality)
 
 ---
 
@@ -191,7 +191,7 @@
 | **Requirements Engineer** | Supported devices/platforms, codec support matrix, feature comparison with Plex/Jellyfin |
 | **Embedded/IoT** | Smart TV app development (limited runtime environments), Roku/Fire TV platform constraints |
 
-**Skills used:** `/explore` (Jellyfin/Plex codebase), `/architecture` (transcoding engine), `/implementation` (scanner + player), `/setup` (Docker deployment), `/debug` (codec issues)
+**Skills used:** `/explore` (Jellyfin/Plex codebase), `/architecture` (transcoding engine), `/implementation` (scanner + player), `/setup` (Docker deployment), `/debug_tool` (codec issues)
 
 ---
 

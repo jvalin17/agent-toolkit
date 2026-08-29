@@ -14,7 +14,7 @@ duties:
   - Cost optimization and capacity planning
   - Disaster recovery and backup automation
 skills:
-  primary: ["/setup", "/debug"]
+  primary: ["/setup", "/debug_tool"]
   secondary: ["/architecture", "/assess"]
   evaluation: ["/evaluate", "/reviewer"]
 invokes:

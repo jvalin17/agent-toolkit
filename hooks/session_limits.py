@@ -30,7 +30,7 @@ Copy-paste the following into your next Claude session to continue seamlessly:
 Read HANDOFF.md first. You are continuing a multi-session task. The previous session hit its time/context limit. Pick up exactly where it left off:
 1. Read HANDOFF.md for goal, progress, and next steps
 2. Read project-state.md for overall project context
-3. Use agent-toolkit skills for all work (/implementation, /debug, /precommit, etc.)
+3. Use agent-toolkit skills for all work (/implementation, /debug_tool, /precommit, etc.)
 4. Continue the work — do NOT re-do completed items listed above
 
 ---

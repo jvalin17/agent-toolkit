@@ -2,7 +2,7 @@
 """skill_enforce.py — Block code edits without an active skill workflow.
 
 PreToolUse hook on Edit and Write tools. Ensures the agent is following
-a skill (/implementation, /debug, /architecture, /requirements) before
+a skill (/implementation, /debug_tool, /architecture, /requirements) before
 making code changes. Prevents the LLM from skipping skill workflows.
 
 Modes:
@@ -38,7 +38,7 @@ TEST_PATTERNS = re.compile(
 
 # Skills that authorize code changes
 CODE_CHANGE_SKILLS = {
-    "implementation", "debug", "fix", "refactor",
+    "implementation", "debug_tool", "fix", "refactor",
     "setup", "explore",  # explore is read-only but setup writes configs
 }
 
@@ -143,7 +143,7 @@ def run_skill_enforce(
         "SKILL REQUIRED: You are editing code without following a skill workflow. "
         "Before making code changes:\n"
         "- New feature → run /requirements then /implementation\n"
-        "- Bug fix → run /debug\n"
+        "- Bug fix → run /debug_tool\n"
         "- Refactor → run /implementation in refactor mode\n"
         "- Architecture change → run /architecture first\n"
         "Do NOT edit code directly. Follow the skill workflow."

@@ -13,24 +13,24 @@ Roles are **specialized agents with pre-learned domain knowledge** from indexed 
 
 | # | Role | Category | Skills Used |
 |---|------|----------|-------------|
-| 1 | Backend Engineer | Core | `/implementation`, `/debug`, `/architecture`, `/setup` |
-| 2 | Frontend Developer | Core | `/implementation`, `/debug`, `/explore` |
-| 3 | iOS Developer | Mobile | `/implementation`, `/debug`, `/setup` |
-| 4 | Android Developer | Mobile | `/implementation`, `/debug`, `/setup` |
-| 5 | DBA | Data | `/debug`, `/evaluate`, `/assess` |
-| 6 | Data Engineer | Data | `/implementation`, `/debug`, `/setup` |
+| 1 | Backend Engineer | Core | `/implementation`, `/debug_tool`, `/architecture`, `/setup` |
+| 2 | Frontend Developer | Core | `/implementation`, `/debug_tool`, `/explore` |
+| 3 | iOS Developer | Mobile | `/implementation`, `/debug_tool`, `/setup` |
+| 4 | Android Developer | Mobile | `/implementation`, `/debug_tool`, `/setup` |
+| 5 | DBA | Data | `/debug_tool`, `/evaluate`, `/assess` |
+| 6 | Data Engineer | Data | `/implementation`, `/debug_tool`, `/setup` |
 | 7 | Data Scientist | Data | `/explore`, `/implementation`, `/evaluate` |
-| 8 | AI/ML Engineer | AI/ML | `/implementation`, `/debug`, `/architecture`, `/setup` |
-| 9 | Infrastructure Engineer | Infra | `/setup`, `/debug`, `/architecture`, `/assess` |
-| 10 | Security Engineer | Cross-cutting | `/reviewer`, `/evaluate`, `/assess`, `/debug` |
-| 11 | Production Engineer | Cross-cutting | `/verify`, `/debug`, `/evaluate`, `/explore` |
+| 8 | AI/ML Engineer | AI/ML | `/implementation`, `/debug_tool`, `/architecture`, `/setup` |
+| 9 | Infrastructure Engineer | Infra | `/setup`, `/debug_tool`, `/architecture`, `/assess` |
+| 10 | Security Engineer | Cross-cutting | `/reviewer`, `/evaluate`, `/assess`, `/debug_tool` |
+| 11 | Production Engineer | Cross-cutting | `/verify`, `/debug_tool`, `/evaluate`, `/explore` |
 | 12 | QA Engineer | Cross-cutting | `/implementation`, `/evaluate`, `/reviewer`, `/setup` |
 | 13 | System Architect | Cross-cutting | `/architecture`, `/assess`, `/explore`, `/requirements` |
-| 14 | Code Health Engineer | Cross-cutting | `/assess`, `/debug`, `/reviewer`, `/evaluate` |
+| 14 | Code Health Engineer | Cross-cutting | `/assess`, `/debug_tool`, `/reviewer`, `/evaluate` |
 | 15 | Requirements Engineer | Cross-cutting | `/requirements`, `/verify`, `/evaluate`, `/status` |
 | 16 | Research Engineer | Cross-cutting | `/explore`, `/architecture`, `/assess`, `/evaluate` |
-| 17 | Game Developer | Specialized | `/implementation`, `/debug`, `/setup` |
-| 18 | Embedded/IoT Developer | Specialized | `/implementation`, `/debug`, `/setup` |
+| 17 | Game Developer | Specialized | `/implementation`, `/debug_tool`, `/setup` |
+| 18 | Embedded/IoT Developer | Specialized | `/implementation`, `/debug_tool`, `/setup` |
 | 19 | Legal & Compliance Engineer | Cross-cutting | `/explore`, `/evaluate`, `/requirements` |
 
 ## Four Layers
@@ -73,7 +73,7 @@ Roles are **specialized agents with pre-learned domain knowledge** from indexed 
 │                                                         │
 │  Role receives task from skill workflow                  │
 │  → Consults pre-learned knowledge (no web research)     │
-│  → Uses existing skills (/implementation, /debug, etc.) │
+│  → Uses existing skills (/implementation, /debug_tool, etc.) │
 │  → LLM writes code using learned patterns               │
 │  → Invokes other roles when skill says to (deterministic)│
 │  → Multiple cheap agents for parallel sub-tasks         │
@@ -330,7 +330,7 @@ duties:
   - Implement authentication and authorization
   - Set up error handling and logging
 skills:
-  primary: ["/implementation", "/debug"]
+  primary: ["/implementation", "/debug_tool"]
   secondary: ["/architecture", "/setup", "/precommit"]
   evaluation: ["/reviewer", "/evaluate"]
 invokes:
