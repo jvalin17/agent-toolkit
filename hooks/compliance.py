@@ -173,6 +173,229 @@ def get_session_skill_usage() -> Dict[str, Any]:
         "taxonomy_violations": agents_without_model,
     }
 
+# --- Session action auditing (mechanical verification) --------------------
+
+# Patterns that indicate a server was started
+SERVER_START_PATTERNS = [
+    re.compile(r"npm\s+(start|run\s+dev|run\s+serve)"),
+    re.compile(r"node\s+\S+\.(js|ts)"),
+    re.compile(r"python3?\s+(-m\s+)?(flask|uvicorn|gunicorn|django|http\.server)"),
+    re.compile(r"(rails|ruby)\s+\S*(server|s\b)"),
+    re.compile(r"go\s+run"),
+    re.compile(r"cargo\s+run"),
+    re.compile(r"java\s+-jar"),
+    re.compile(r"docker\s+(compose\s+up|run)"),
+    re.compile(r"(yarn|pnpm|npx)\s+(start|dev|serve)"),
+]
+
+# Patterns that indicate an HTTP request was made
+HTTP_REQUEST_PATTERNS = [
+    re.compile(r"curl\s+"),
+    re.compile(r"wget\s+"),
+    re.compile(r"http(s)?://localhost"),
+    re.compile(r"http(s)?://127\.0\.0\.1"),
+    re.compile(r"http(s)?://0\.0\.0\.0"),
+]
+
+# Patterns in Agent prompts that indicate role-based review
+ROLE_AGENT_PATTERNS = [
+    re.compile(r"\brole\b.*\breview\b", re.IGNORECASE),
+    re.compile(r"\breview\b.*\brole\b", re.IGNORECASE),
+    re.compile(r"\b(qa|security|backend|frontend|dba|architect|infrastructure|legal)\b.*\b(check|review|audit)\b", re.IGNORECASE),
+    re.compile(r"\b(check|review|audit)\b.*\b(qa|security|backend|frontend|dba|architect|infrastructure|legal)\b", re.IGNORECASE),
+]
+
+# Test file path patterns
+TEST_FILE_PATTERN = re.compile(
+    r"(test_|_test\.|\.test\.|\.spec\.|tests/|__tests__/|spec/)",
+    re.IGNORECASE,
+)
+
+
+def audit_session_actions(log_path: Path) -> Dict[str, Any]:
+    """Read session JSONL and mechanically verify what actions happened.
+
+    Returns dict with:
+        available: bool — whether the log could be read
+        server_started: bool — was a dev server started?
+        http_request_made: bool — was an HTTP request made to localhost?
+        role_agents_spawned: int — how many role-specific agents were spawned?
+        tdd_order_respected: bool — were test files edited before source files?
+    """
+    if not log_path.is_file():
+        return {"available": False, "reason": f"log not found: {log_path}"}
+
+    server_started = False
+    http_request_made = False
+    role_agents_spawned = 0
+    first_test_edit_index = None
+    first_source_edit_index = None
+    tool_index = 0
+
+    try:
+        text = log_path.read_text(errors="ignore")
+    except OSError:
+        return {"available": False, "reason": "cannot read log file"}
+
+    for line in text.split("\n"):
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+            msg = entry.get("message", {})
+            content = msg.get("content", [])
+            if not isinstance(content, list):
+                continue
+
+            for block in content:
+                if block.get("type") != "tool_use":
+                    continue
+
+                name = block.get("name", "")
+                inp = block.get("input", {})
+                tool_index += 1
+
+                # Check Bash commands for server starts and HTTP requests
+                if name == "Bash":
+                    cmd = inp.get("command", "")
+                    if any(p.search(cmd) for p in SERVER_START_PATTERNS):
+                        server_started = True
+                    if any(p.search(cmd) for p in HTTP_REQUEST_PATTERNS):
+                        http_request_made = True
+
+                # Check WebFetch as HTTP request
+                elif name == "WebFetch":
+                    url = inp.get("url", "")
+                    if "localhost" in url or "127.0.0.1" in url or "0.0.0.0" in url:
+                        http_request_made = True
+
+                # Check Agent spawns for role-related prompts
+                elif name == "Agent":
+                    prompt = inp.get("prompt", "") + " " + inp.get("description", "")
+                    if any(p.search(prompt) for p in ROLE_AGENT_PATTERNS):
+                        role_agents_spawned += 1
+
+                # Track Edit/Write for TDD ordering
+                elif name in ("Edit", "Write"):
+                    file_path = inp.get("file_path", "")
+                    is_test = bool(TEST_FILE_PATTERN.search(file_path))
+                    if is_test and first_test_edit_index is None:
+                        first_test_edit_index = tool_index
+                    elif not is_test and first_source_edit_index is None:
+                        first_source_edit_index = tool_index
+
+        except (json.JSONDecodeError, TypeError, KeyError):
+            continue
+
+    # TDD: test file must be edited before source file
+    # Vacuously true if no edits or only one type of file edited
+    tdd_order_respected = True
+    if first_test_edit_index is not None and first_source_edit_index is not None:
+        tdd_order_respected = first_test_edit_index < first_source_edit_index
+
+    return {
+        "available": True,
+        "server_started": server_started,
+        "http_request_made": http_request_made,
+        "role_agents_spawned": role_agents_spawned,
+        "tdd_order_respected": tdd_order_respected,
+    }
+
+
+# --- Git diff TDD check ---------------------------------------------------
+
+# Patterns for function/method definitions (added lines only)
+FUNCTION_DEF_PATTERNS = [
+    # Python: def func_name(
+    re.compile(r"^\+\s*def\s+(\w+)\s*\("),
+    # JS/TS: function funcName(  or  const funcName = (  or  funcName(
+    re.compile(r"^\+\s*(?:export\s+)?(?:async\s+)?function\s+(\w+)\s*\("),
+    # Go: func FuncName(
+    re.compile(r"^\+\s*func\s+(?:\(\w+\s+\*?\w+\)\s+)?(\w+)\s*\("),
+    # Rust: fn func_name(
+    re.compile(r"^\+\s*(?:pub\s+)?fn\s+(\w+)\s*\("),
+    # Java/C#: public void methodName(
+    re.compile(r"^\+\s*(?:public|private|protected|static|\s)*\s+(\w+)\s*\("),
+]
+
+# Dunder / magic methods to ignore
+DUNDER_RE = re.compile(r"^__\w+__$")
+
+# Files/dirs exempt from TDD diff check
+DIFF_TDD_EXEMPT_DIRS = re.compile(
+    r"(^|/)(hooks|scripts|migrations|\.github|templates|config|docs)(/|$)"
+)
+
+DIFF_TEST_FILE_PATTERN = re.compile(
+    r"(test_|_test\.|\.test\.|\.spec\.|tests/|__tests__/|spec/)",
+    re.IGNORECASE,
+)
+
+
+def check_diff_for_untested_functions(diff_text: str) -> List[str]:
+    """Scan a unified diff for new functions/methods without corresponding tests.
+
+    Returns list of warning strings, one per untested function.
+    Empty list = all new functions have tests (or no new functions).
+    """
+    if not diff_text.strip():
+        return []
+
+    # Parse diff into per-file sections
+    current_file = None
+    source_functions: Dict[str, List[str]] = {}  # file -> [func_names]
+    test_functions: List[str] = []
+
+    for line in diff_text.split("\n"):
+        # Track which file we're in
+        if line.startswith("diff --git"):
+            match = re.search(r"b/(.+)$", line)
+            if match:
+                current_file = match.group(1)
+            continue
+
+        if current_file is None:
+            continue
+
+        # Only look at added lines
+        if not line.startswith("+"):
+            continue
+
+        is_test_file = bool(DIFF_TEST_FILE_PATTERN.search(current_file))
+        is_exempt = bool(DIFF_TDD_EXEMPT_DIRS.search(current_file))
+
+        for pattern in FUNCTION_DEF_PATTERNS:
+            m = pattern.match(line)
+            if m:
+                func_name = m.group(1)
+                # Skip dunder methods
+                if DUNDER_RE.match(func_name):
+                    break
+                if is_test_file:
+                    test_functions.append(func_name)
+                elif not is_exempt:
+                    if current_file not in source_functions:
+                        source_functions[current_file] = []
+                    source_functions[current_file].append(func_name)
+                break
+
+    # Check each source function for a corresponding test
+    warnings = []
+    for filepath, funcs in source_functions.items():
+        for func in funcs:
+            # Look for test_<func> or <func> mentioned in any test function name
+            has_test = any(
+                func in test_name or func.lower() in test_name.lower()
+                for test_name in test_functions
+            )
+            if not has_test:
+                warnings.append(
+                    f"{filepath}: new function '{func}' has no corresponding test"
+                )
+
+    return warnings
+
+
 # Patterns that indicate real evidence (command output, file references)
 EVIDENCE_PATTERNS = [
     re.compile(r"\$\s+\w"),          # command: $ pytest, $ curl

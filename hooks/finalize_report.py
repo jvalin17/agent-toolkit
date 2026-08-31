@@ -39,6 +39,7 @@ from gate.attest import (  # noqa: E402
     detect_and_run_lint,
     detect_and_run_tests,
 )
+from compliance import check_diff_for_untested_functions  # noqa: E402
 from finalize_common import EVAL_DIMENSION_WEIGHTS, fail  # noqa: E402
 from finalize_render import (  # noqa: E402
     compose_assess_markdown,
@@ -77,7 +78,11 @@ def _run_mechanical(project_dir: Path, config: dict) -> tuple[CheckResult, Check
 
 
 def _decide_precommit(
-    findings: dict, test: CheckResult, lint: CheckResult
+    findings: dict,
+    test: CheckResult,
+    lint: CheckResult,
+    session_audit: dict | None = None,
+    untested_functions: list[str] | None = None,
 ) -> tuple[bool, list[str]]:
     reasons: list[str] = []
 
@@ -105,6 +110,31 @@ def _decide_precommit(
 
     if findings["app_verification"]["status"] == "pending":
         reasons.append("app verification: still pending")
+
+    # Mechanical audit: override agent self-reports with session evidence
+    if session_audit and session_audit.get("available"):
+        # App verification: agent says "done" but no server evidence
+        appv_status = findings["app_verification"]["status"]
+        if appv_status == "done":
+            if not session_audit.get("server_started") and not session_audit.get("http_request_made"):
+                reasons.append(
+                    "app verification: no server/HTTP activity in session — "
+                    "agent claimed 'done' but no server start or HTTP request found"
+                )
+
+        # TDD ordering: source files edited before test files
+        if not session_audit.get("tdd_order_respected", True):
+            reasons.append(
+                "TDD violation: source files edited before test files — "
+                "write failing tests first"
+            )
+
+    # Git diff TDD: new functions without tests
+    if untested_functions:
+        reasons.append(
+            f"TDD: {len(untested_functions)} new function(s) without tests — "
+            + "; ".join(untested_functions[:5])
+        )
 
     return (len(reasons) == 0), reasons
 
@@ -228,12 +258,64 @@ def _check_session_audit() -> dict:
         return {"available": False}
 
 
+def _get_session_action_audit() -> dict:
+    """Run mechanical session audit from the current session JSONL."""
+    try:
+        from compliance import audit_session_actions
+
+        claude_projects = Path.home() / ".claude" / "projects"
+        if not claude_projects.is_dir():
+            return {"available": False}
+
+        cwd_slug = str(Path.cwd()).replace("/", "-")
+        project_dir_log = None
+        for d in claude_projects.iterdir():
+            if cwd_slug.lstrip("-") in d.name:
+                project_dir_log = d
+                break
+        if not project_dir_log:
+            return {"available": False}
+
+        logs = sorted(project_dir_log.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
+        if not logs:
+            return {"available": False}
+
+        return audit_session_actions(logs[-1])
+    except Exception:
+        return {"available": False}
+
+
 def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     findings = validate_precommit_findings(read_findings(findings_path))
     config = load_gate_config(project_dir)
 
     test, lint = _run_mechanical(project_dir, config)
-    ready, reasons = _decide_precommit(findings, test, lint)
+
+    # Mechanical session audit — verifies agent claims against JSONL evidence
+    action_audit = _get_session_action_audit()
+
+    # Git diff TDD check — new functions must have corresponding tests
+    try:
+        import subprocess as _sp
+        diff_result = _sp.run(
+            ["git", "diff", "--cached", "--unified=0"],
+            capture_output=True, text=True, cwd=project_dir, timeout=10,
+        )
+        if diff_result.returncode == 0 and diff_result.stdout.strip():
+            untested = check_diff_for_untested_functions(diff_result.stdout)
+        else:
+            # Fall back to unstaged diff
+            diff_result = _sp.run(
+                ["git", "diff", "HEAD", "--unified=0"],
+                capture_output=True, text=True, cwd=project_dir, timeout=10,
+            )
+            untested = check_diff_for_untested_functions(diff_result.stdout) if diff_result.returncode == 0 else []
+    except Exception:
+        untested = []
+
+    ready, reasons = _decide_precommit(
+        findings, test, lint, session_audit=action_audit, untested_functions=untested,
+    )
 
     # Session audit — warnings only, not blocking
     session_audit = _check_session_audit()

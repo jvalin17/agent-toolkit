@@ -31,41 +31,83 @@ class TestDetectTaskTier:
 
 
 class TestCheckModelMatch:
-    def test_no_model_on_vague_task_ok(self):
+    def test_no_model_on_vague_task_blocks(self):
         from taxonomy_enforce import check_model_match
         result = check_model_match("", "mid")
-        assert result["warn"] is False
+        assert result["block"] is True
+        assert "model" in result["reason"].lower()
 
-    def test_no_model_on_cheap_suggests(self):
+    def test_no_model_on_cheap_blocks(self):
         from taxonomy_enforce import check_model_match
         result = check_model_match("", "cheap")
-        assert result["warn"] is False
-        assert "haiku" in result.get("suggestion", "")
+        assert result["block"] is True
 
-    def test_expensive_on_cheap_warns(self):
+    def test_no_model_on_expensive_blocks(self):
+        from taxonomy_enforce import check_model_match
+        result = check_model_match("", "expensive")
+        assert result["block"] is True
+
+    def test_expensive_on_cheap_blocks(self):
         from taxonomy_enforce import check_model_match
         result = check_model_match("opus", "cheap")
-        assert result["warn"] is True
-        assert "Expensive" in result["message"]
+        assert result["block"] is True
+        assert "Expensive" in result["reason"]
 
-    def test_cheap_on_expensive_warns(self):
+    def test_cheap_on_expensive_blocks(self):
         from taxonomy_enforce import check_model_match
         result = check_model_match("haiku", "expensive")
-        assert result["warn"] is True
-        assert "Cheap" in result["message"]
+        assert result["block"] is True
+        assert "Cheap" in result["reason"]
 
     def test_matching_tier_ok(self):
         from taxonomy_enforce import check_model_match
-        assert check_model_match("haiku", "cheap")["warn"] is False
-        assert check_model_match("sonnet", "mid")["warn"] is False
-        assert check_model_match("opus", "expensive")["warn"] is False
+        assert check_model_match("haiku", "cheap")["block"] is False
+        assert check_model_match("sonnet", "mid")["block"] is False
+        assert check_model_match("opus", "expensive")["block"] is False
 
     def test_sonnet_on_cheap_ok(self):
         from taxonomy_enforce import check_model_match
         # sonnet on cheap is not ideal but not a violation
-        assert check_model_match("sonnet", "cheap")["warn"] is False
+        assert check_model_match("sonnet", "cheap")["block"] is False
 
     def test_sonnet_on_expensive_ok(self):
         from taxonomy_enforce import check_model_match
         # sonnet on expensive is not ideal but acceptable as fallback
-        assert check_model_match("sonnet", "expensive")["warn"] is False
+        assert check_model_match("sonnet", "expensive")["block"] is False
+
+
+class TestTddInjection:
+    """PreToolUse Agent hook injects TDD instructions into implementation prompts."""
+
+    def test_implementation_prompt_gets_tdd_context(self):
+        from taxonomy_enforce import get_tdd_injection
+
+        result = get_tdd_injection("implement user registration feature")
+        assert result is not None
+        assert "failing test" in result.lower()
+        assert "before" in result.lower()
+
+    def test_search_prompt_no_tdd_context(self):
+        from taxonomy_enforce import get_tdd_injection
+
+        result = get_tdd_injection("search for all Python test files")
+        assert result is None
+
+    def test_fix_prompt_gets_tdd_context(self):
+        from taxonomy_enforce import get_tdd_injection
+
+        result = get_tdd_injection("fix the login bug in auth module")
+        assert result is not None
+        assert "failing test" in result.lower()
+
+    def test_review_prompt_no_tdd_context(self):
+        from taxonomy_enforce import get_tdd_injection
+
+        result = get_tdd_injection("review code quality and security")
+        assert result is None
+
+    def test_build_prompt_gets_tdd_context(self):
+        from taxonomy_enforce import get_tdd_injection
+
+        result = get_tdd_injection("build the API endpoint for users")
+        assert result is not None

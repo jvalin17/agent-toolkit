@@ -10,10 +10,13 @@ Warns if:
 - Cheap model used for expensive tasks (architecture, security audit)
 """
 
+from __future__ import annotations
+
 import json
 import re
 import sys
 from pathlib import Path
+from typing import Optional
 
 # Add roles/ to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "roles"))
@@ -57,25 +60,22 @@ def detect_task_tier(description: str) -> str:
 
 
 def check_model_match(model: str, expected_tier: str) -> dict:
-    """Check if model matches expected tier. Returns warning only on clear mismatches.
+    """Check if model matches expected tier. Blocks on mismatches or missing model.
 
-    Vague tasks (mid tier) are fine with any model — no warning.
-    Only warn when expensive↔cheap mismatch is clear.
+    Every Agent call MUST specify a model parameter. Tier mismatches are blocked.
     """
-    # Vague/mid tasks — any model is fine
-    if expected_tier == "mid":
-        return {"warn": False}
-
-    # No model + clear tier → suggest, don't warn
-    if not model and expected_tier in ("cheap", "expensive"):
-        suggestion = "haiku" if expected_tier == "cheap" else "opus/fable"
-        return {
-            "warn": False,
-            "suggestion": f"Consider using {suggestion} for this task.",
-        }
-
+    # No model specified — always block
     if not model:
-        return {"warn": False}
+        tier_suggestions = {
+            "cheap": "haiku",
+            "mid": "sonnet",
+            "expensive": "opus",
+        }
+        suggested = tier_suggestions.get(expected_tier, "sonnet")
+        return {
+            "block": True,
+            "reason": f"Agent call missing model parameter. Set model=\"{suggested}\" for this task.",
+        }
 
     model_lower = model.lower()
     actual_tier = "mid"  # default
@@ -84,22 +84,63 @@ def check_model_match(model: str, expected_tier: str) -> dict:
             actual_tier = tier
             break
 
-    # Only warn on clear mismatches
     # Expensive model on clearly cheap task = waste
     if actual_tier == "expensive" and expected_tier == "cheap":
         return {
-            "warn": True,
-            "message": f"Expensive model ({model}) used for a cheap task (file search/lint). Use haiku instead.",
+            "block": True,
+            "reason": f"Expensive model ({model}) used for a cheap task (file search/lint). Use haiku instead.",
         }
 
     # Cheap model on clearly expensive task = risk
     if actual_tier == "cheap" and expected_tier == "expensive":
         return {
-            "warn": True,
-            "message": f"Cheap model ({model}) used for deep reasoning task (architecture/security). Use opus or fable instead.",
+            "block": True,
+            "reason": f"Cheap model ({model}) used for deep reasoning task (architecture/security). Use opus or fable instead.",
         }
 
-    return {"warn": False}
+    return {"block": False}
+
+
+# Keywords indicating the agent will write/change code (needs TDD)
+IMPLEMENTATION_KEYWORDS = [
+    "implement", "build", "create", "add", "write",
+    "fix", "debug", "repair", "patch",
+    "refactor", "restructure", "rewrite",
+    "feature", "endpoint", "handler", "component",
+]
+
+# Keywords indicating the agent is read-only (no TDD needed)
+READONLY_KEYWORDS = [
+    "search", "find", "grep", "glob", "list", "count",
+    "review", "audit", "check", "analyze", "evaluate", "assess",
+    "read", "explore", "look", "examine",
+]
+
+TDD_INJECTION = (
+    "MANDATORY: Write a FAILING test FIRST before implementing any code. "
+    "Return the failing test output as proof before proceeding to implementation. "
+    "Test file must be edited BEFORE source file."
+)
+
+
+def get_tdd_injection(description: str) -> Optional[str]:
+    """Return TDD injection text if the agent prompt is implementation-like.
+
+    Returns None for read-only tasks (search, review, etc.).
+    """
+    desc_lower = description.lower()
+
+    # If it's clearly read-only, skip
+    for keyword in READONLY_KEYWORDS:
+        if keyword in desc_lower:
+            return None
+
+    # If it's implementation-like, inject
+    for keyword in IMPLEMENTATION_KEYWORDS:
+        if keyword in desc_lower:
+            return TDD_INJECTION
+
+    return None
 
 
 def main() -> int:
@@ -121,12 +162,23 @@ def main() -> int:
     expected_tier = detect_task_tier(description)
     result = check_model_match(model, expected_tier)
 
-    if result.get("warn"):
-        # Output warning as additional context — don't block, but inform
+    # Block on model violations
+    if result.get("block"):
+        output = json.dumps({
+            "decision": "block",
+            "reason": f"TAXONOMY BLOCK: {result['reason']}",
+        })
+        sys.stdout.write(output)
+        sys.stdout.flush()
+        return 0
+
+    # TDD injection for implementation-like agent prompts
+    tdd_text = get_tdd_injection(description)
+    if tdd_text:
         output = json.dumps({
             "hookSpecificOutput": {
                 "hookEventName": "PreToolUse",
-                "additionalContext": f"TAXONOMY WARNING: {result['message']}",
+                "additionalContext": f"TDD ENFORCEMENT: {tdd_text}",
             }
         })
         sys.stdout.write(output)

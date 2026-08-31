@@ -177,6 +177,98 @@ class TestDecideGate:
         )
         assert ready is False
 
+    def test_blocks_when_app_verification_done_but_no_server_evidence(self, valid_findings):
+        """Agent says 'done' but session audit shows no server was started."""
+        valid_findings["app_verification"]["status"] = "done"
+        audit = {
+            "available": True,
+            "server_started": False,
+            "http_request_made": False,
+            "role_agents_spawned": 0,
+            "tdd_order_respected": True,
+        }
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit=audit,
+        )
+        assert ready is False
+        assert any("app verification" in r.lower() and "no server" in r.lower() for r in reasons)
+
+    def test_passes_when_app_verification_done_with_server_evidence(self, valid_findings):
+        """Agent says 'done' and audit confirms server + HTTP activity."""
+        valid_findings["app_verification"]["status"] = "done"
+        audit = {
+            "available": True,
+            "server_started": True,
+            "http_request_made": True,
+            "role_agents_spawned": 2,
+            "tdd_order_respected": True,
+        }
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit=audit,
+        )
+        assert ready is True
+
+    def test_blocks_when_tdd_order_violated(self, valid_findings):
+        """Session audit shows source was edited before test."""
+        audit = {
+            "available": True,
+            "server_started": True,
+            "http_request_made": True,
+            "role_agents_spawned": 2,
+            "tdd_order_respected": False,
+        }
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit=audit,
+        )
+        assert ready is False
+        assert any("tdd" in r.lower() for r in reasons)
+
+    def test_app_verification_na_skips_server_check(self, valid_findings):
+        """When app_verification is 'na', server check is skipped."""
+        valid_findings["app_verification"]["status"] = "na"
+        audit = {
+            "available": True,
+            "server_started": False,
+            "http_request_made": False,
+            "role_agents_spawned": 0,
+            "tdd_order_respected": True,
+        }
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit=audit,
+        )
+        assert ready is True
+
+    def test_audit_unavailable_does_not_block(self, valid_findings):
+        """When session log can't be read, don't block (graceful degradation)."""
+        audit = {"available": False}
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit=audit,
+        )
+        assert ready is True
+
+    def test_blocks_on_untested_functions_in_diff(self, valid_findings):
+        """New functions in diff without tests → block."""
+        untested = ["src/foo.py: new function 'calculate_total' has no corresponding test"]
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            untested_functions=untested,
+        )
+        assert ready is False
+        assert any("tdd" in r.lower() for r in reasons)
+
+    def test_passes_when_no_untested_functions(self, valid_findings):
+        """Empty untested list → no block."""
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            untested_functions=[],
+        )
+        assert ready is True
+
 
 # --- End-to-end: hook writes report into reports/ --------------------------
 
