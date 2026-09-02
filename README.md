@@ -62,7 +62,15 @@ cd /path/to/your-project && claude
 # → requirements → architecture → implementation → testing → verification
 ```
 
-Roles activate automatically — no configuration needed.
+Roles activate automatically — no configuration needed. You can also invoke roles directly:
+
+```
+"use the security role to review auth"
+"as DBA check these queries"
+"ask backend to review the API"
+```
+
+Each role confirms its understanding before acting.
 
 ---
 
@@ -83,6 +91,9 @@ You commit
   → Every detected role reviews in parallel (backend, dba, security, qa...)
   → Each role checks from its expertise using book + repo knowledge
   → Missing index? BLOCKED. No secrets check? BLOCKED.
+  → New function without test? BLOCKED. (git diff scan)
+  → Agent claims "app verified" but no server started? BLOCKED. (JSONL audit)
+  → Source file edited before test file? BLOCKED. (TDD ordering check)
 ```
 
 ---
@@ -128,7 +139,10 @@ Each role has two layers of knowledge:
 - **Parallel role review** — every commit triggers all detected roles to review in parallel, each from its expertise
 - **Precommit mandatory** — even `enforcement: "warn"` can't skip precommit
 - **Skill enforcement** — strict mode blocks code edits without a skill workflow
-- **Model routing** — haiku for search, sonnet for code, opus/fable for architecture. Hook warns on mismatches.
+- **Model routing** — haiku for search, sonnet for code, opus/fable for architecture. Hook **blocks** on missing model or tier mismatch.
+- **Mechanical verification** — session JSONL audit verifies server starts, HTTP requests, TDD ordering, and role agent spawns. Agent self-reports are overridden by machine evidence.
+- **Diff TDD check** — new functions in the git diff without corresponding test functions block the precommit gate
+- **TDD injection** — Agent subagents for implementation tasks automatically receive "write failing test FIRST" instructions via PreToolUse hook
 - **Evidence verification** — claims must have real output, not "it works"
 - **Session audit** — mechanically tracks what the agent actually did
 - **No excuses** — pre-existing lint issues must be fixed, not skipped
