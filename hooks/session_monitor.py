@@ -144,15 +144,58 @@ def handle_user_prompt(state: SessionState) -> tuple:
     return state, None
 
 
+EDIT_FAILURE_PATTERNS = [
+    "old_string was not found",
+    "old_string is not unique",
+    r"Found \d+ matches",
+    "replace_all is false",
+    "not found in the file",
+    "File has not been read yet",
+]
+
+import re as _re
+_EDIT_FAILURE_RE = _re.compile("|".join(EDIT_FAILURE_PATTERNS), _re.IGNORECASE)
+
+
+def _check_edit_failure(tool_name: str, tool_result: str, file_path: str) -> Optional[str]:
+    """Check if an Edit/Write tool call failed. Returns warning or None."""
+    if tool_name not in ("Edit", "Write"):
+        return None
+    if not tool_result:
+        return None
+    if _EDIT_FAILURE_RE.search(tool_result):
+        filename = Path(file_path).name if file_path else "unknown"
+        return (
+            f"EDIT FAILED on {filename}: Your edit did not apply. "
+            f"STOP and re-read the file before retrying. "
+            f"Do NOT continue as if the edit succeeded — it did not. "
+            f"Error: {tool_result[:200]}"
+        )
+    return None
+
+
 def handle_post_tool_use(
     state: SessionState,
     tool_result: str,
     tool_name: str = "",
     command: str = "",
     file_path: str = "",
-) -> SessionState:
-    """Handle PostToolUse event. Tracks cumulative output bytes and drift."""
+) -> tuple:
+    """Handle PostToolUse event. Tracks bytes, drift, and edit failures."""
     state.cumulative_output_bytes += len(tool_result)
+
+    # Detect failed edits — block until agent re-reads the file
+    edit_warning = _check_edit_failure(tool_name, tool_result, file_path)
+    if edit_warning and file_path:
+        state.pending_failed_edit = file_path
+    elif tool_name in ("Edit", "Write") and not edit_warning and file_path:
+        # Successful edit clears any pending failure on this file
+        if state.pending_failed_edit == file_path:
+            state.pending_failed_edit = ""
+
+    # Reading the failed file clears the pending state
+    if tool_name == "Read" and file_path and state.pending_failed_edit == file_path:
+        state.pending_failed_edit = ""
 
     if tool_name in ("Edit", "Write") and is_test_file(file_path):
         state.last_test_edits.append(file_path)
@@ -195,7 +238,7 @@ def handle_post_tool_use(
                 state.slabs_without_data += 1
             state.has_queried_this_slab = False
 
-    return state
+    return state, edit_warning
 
 
 def handle_post_compact(state: SessionState) -> tuple:
@@ -220,8 +263,25 @@ def handle_pre_tool_use(
     file_path: str,
     command: str,
 ) -> tuple:
-    """Handle PreToolUse: path protection + session limits. Returns (state, msg, blocked)."""
+    """Handle PreToolUse: path protection + edit recovery + session limits."""
     state.tool_calls += 1
+
+    # Edit failure recovery: block everything except Read on the failed file
+    if state.pending_failed_edit:
+        failed_file = state.pending_failed_edit
+        # Allow Read on the failed file (to recover)
+        if tool_name == "Read" and file_path == failed_file:
+            pass  # allow through
+        # Allow Bash (need git, tests, etc.)
+        elif tool_name == "Bash":
+            pass  # allow through
+        else:
+            filename = Path(failed_file).name
+            return state, (
+                f"BLOCKED: Your last edit to {filename} failed. "
+                f"You MUST re-read {failed_file} before doing anything else. "
+                f"Use the Read tool on that file, then retry your edit."
+            ), True
 
     blocked, block_msg = check_protected_paths(
         state, tool_name, file_path, command
@@ -269,10 +329,12 @@ def main() -> int:
 
     elif hook_event == "PostToolUse":
         result_text = tool_result if isinstance(tool_result, str) else json.dumps(tool_result)
-        state = handle_post_tool_use(
+        state, edit_response = handle_post_tool_use(
             state, result_text,
             tool_name=tool_name, command=command, file_path=file_path,
         )
+        if edit_response:
+            response = edit_response
 
     elif hook_event == "PostCompact":
         state, response = handle_post_compact(state)

@@ -77,7 +77,7 @@ class TestStrictModeSessionLifecycle:
         # Simulate 10 exchanges with only Read/Edit — no real-system queries
         for _ in range(10):
             state, _ = handle_user_prompt(state)
-            state = handle_post_tool_use(
+            state, _ = handle_post_tool_use(
                 state, "file contents here",
                 tool_name="Read", command=""
             )
@@ -98,7 +98,7 @@ class TestStrictModeSessionLifecycle:
         )
 
         # curl resets the counter
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, '{"users": [{"id": 1}]}',
             tool_name="Bash", command="curl https://api.example.com/users"
         )
@@ -109,7 +109,7 @@ class TestStrictModeSessionLifecycle:
         state = SessionState(session_start=1000, mode="strict")
 
         # Step 1: Run tests — they fail
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "FAILED tests/test_auth.py::test_login - AssertionError",
             tool_name="Bash", command="python3 -m pytest tests/test_auth.py"
         )
@@ -117,7 +117,7 @@ class TestStrictModeSessionLifecycle:
         assert state.last_tool_sequence[-1]["failed"] is True
 
         # Step 2: Edit source directly (no Read, no query between)
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "",
             tool_name="Edit", command="", file_path="src/auth.py"
         )
@@ -130,19 +130,19 @@ class TestStrictModeSessionLifecycle:
         state = SessionState(session_start=1000, mode="strict")
 
         # Test fails
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "FAILED - AssertionError: expected 200 got 401",
             tool_name="Bash", command="python3 -m pytest tests/"
         )
 
         # Investigate by reading source
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "def login(user, password): ...",
             tool_name="Read", command=""
         )
 
         # Now edit — this is NOT patch-forward
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "",
             tool_name="Edit", command="", file_path="src/auth.py"
         )
@@ -188,11 +188,11 @@ class TestStrictModeSessionLifecycle:
 
         for _ in range(20):
             state, _ = handle_user_prompt(state)
-            state = handle_post_tool_use(
+            state, _ = handle_post_tool_use(
                 state, "FAILED",
                 tool_name="Bash", command="python3 -m pytest"
             )
-            state = handle_post_tool_use(
+            state, _ = handle_post_tool_use(
                 state, "",
                 tool_name="Edit", command="", file_path="src/main.py"
             )

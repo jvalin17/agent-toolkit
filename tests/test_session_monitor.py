@@ -492,18 +492,118 @@ class TestHandleUserPrompt:
 class TestHandlePostToolUse:
     def test_tracks_output_bytes(self, fresh_state):
         tool_result = "x" * 5000  # 5KB output
-        result_state = handle_post_tool_use(fresh_state, tool_result)
+        result_state, _ = handle_post_tool_use(fresh_state, tool_result)
         assert result_state.cumulative_output_bytes == 5000
 
     def test_accumulates_bytes(self, fresh_state):
         fresh_state.cumulative_output_bytes = 10000
         tool_result = "x" * 3000
-        result_state = handle_post_tool_use(fresh_state, tool_result)
+        result_state, _ = handle_post_tool_use(fresh_state, tool_result)
         assert result_state.cumulative_output_bytes == 13000
 
     def test_handles_empty_result(self, fresh_state):
-        result_state = handle_post_tool_use(fresh_state, "")
+        result_state, _ = handle_post_tool_use(fresh_state, "")
         assert result_state.cumulative_output_bytes == 0
+
+    def test_warns_on_failed_edit(self, fresh_state):
+        """When Edit tool returns an error, inject a loud warning."""
+        error_result = (
+            "The old_string was not found in the file. "
+            "Make sure the old_string is an exact match."
+        )
+        state, response = handle_post_tool_use(
+            fresh_state, error_result,
+            tool_name="Edit", file_path="/project/src/foo.py",
+        )
+        assert response is not None
+        assert "EDIT FAILED" in response
+        assert "foo.py" in response
+
+    def test_warns_on_ambiguous_edit(self, fresh_state):
+        """When Edit tool finds multiple matches, inject warning."""
+        error_result = (
+            "Found 3 matches of the string to replace, "
+            "but replace_all is false."
+        )
+        state, response = handle_post_tool_use(
+            fresh_state, error_result,
+            tool_name="Edit", file_path="/project/src/bar.py",
+        )
+        assert response is not None
+        assert "EDIT FAILED" in response
+
+    def test_no_warning_on_successful_edit(self, fresh_state):
+        """Successful edits should not produce a warning."""
+        success_result = "The file /project/src/foo.py has been updated successfully."
+        state, response = handle_post_tool_use(
+            fresh_state, success_result,
+            tool_name="Edit", file_path="/project/src/foo.py",
+        )
+        assert response is None
+
+    def test_no_warning_on_non_edit_tools(self, fresh_state):
+        """Non-Edit tools should not trigger edit failure detection."""
+        state, response = handle_post_tool_use(
+            fresh_state, "some error output",
+            tool_name="Bash", command="git status",
+        )
+        assert response is None
+
+
+class TestEditFailureBlocking:
+    """After a failed Edit, block all tools except Read on the failed file."""
+
+    def test_failed_edit_sets_pending(self, fresh_state):
+        """PostToolUse records the failed file in state."""
+        error_result = "The old_string was not found in the file."
+        state, _ = handle_post_tool_use(
+            fresh_state, error_result,
+            tool_name="Edit", file_path="/project/src/foo.py",
+        )
+        assert state.pending_failed_edit == "/project/src/foo.py"
+
+    def test_pending_edit_blocks_other_tools(self, fresh_state):
+        """PreToolUse blocks non-Read tools when a failed edit is pending."""
+        fresh_state.pending_failed_edit = "/project/src/foo.py"
+        state, response, blocked = handle_pre_tool_use(
+            fresh_state, tool_name="Edit", file_path="/project/src/bar.py", command=""
+        )
+        assert blocked is True
+        assert "re-read" in response.lower() or "foo.py" in response
+
+    def test_pending_edit_allows_read_on_failed_file(self, fresh_state):
+        """PreToolUse allows Read on the specific failed file."""
+        fresh_state.pending_failed_edit = "/project/src/foo.py"
+        state, response, blocked = handle_pre_tool_use(
+            fresh_state, tool_name="Read", file_path="/project/src/foo.py", command=""
+        )
+        assert blocked is False
+
+    def test_read_clears_pending_edit(self, fresh_state):
+        """PostToolUse clears pending_failed_edit when the file is Read."""
+        fresh_state.pending_failed_edit = "/project/src/foo.py"
+        state, _ = handle_post_tool_use(
+            fresh_state, "file contents here",
+            tool_name="Read", file_path="/project/src/foo.py",
+        )
+        assert state.pending_failed_edit == ""
+
+    def test_successful_edit_no_pending(self, fresh_state):
+        """Successful edits don't set pending_failed_edit."""
+        success = "The file /project/src/foo.py has been updated successfully."
+        state, _ = handle_post_tool_use(
+            fresh_state, success,
+            tool_name="Edit", file_path="/project/src/foo.py",
+        )
+        assert state.pending_failed_edit == ""
+
+    def test_pending_edit_allows_bash(self, fresh_state):
+        """Bash commands are not blocked by pending edits (need git, tests, etc.)."""
+        fresh_state.pending_failed_edit = "/project/src/foo.py"
+        state, response, blocked = handle_pre_tool_use(
+            fresh_state, tool_name="Bash", file_path="", command="git status"
+        )
+        assert blocked is False
 
 
 class TestHandlePostCompact:
@@ -736,7 +836,7 @@ class TestDriftCountersStrictMode:
             mode="strict",
             exchanges_since_query=8,
         )
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "curl output here",
             tool_name="Bash", command="curl https://api.example.com"
         )
@@ -745,7 +845,7 @@ class TestDriftCountersStrictMode:
     def test_tool_sequence_tracked_in_strict(self):
         """In strict mode, tool calls are added to last_tool_sequence."""
         state = SessionState(session_start=1000, mode="strict")
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "FAILED: 2 tests",
             tool_name="Bash", command="python3 -m pytest tests/"
         )
@@ -756,7 +856,7 @@ class TestDriftCountersStrictMode:
     def test_tool_sequence_not_tracked_in_normal(self):
         """In normal mode, last_tool_sequence stays empty."""
         state = SessionState(session_start=1000, mode="normal")
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "FAILED: 2 tests",
             tool_name="Bash", command="python3 -m pytest tests/"
         )
@@ -766,7 +866,7 @@ class TestDriftCountersStrictMode:
         """Sequence buffer doesn't grow unbounded."""
         state = SessionState(session_start=1000, mode="strict")
         for i in range(15):
-            state = handle_post_tool_use(
+            state, _ = handle_post_tool_use(
                 state, f"result {i}",
                 tool_name="Read", command=""
             )
@@ -782,7 +882,7 @@ class TestDriftCountersStrictMode:
             ],
         )
         # Edit a source file after test failure — should detect patch-forward
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "",
             tool_name="Edit", command="", file_path="src/main.py"
         )
@@ -797,7 +897,7 @@ class TestSlabsWithoutData:
         """Precommit skill completing without a query increments slabs_without_data."""
         state = SessionState(session_start=1000, mode="strict")
         # Simulate precommit skill completing (slab boundary)
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "precommit passed",
             tool_name="Skill", command="", file_path=""
         )
@@ -809,7 +909,7 @@ class TestSlabsWithoutData:
             session_start=1000, mode="strict",
             has_queried_this_slab=True,
         )
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "precommit passed",
             tool_name="Skill", command="", file_path=""
         )
@@ -821,7 +921,7 @@ class TestSlabsWithoutData:
             session_start=1000, mode="strict",
             slabs_without_data=2,
         )
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "query output",
             tool_name="Bash", command="curl https://api.example.com"
         )
@@ -832,7 +932,7 @@ class TestSlabsWithoutData:
         """Real-system query sets has_queried_this_slab."""
         state = SessionState(session_start=1000, mode="strict")
         assert state.has_queried_this_slab is False
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "result",
             tool_name="Bash", command="psql -c 'SELECT 1'"
         )
@@ -844,7 +944,7 @@ class TestSlabsWithoutData:
             session_start=1000, mode="strict",
             has_queried_this_slab=True,
         )
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "precommit passed",
             tool_name="Skill", command="", file_path=""
         )
@@ -853,7 +953,7 @@ class TestSlabsWithoutData:
     def test_normal_mode_no_slab_tracking(self):
         """Normal mode doesn't track slabs_without_data."""
         state = SessionState(session_start=1000, mode="normal")
-        state = handle_post_tool_use(
+        state, _ = handle_post_tool_use(
             state, "precommit passed",
             tool_name="Skill", command="", file_path=""
         )

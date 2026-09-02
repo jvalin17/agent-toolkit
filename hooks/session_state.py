@@ -56,6 +56,7 @@ class SessionState:
     last_test_edits: list = field(default_factory=list)  # F2.6: recent test file paths
     demo_completed: bool = False  # F3.3: set when agent demos after implementation slab
     continue_mode: bool = True  # Assume wrapper; set False only if explicitly disabled
+    pending_failed_edit: str = ""  # File path of last failed Edit — blocks until re-read
 
 
 def load_state(state_file: Path) -> SessionState:
