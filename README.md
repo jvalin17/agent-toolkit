@@ -51,15 +51,16 @@ cd agent-toolkit && ./install.sh
 cd /path/to/your-project && claude
 ```
 
-**Auto mode** — builds entire features hands-free:
+**Auto mode** — builds entire features across sessions:
 
 ```bash
-# In gates.json, set:
+# Enable auto mode in gates.json:
 { "auto": true }
 
-# Then just describe what you want:
-"Build a price comparison feature for utensils in my inventory"
+# Launch with the continuation wrapper:
+agent-toolkit-continue "Build a price comparison feature for utensils in my inventory"
 # → requirements → architecture → implementation → testing → verification
+# Sessions restart automatically, picking up from HANDOFF.md
 ```
 
 Roles activate automatically — no configuration needed. You can also invoke roles directly:
@@ -136,16 +137,16 @@ Each role has two layers of knowledge:
 
 ### Enforcement (hooks — can't be bypassed)
 
-- **Parallel role review** — every commit triggers all detected roles to review in parallel, each from its expertise
-- **Precommit mandatory** — even `enforcement: "warn"` can't skip precommit
-- **Skill enforcement** — strict mode blocks code edits without a skill workflow
-- **Model routing** — haiku for search, sonnet for code, opus/fable for architecture. Hook **blocks** on missing model or tier mismatch.
-- **Mechanical verification** — session JSONL audit verifies server starts, HTTP requests, TDD ordering, and role agent spawns. Agent self-reports are overridden by machine evidence.
-- **Diff TDD check** — new functions in the git diff without corresponding test functions block the precommit gate
-- **TDD injection** — Agent subagents for implementation tasks automatically receive "write failing test FIRST" instructions via PreToolUse hook
-- **Evidence verification** — claims must have real output, not "it works"
-- **Session audit** — mechanically tracks what the agent actually did
-- **No excuses** — pre-existing lint issues must be fixed, not skipped
+- **Precommit mandatory** — `gate_hook.py` blocks `git commit` without a passing precommit gate, even in `enforcement: "warn"` mode
+- **Model routing** — `taxonomy_enforce.py` blocks Agent subagent calls missing a `model` parameter or using the wrong tier (haiku for search, sonnet for code, opus for architecture)
+- **Mechanical verification** — `compliance.py` reads session JSONL to verify server starts, HTTP requests, TDD file ordering, and role agent spawns. Agent self-reports are overridden by machine evidence.
+- **Diff TDD check** — `compliance.py` scans the git diff for new functions without corresponding test functions; `finalize_report.py` blocks the precommit gate
+- **TDD enforcement** — `tdd_enforce.py` blocks/reminds on Edit/Write of source files without a test file; `taxonomy_enforce.py` injects "write failing test FIRST" into implementation-like Agent subagent prompts
+- **Skill enforcement** — `skill_enforce.py` in strict mode blocks code edits without an active skill workflow
+- **Parallel role review** — precommit skill instructs the agent to spawn one reviewer per detected role in parallel; JSONL audit verifies role agents were actually spawned
+- **Evidence verification** — `compliance.py` requires concrete output (command results, file:line references) — not "it works"
+- **Session audit** — `compliance.py` reads Claude Code's JSONL log to track what the agent actually did (skills invoked, tools used, agents spawned)
+- **Lint always passes** — `finalize_report.py` re-runs lint independently; any failure blocks the gate regardless of source
 
 → [All 19 roles](roles/ROLES-FINAL.md) · [Architecture](architecture/role-context-layer.md) · [Skills reference](docs/skills.md)
 
