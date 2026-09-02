@@ -245,3 +245,47 @@ class TestRoleContextInRouting:
         assert output != ""
         context = parse_context(output)
         assert "/debug_tool" in context
+
+
+class TestDirectRoleInvocation:
+    """User can invoke a role directly: 'use security role', 'as DBA check this'."""
+
+    @pytest.mark.parametrize("prompt,expected_role", [
+        ("use the security role to review this", "security"),
+        ("as DBA check the queries", "dba"),
+        ("ask backend to review the API", "backend"),
+        ("use frontend role", "frontend"),
+        ("as qa, check test coverage", "qa"),
+        ("use the infrastructure role on this", "infrastructure"),
+        ("as architect review the design", "architect"),
+    ])
+    def test_detects_role_invocation(self, prompt, expected_role):
+        from route_to_skill import detect_role_invocation
+        result = detect_role_invocation(prompt)
+        assert result == expected_role
+
+    @pytest.mark.parametrize("prompt", [
+        "fix the bug",
+        "build a feature",
+        "hello",
+        "the backend is broken",  # mentions role name but not invoking it
+        "security is important",  # mentions role name but not invoking it
+    ])
+    def test_no_role_invocation(self, prompt):
+        from route_to_skill import detect_role_invocation
+        result = detect_role_invocation(prompt)
+        assert result is None
+
+    def test_role_invocation_injects_context(self, tmp_path):
+        """Direct role invocation loads the role's advisory + confirm principle."""
+        roles_dir = ROOT / "roles"
+        if not (roles_dir / "security" / "role.md").is_file():
+            pytest.skip("Role files not installed")
+
+        stdin = make_input("use the security role to review auth")
+        exit_code, output = run_route_to_skill(stdin, tmp_path)
+        assert exit_code == 0
+        assert output != ""
+        context = parse_context(output)
+        assert "security" in context.lower()
+        assert "confirm" in context.lower() or "understand" in context.lower()

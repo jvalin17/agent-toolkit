@@ -31,6 +31,13 @@ Before implementing any solution, verify against active role advisories:
    - `/assess` — roles evaluate architecture fitness from their perspective
    - Don't wait to be told. If a role spots something in its domain, surface it.
 
+10. **CONFIRM BEFORE ACTING**: When a role is engaged for a task, it MUST state what it understood and confirm with the user before doing work. Each active role should say:
+   - "As [ROLE], I understand you want [specific goal]. I will check [specific things]. Is that right?"
+   - Wait for user confirmation before proceeding.
+   - If the user corrects the understanding, update and re-confirm.
+   - This applies to the first interaction only — not every sub-step. Once confirmed, proceed without re-asking.
+   - For parallel role reviews (e.g., in /precommit), the primary agent confirms once on behalf of all roles — don't ask per-role.
+
 Do NOT over-engineer. Do NOT add defensive code for impossible scenarios.
 Do NOT sacrifice readability for premature optimization.
 The simplest correct solution that follows role guidance is the right one.

@@ -181,6 +181,41 @@ SKILL_CONTEXTS = {
 }
 
 
+# All known role names (must match directory names under roles/)
+KNOWN_ROLES = [
+    "frontend", "backend", "dba", "security", "qa", "architect",
+    "infrastructure", "ios", "android", "embedded", "game-dev",
+    "ai-ml", "data-engineer", "data-scientist", "production",
+    "code-health", "legal", "research", "requirements-eng",
+]
+
+# Patterns for direct role invocation: "use the X role", "as X check", "ask X to"
+_ROLE_NAMES_PATTERN = "|".join(re.escape(r) for r in KNOWN_ROLES)
+ROLE_INVOCATION_PATTERNS = [
+    re.compile(
+        rf"use\s+(?:the\s+)?({_ROLE_NAMES_PATTERN})\s+role",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"as\s+({_ROLE_NAMES_PATTERN})[,\s]",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        rf"ask\s+(?:the\s+)?({_ROLE_NAMES_PATTERN})\s+to",
+        re.IGNORECASE,
+    ),
+]
+
+
+def detect_role_invocation(prompt: str) -> Optional[str]:
+    """Detect if user is directly invoking a role. Returns role name or None."""
+    for pattern in ROLE_INVOCATION_PATTERNS:
+        match = pattern.search(prompt)
+        if match:
+            return match.group(1).lower()
+    return None
+
+
 def detect_intent(prompt: str) -> Optional[str]:
     """Match prompt against intent patterns. Returns skill key or None."""
     for pattern, skill_key in INTENT_PATTERNS:
@@ -270,6 +305,19 @@ def _get_orchestration_plan(project_dir: Path, config: dict, intent: str) -> str
         return ""
 
 
+def _load_single_role(role_name: str) -> str:
+    """Load a single role's context for direct invocation. Fails silently."""
+    try:
+        roles_path = Path(__file__).resolve().parent.parent / "roles"
+        if str(roles_path) not in sys.path:
+            sys.path.insert(0, str(roles_path))
+
+        from detect_role import load_role_context
+        return load_role_context([role_name], roles_dir=roles_path, max_roles=1)
+    except Exception:
+        return ""
+
+
 def _get_role_advisory(project_dir: Path, config: dict) -> str:
     """Load role advisory context for the current project. Fails silently."""
     try:
@@ -323,6 +371,23 @@ def run_route_to_skill(
     # If user is already invoking a skill, don't interfere
     if prompt.lstrip().startswith("/"):
         return 0, ""
+
+    # Check for direct role invocation first: "use security role", "as DBA check"
+    invoked_role = detect_role_invocation(prompt)
+    if invoked_role:
+        role_context = _load_single_role(invoked_role)
+        if role_context:
+            confirm_instruction = (
+                f"DIRECT ROLE INVOCATION: The user invoked the {invoked_role} role.\n\n"
+                f"Before doing any work, you MUST confirm your understanding:\n"
+                f"1. State: \"As {invoked_role}, I understand you want [specific goal]. "
+                f"I will check [specific things from the {invoked_role} quality checklist]. Is that right?\"\n"
+                f"2. Wait for user confirmation before proceeding.\n"
+                f"3. If the user corrects you, update and re-confirm.\n\n"
+                + role_context
+            )
+            return 0, make_hook_response(confirm_instruction)
+        # Role dir doesn't exist — fall through to normal routing
 
     intent = detect_intent(prompt)
     if intent is None:
