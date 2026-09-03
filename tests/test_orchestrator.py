@@ -189,6 +189,45 @@ class TestBuildOrchestrationPlan:
         assert "production" not in all_roles_in_plan
 
 
+class TestExtractRoleChecklist:
+    def test_extract_role_checklist_anti_patterns(self, tmp_path):
+        from orchestrator import _extract_role_checklist
+
+        role_dir = tmp_path / "backend"
+        role_dir.mkdir(parents=True, exist_ok=True)
+        (role_dir / "role.md").write_text(
+            "---\nname: backend\n---\n\n"
+            "## Anti-Patterns (flag these)\n\n"
+            "- N+1 queries\n"
+            "- Missing pagination\n\n"
+            "## Quality Checks\n\n"
+            "- [ ] Input validation\n"
+            "- [ ] Parameterized queries\n"
+        )
+        result = _extract_role_checklist("backend", roles_dir=tmp_path)
+        assert "N+1 queries" in result["anti_patterns"]
+        assert "Missing pagination" in result["anti_patterns"]
+        assert "Input validation" in result["quality_checks"]
+        assert "Parameterized queries" in result["quality_checks"]
+
+    def test_empty_when_no_sections(self, tmp_path):
+        from orchestrator import _extract_role_checklist
+
+        role_dir = tmp_path / "minimal"
+        role_dir.mkdir(parents=True, exist_ok=True)
+        (role_dir / "role.md").write_text("---\nname: minimal\n---\n\n## Advisory\n\nJust text.\n")
+        result = _extract_role_checklist("minimal", roles_dir=tmp_path)
+        assert result["anti_patterns"] == []
+        assert result["quality_checks"] == []
+
+    def test_empty_when_role_missing(self, tmp_path):
+        from orchestrator import _extract_role_checklist
+
+        result = _extract_role_checklist("nonexistent", roles_dir=tmp_path)
+        assert result["anti_patterns"] == []
+        assert result["quality_checks"] == []
+
+
 class TestPlanToContext:
     def test_generates_readable_context(self, tmp_path):
         from orchestrator import build_orchestration_plan, plan_to_context
@@ -209,3 +248,63 @@ class TestPlanToContext:
         assert "ORCHESTRATION PLAN" in context
         assert "backend" in context
         assert "Step" in context
+
+    def test_plan_to_context_includes_anti_patterns(self, tmp_path):
+        """Build steps must inject the role's anti-patterns as a pre-flight checklist."""
+        from orchestrator import build_orchestration_plan, plan_to_context
+
+        role_dir = tmp_path / "backend"
+        role_dir.mkdir(parents=True, exist_ok=True)
+        (role_dir / "role.md").write_text(
+            "---\nname: backend\nscope: test\n"
+            "invokes:\n  after_skeleton: [\"dba\"]\n---\n\n"
+            "## Anti-Patterns (flag these)\n\n"
+            "- N+1 queries — use eager loading\n"
+            "- Missing pagination on list endpoints\n"
+            "- Raw SQL string concatenation\n\n"
+            "## Quality Checks\n\n"
+            "- [ ] All endpoints have input validation\n"
+            "- [ ] Pagination on all list endpoints\n"
+            "- [ ] Database queries are parameterized\n"
+        )
+        _create_role(tmp_path, "dba")
+
+        plan = build_orchestration_plan(
+            primary_role="backend",
+            task_type="new_feature",
+            active_roles=["backend", "dba"],
+            roles_dir=tmp_path,
+        )
+        context = plan_to_context(plan)
+
+        # Anti-patterns must appear in the build step
+        assert "N+1 queries" in context
+        assert "Missing pagination" in context
+        # Quality checks must appear
+        assert "input validation" in context
+        assert "parameterized" in context
+
+    def test_build_step_labels_checklist(self, tmp_path):
+        """Build step checklist must be clearly labeled so agent can't miss it."""
+        from orchestrator import build_orchestration_plan, plan_to_context
+
+        role_dir = tmp_path / "backend"
+        role_dir.mkdir(parents=True, exist_ok=True)
+        (role_dir / "role.md").write_text(
+            "---\nname: backend\nscope: test\n---\n\n"
+            "## Anti-Patterns (flag these)\n\n"
+            "- God controller\n\n"
+            "## Quality Checks\n\n"
+            "- [ ] Health check endpoint exists\n"
+        )
+
+        plan = build_orchestration_plan(
+            primary_role="backend",
+            task_type="new_feature",
+            active_roles=["backend"],
+            roles_dir=tmp_path,
+        )
+        context = plan_to_context(plan)
+
+        assert "MUST NOT" in context or "DO NOT" in context or "NEVER" in context
+        assert "MUST" in context

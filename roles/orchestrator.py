@@ -160,6 +160,64 @@ def get_model_tier(
     return "mid"  # default
 
 
+def _extract_role_checklist(
+    role_name: str,
+    roles_dir: Optional[Path] = None,
+) -> Dict[str, List[str]]:
+    """Extract anti-patterns and quality checks from a role's markdown.
+
+    Returns:
+        {"anti_patterns": ["...", ...], "quality_checks": ["...", ...]}
+    """
+    if roles_dir is None:
+        roles_dir = ROLES_DIR
+
+    role_md = roles_dir / role_name / "role.md"
+    if not role_md.is_file():
+        return {"anti_patterns": [], "quality_checks": []}
+
+    content = role_md.read_text()
+    # Strip frontmatter
+    if content.startswith("---"):
+        parts = content.split("---", 2)
+        if len(parts) >= 3:
+            content = parts[2]
+
+    anti_patterns: List[str] = []
+    quality_checks: List[str] = []
+
+    current_section = None
+    for line in content.split("\n"):
+        stripped = line.strip()
+
+        # Detect section headers
+        if re.match(r"^##\s+Anti-Patterns", stripped, re.IGNORECASE):
+            current_section = "anti_patterns"
+            continue
+        elif re.match(r"^##\s+Quality Checks", stripped, re.IGNORECASE):
+            current_section = "quality_checks"
+            continue
+        elif re.match(r"^##\s+", stripped):
+            current_section = None
+            continue
+
+        # Collect list items
+        if current_section and stripped.startswith("- "):
+            item = stripped[2:].strip()
+            # Strip checkbox prefix
+            if item.startswith("[ ] "):
+                item = item[4:]
+            elif item.startswith("[x] "):
+                item = item[4:]
+            if item:
+                if current_section == "anti_patterns":
+                    anti_patterns.append(item)
+                else:
+                    quality_checks.append(item)
+
+    return {"anti_patterns": anti_patterns, "quality_checks": quality_checks}
+
+
 def build_orchestration_plan(
     primary_role: str,
     task_type: str,
@@ -350,11 +408,15 @@ def build_orchestration_plan(
     }
 
 
-def plan_to_context(plan: Dict[str, Any]) -> str:
+def plan_to_context(
+    plan: Dict[str, Any],
+    roles_dir: Optional[Path] = None,
+) -> str:
     """Convert an orchestration plan to injectable context text.
 
     This text gets injected into the skill workflow so the LLM
-    follows the plan deterministically.
+    follows the plan deterministically. Build steps include the
+    role's anti-patterns and quality checks as a mandatory pre-flight.
     """
     lines = [
         f"ORCHESTRATION PLAN ({plan['task_type']})",
@@ -362,6 +424,16 @@ def plan_to_context(plan: Dict[str, Any]) -> str:
         f"Active roles: {', '.join(plan['active_roles'])}",
         "",
     ]
+
+    # Pre-load checklists for roles that have build steps
+    checklists: Dict[str, Dict[str, List[str]]] = {}
+    build_step_types = {"build", "fix", "refactor"}
+
+    for step in plan["steps"]:
+        if step.get("type") in build_step_types:
+            role = step.get("role", plan["primary"])
+            if role not in checklists:
+                checklists[role] = _extract_role_checklist(role, roles_dir)
 
     for i, step in enumerate(plan["steps"], 1):
         model = MODEL_MAP.get(step.get("model_tier", "mid"), step.get("model_tier", "sonnet"))
@@ -381,9 +453,24 @@ def plan_to_context(plan: Dict[str, Any]) -> str:
             else:
                 lines.append(f"  Execution: sequential")
         else:
+            step_role = step.get("role", plan["primary"])
             lines.append(f"Step {i}: [{step['type'].upper()}] {step['description']}")
-            lines.append(f"  Role: {step.get('role', plan['primary'])}")
+            lines.append(f"  Role: {step_role}")
             lines.append(f"  Model: {model}")
+
+            # Inject role checklist for build/fix/refactor steps
+            if step.get("type") in build_step_types and step_role in checklists:
+                cl = checklists[step_role]
+                if cl["anti_patterns"] or cl["quality_checks"]:
+                    lines.append(f"  PRE-FLIGHT CHECKLIST ({step_role}):")
+                    if cl["anti_patterns"]:
+                        lines.append(f"    MUST NOT (anti-patterns — if your code matches any, redesign):")
+                        for ap in cl["anti_patterns"]:
+                            lines.append(f"      ✗ {ap}")
+                    if cl["quality_checks"]:
+                        lines.append(f"    MUST (quality checks — verify each before moving on):")
+                        for qc in cl["quality_checks"]:
+                            lines.append(f"      ✓ {qc}")
 
         lines.append("")
 
