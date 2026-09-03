@@ -146,7 +146,7 @@ else
   fail "non-git command should be allowed" "got exit $EXIT_CODE"
 fi
 
-# Test 5b: enforcement warn — missing flags still exit 0 (advisory for Cursor/LLMs)
+# Test 5b: enforcement warn — precommit always blocks even in warn mode
 rm -rf .gates
 cat > gates.json << 'EOF'
 {
@@ -158,10 +158,20 @@ cat > gates.json << 'EOF'
 EOF
 EXIT_CODE=0
 OUT=$(echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" 2>&1) || EXIT_CODE=$?
-if [ "$EXIT_CODE" -eq 0 ] && echo "$OUT" | grep -q "GATE WARNING"; then
-  pass "warn mode: commit without flags exits 0 with warning"
+if [ "$EXIT_CODE" -eq 2 ] && echo "$OUT" | grep -q "BLOCKED"; then
+  pass "warn mode: precommit still blocks (precommit is always mandatory)"
 else
-  fail "warn mode should exit 0 with GATE WARNING" "exit=$EXIT_CODE out=$OUT"
+  fail "warn mode should still block on precommit" "exit=$EXIT_CODE out=$OUT"
+fi
+
+# Test 5b-ii: enforcement warn — non-precommit gates warn (exit 0) instead of block
+rm -rf .gates
+EXIT_CODE=0
+OUT=$(echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" 2>&1) || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 0 ] && echo "$OUT" | grep -q "GATE WARNING"; then
+  pass "warn mode: push without evaluate flags exits 0 with warning"
+else
+  fail "warn mode should exit 0 with GATE WARNING for push" "exit=$EXIT_CODE out=$OUT"
 fi
 cat > gates.json << 'EOF'
 {
@@ -587,21 +597,21 @@ else
 fi
 rm -f .gates/enforcement-override
 
-# Test: warn mode auto-escalates — first violation writes override file
+# Test: warn mode auto-escalates — first push violation writes override file
 rm -rf .gates
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ] && [ -f ".gates/enforcement-override" ] && grep -q "block" .gates/enforcement-override 2>/dev/null; then
   pass "warn mode auto-escalates: writes enforcement-override on first violation"
 else
   fail "first violation should create .gates/enforcement-override=block" "exit=$EXIT_CODE, file exists=$([ -f .gates/enforcement-override ] && echo yes || echo no)"
 fi
 
-# Test: subsequent commit after escalation is hard-blocked
+# Test: subsequent push after escalation is hard-blocked
 EXIT_CODE=0
-echo '{"tool_input":{"command":"git commit -m \"second attempt\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
+echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
-  pass "second commit after escalation is hard-blocked"
+  pass "second push after escalation is hard-blocked"
 else
   fail "post-escalation should block (exit 2)" "got exit $EXIT_CODE"
 fi

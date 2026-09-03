@@ -189,7 +189,8 @@ def _make_gate_finish(
     def gate_finish(msg: str) -> tuple:
         # Precommit is always mandatory — "warn" mode still blocks on
         # missing precommit. Only other gates (evaluate, reviewer) can warn.
-        if enforcement == "block" or "precommit" in msg.lower():
+        # Check for "skills:precommit" (the gate flag marker) not just substring.
+        if enforcement == "block" or "skills:precommit" in msg.lower():
             return 0, make_block_response(f"BLOCKED: {msg}")
         gates_dir = project_dir / ".gates"
         gates_dir.mkdir(exist_ok=True)
