@@ -38,8 +38,8 @@ jobs:
       - name: Bootstrap gate layout (idempotent)
         run: bash scripts/bootstrap-project-gates.sh "$(pwd)" "$(pwd)"
 
-      - name: Seed skill reports for self-attestation
-        run: bash scripts/seed-gate-reports.sh
+      - name: Generate mechanical reports (replaces fake fixtures)
+        run: python scripts/ci-generate-reports.py .
 
       - name: Attest
         run: python .agent-toolkit/gate/scripts/verify_gate.py attest --project-root .
