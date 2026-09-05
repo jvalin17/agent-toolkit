@@ -37,6 +37,11 @@ cp -R "$TOOLKIT_DIR/gate/." "$GATE_DIR/"
 # Remove __pycache__ if any
 find "$GATE_DIR" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
+# Copy CI report generator (self-contained, no finalize_report.py needed)
+mkdir -p "$AGENT_DIR/scripts"
+cp "$TOOLKIT_DIR/scripts/ci-generate-reports.py" "$AGENT_DIR/scripts/"
+echo "  [installed] .agent-toolkit/scripts/ci-generate-reports.py"
+
 cat > "$AGENT_DIR/config.json" << EOF
 {
   "toolkit_path": "$TOOLKIT_DIR",
