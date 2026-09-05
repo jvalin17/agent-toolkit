@@ -166,7 +166,7 @@ def main() -> int:
     if result.get("block"):
         output = json.dumps({
             "decision": "block",
-            "reason": f"TAXONOMY BLOCK: {result['reason']}",
+            "reason": result["reason"],
         })
         sys.stdout.write(output)
         sys.stdout.flush()

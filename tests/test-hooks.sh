@@ -158,7 +158,7 @@ cat > gates.json << 'EOF'
 EOF
 EXIT_CODE=0
 OUT=$(echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" 2>&1) || EXIT_CODE=$?
-if [ "$EXIT_CODE" -eq 2 ] && echo "$OUT" | grep -q "BLOCKED"; then
+if [ "$EXIT_CODE" -eq 2 ] && echo "$OUT" | grep -q "block"; then
   pass "warn mode: precommit still blocks (precommit is always mandatory)"
 else
   fail "warn mode should still block on precommit" "exit=$EXIT_CODE out=$OUT"
@@ -427,7 +427,7 @@ echo "=== tdd_enforce.py ==="
 
 # Test 19: editing source file with no test → TDD reminder
 OUTPUT=$(echo '{"tool_input":{"file_path":"/app/src/users.py"}}' | python3 "$HOOKS_DIR/tdd_enforce.py" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "TDD CHECK"; then
+if echo "$OUTPUT" | grep -qi "test file"; then
   pass "source file without test triggers TDD reminder"
 else
   fail "should trigger TDD reminder" "got: $OUTPUT"
@@ -465,12 +465,12 @@ else
   fail ".spec.ts should skip TDD reminder" "got: $OUTPUT"
 fi
 
-# Test 24: TDD reminder mentions bug fix workflow
+# Test 24: TDD reminder mentions writing test first
 OUTPUT=$(echo '{"tool_input":{"file_path":"/app/src/auth.py"}}' | python3 "$HOOKS_DIR/tdd_enforce.py" 2>/dev/null)
-if echo "$OUTPUT" | grep -q "BUG FIX"; then
-  pass "TDD reminder includes bug fix workflow"
+if echo "$OUTPUT" | grep -qi "test first"; then
+  pass "TDD reminder mentions writing test first"
 else
-  fail "should mention bug fix workflow" "got: $OUTPUT"
+  fail "should mention writing test first" "got: $OUTPUT"
 fi
 
 echo ""

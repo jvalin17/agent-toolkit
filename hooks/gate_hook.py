@@ -191,7 +191,7 @@ def _make_gate_finish(
         # missing precommit. Only other gates (evaluate, reviewer) can warn.
         # Check for "skills:precommit" (the gate flag marker) not just substring.
         if enforcement == "block" or "skills:precommit" in msg.lower():
-            return 0, make_block_response(f"BLOCKED: {msg}")
+            return 0, make_block_response(msg)
         gates_dir = project_dir / ".gates"
         gates_dir.mkdir(exist_ok=True)
         (gates_dir / "enforcement-override").write_text("block\n")
@@ -306,8 +306,7 @@ def _run_legacy_gate(
     if missing:
         missing_str = " ".join(missing)
         return gate_finish(
-            f"git {action} needs skills:{missing_str}. "
-            "Run precommit and evaluate when ready."
+            f"git {action} needs skills:{missing_str} — run them first."
         )
 
     return 0, ""

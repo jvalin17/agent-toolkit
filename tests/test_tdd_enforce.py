@@ -71,7 +71,7 @@ class TestTDDReminder:
         exit_code, output = run_tdd_enforce(make_input(str(tmp_path / "gate.py")), tmp_path)
         assert exit_code == 0
         context = parse_context(output)
-        assert "TDD CHECK" in context
+        assert "test file" in context.lower()
         assert "gate.py" in context
 
     def test_source_file_with_test_no_reminder(self, tmp_path):
@@ -108,7 +108,7 @@ class TestTDDReminder:
     def test_js_source_without_test(self, tmp_path):
         exit_code, output = run_tdd_enforce(make_input(str(tmp_path / "app.js")), tmp_path)
         context = parse_context(output)
-        assert "TDD CHECK" in context
+        assert "test file" in context.lower()
 
 
 class TestEdgeCases:
@@ -139,7 +139,7 @@ class TestTDDStrictMode:
         assert exit_code == 0
         data = json.loads(output)
         assert data["decision"] == "block"
-        assert "TDD STRICT" in data["reason"]
+        assert "test" in data["reason"].lower()
         assert "auth.py" in data["reason"]
 
     def test_strict_allows_after_recent_test_edit(self, tmp_path):
@@ -188,7 +188,7 @@ class TestTDDConfigToggle:
         stdin = make_input(str(tmp_path / "src" / "main.py"))
         exit_code, output = run_tdd_enforce(stdin, tmp_path)
         assert exit_code == 0
-        assert "TDD" in output or output == ""  # Reminder or no test file
+        assert "test" in output.lower() or output == ""  # Reminder or no test file
 
     def test_env_var_override(self, tmp_path, monkeypatch):
         """AGENT_TOOLKIT_TDD=false overrides gates.json."""

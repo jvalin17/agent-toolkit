@@ -170,7 +170,7 @@ class TestRunGate:
         )
         assert exit_code == 0  # Blocking via JSON decision, not exit code
         assert "block" in output
-        assert "BLOCKED" in output
+        assert "block" in output
 
     def test_commit_allowed_with_precommit(self, project_dir, gates_dir):
         (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
@@ -216,7 +216,7 @@ class TestRunGate:
             project_dir,
         )
         assert exit_code == 0
-        assert "BLOCKED" in output
+        assert "block" in output
 
     def test_precommit_always_blocks_even_in_warn(self, project_dir):
         """Precommit gate always blocks — no escalation needed."""
@@ -228,7 +228,7 @@ class TestRunGate:
             '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
         )
-        assert "BLOCKED" in output
+        assert "block" in output
 
     def test_second_commit_also_blocked(self, project_dir):
         """Second commit also blocked without precommit."""
@@ -248,7 +248,7 @@ class TestRunGate:
         )
         assert exit_code == 0  # Blocking via JSON decision, not exit code
         assert "block" in output
-        assert "BLOCKED" in output
+        assert "block" in output
 
     def test_env_var_enforcement_override(self, project_dir):
         """AGENT_TOOLKIT_ENFORCEMENT env var overrides gates.json."""

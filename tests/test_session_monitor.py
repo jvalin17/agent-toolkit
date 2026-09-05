@@ -195,7 +195,7 @@ class TestSessionBlocking:
             command="",
         )
         assert blocked is True
-        assert "G-SESSION-1" in msg
+        assert ".session/" in msg
 
     def test_blocks_edit_to_session_dir(self):
         blocked, msg = check_session_blocked(
@@ -267,7 +267,7 @@ class TestGateProtection:
             command="",
         )
         assert blocked is True
-        assert "G-GATE-1" in msg
+        assert ".gates/" in msg
 
     def test_blocks_bash_echo_to_gates(self):
         blocked, msg = check_gates_blocked(
@@ -327,7 +327,7 @@ class TestReportProtection:
             command="",
         )
         assert blocked is True
-        assert "G-REPORT-1" in msg
+        assert "reports/" in msg
 
     def test_blocks_edit_to_reports_dir(self):
         blocked, msg = check_reports_blocked(
@@ -336,7 +336,7 @@ class TestReportProtection:
             command="",
         )
         assert blocked is True
-        assert "G-REPORT-1" in msg
+        assert "reports/" in msg
 
     def test_blocks_write_to_any_reports_subdir(self):
         for path in (
@@ -358,7 +358,7 @@ class TestReportProtection:
             command='echo "READY" > reports/precommit/pc_x.md',
         )
         assert blocked is True
-        assert "G-REPORT-1" in msg
+        assert "reports/" in msg
 
     def test_blocks_bash_append_to_reports(self):
         blocked, _ = check_reports_blocked(
@@ -443,7 +443,7 @@ class TestReportProtection:
             command="",
         )
         assert blocked is True
-        assert "G-REPORT-1" in msg
+        assert "reports/" in msg
 
     def test_pretooluse_allows_when_report_protect_off(self):
         """Integration: PreToolUse skips report block when flag is off."""
@@ -516,7 +516,7 @@ class TestHandlePostToolUse:
             tool_name="Edit", file_path="/project/src/foo.py",
         )
         assert response is not None
-        assert "EDIT FAILED" in response
+        assert "did not apply" in response
         assert "foo.py" in response
 
     def test_warns_on_ambiguous_edit(self, fresh_state):
@@ -530,7 +530,7 @@ class TestHandlePostToolUse:
             tool_name="Edit", file_path="/project/src/bar.py",
         )
         assert response is not None
-        assert "EDIT FAILED" in response
+        assert "did not apply" in response
 
     def test_no_warning_on_successful_edit(self, fresh_state):
         """Successful edits should not produce a warning."""
@@ -638,7 +638,7 @@ class TestHandlePreToolUse:
             command="",
         )
         assert blocked is True
-        assert "G-SESSION-1" in response
+        assert ".session/" in response
 
     def test_hard_stop_on_byte_threshold(self):
         """Byte threshold hit triggers hard stop (Layer 2)."""

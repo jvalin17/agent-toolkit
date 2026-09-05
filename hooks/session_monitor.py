@@ -166,10 +166,8 @@ def _check_edit_failure(tool_name: str, tool_result: str, file_path: str) -> Opt
     if _EDIT_FAILURE_RE.search(tool_result):
         filename = Path(file_path).name if file_path else "unknown"
         return (
-            f"EDIT FAILED on {filename}: Your edit did not apply. "
-            f"STOP and re-read the file before retrying. "
-            f"Do NOT continue as if the edit succeeded — it did not. "
-            f"Error: {tool_result[:200]}"
+            f"Edit on {filename} did not apply — re-read the file and retry. "
+            f"({tool_result[:150]})"
         )
     return None
 
@@ -278,9 +276,7 @@ def handle_pre_tool_use(
         else:
             filename = Path(failed_file).name
             return state, (
-                f"BLOCKED: Your last edit to {filename} failed. "
-                f"You MUST re-read {failed_file} before doing anything else. "
-                f"Use the Read tool on that file, then retry your edit."
+                f"Edit to {filename} failed — re-read {failed_file} first, then retry."
             ), True
 
     blocked, block_msg = check_protected_paths(

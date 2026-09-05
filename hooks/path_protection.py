@@ -19,8 +19,7 @@ PROTECTED_PATHS = (
         "bash_ref": re.compile(r"\.session(/|\s|$)"),
         "rule": "G-SESSION-1",
         "message": (
-            "BLOCKED: Agent must not modify .session/ files "
-            "(G-SESSION-1). Session state is managed by hooks only."
+            ".session/ is hook-managed — use a different path."
         ),
     },
     {
@@ -30,8 +29,7 @@ PROTECTED_PATHS = (
         "bash_ref": re.compile(r"\.gates(/|\s|$)"),
         "rule": "G-GATE-1",
         "message": (
-            "BLOCKED: Agent must not modify .gates/ files "
-            "(G-GATE-1). Gate files are written by skill hooks only."
+            ".gates/ is hook-managed — run /precommit or /evaluate instead."
         ),
     },
     {
@@ -41,8 +39,7 @@ PROTECTED_PATHS = (
         "bash_ref": re.compile(r"\breports(/|\s|$)"),
         "rule": "G-REPORT-1",
         "message": (
-            "BLOCKED: Agent must not write to reports/ "
-            "(G-REPORT-1). Reports are produced by skill hooks only."
+            "reports/ is hook-managed — use finalize_report.py to write reports."
         ),
         "reports_bash": True,
     },

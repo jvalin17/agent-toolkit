@@ -137,17 +137,13 @@ def run_tdd_enforce(
 
     if tdd_mode == "strict":
         message = (
-            f"TDD STRICT: Write the test for {filename} first. "
-            "Source edits are blocked until a test file exists."
+            f"Write the test for {filename} first — source edits need a test file."
         )
         return 0, make_block_response(message)
 
     message = (
-        f"TDD CHECK: You are editing {filename} but no corresponding test file exists.\n\n"
-        "FOR NEW FEATURES: Write the test FIRST with specific assertions, then implement.\n"
-        "FOR BUG FIXES: Write a FAILING test that reproduces the bug FIRST, then fix the "
-        "code to make it pass. The test stays as a permanent regression test.\n\n"
-        "If this is a config/setup file that does not need tests, proceed."
+        f"No test file for {filename} — write the test first, then implement. "
+        "Skip if this is a config/setup file."
     )
     return 0, make_hook_response(message)
 
