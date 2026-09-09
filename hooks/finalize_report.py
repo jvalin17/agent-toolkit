@@ -39,7 +39,7 @@ from gate.attest import (  # noqa: E402
     detect_and_run_lint,
     detect_and_run_tests,
 )
-from compliance import check_diff_for_untested_functions  # noqa: E402
+from compliance import check_diff_for_noqa_in_tests, check_diff_for_untested_functions  # noqa: E402
 from finalize_common import EVAL_DIMENSION_WEIGHTS, fail  # noqa: E402
 from finalize_render import (  # noqa: E402
     compose_assess_markdown,
@@ -83,6 +83,7 @@ def _decide_precommit(
     lint: CheckResult,
     session_audit: dict | None = None,
     untested_functions: list[str] | None = None,
+    noqa_in_tests: list[str] | None = None,
 ) -> tuple[bool, list[str]]:
     reasons: list[str] = []
 
@@ -134,6 +135,13 @@ def _decide_precommit(
         reasons.append(
             f"TDD: {len(untested_functions)} new function(s) without tests — "
             + "; ".join(untested_functions[:5])
+        )
+
+    # Lint-suppression in test files: sign of fighting the linter
+    if noqa_in_tests:
+        reasons.append(
+            f"noqa in tests: {len(noqa_in_tests)} suppression(s) added to test files — "
+            "fix the lint issue, don't suppress it"
         )
 
     return (len(reasons) == 0), reasons
@@ -295,6 +303,7 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     action_audit = _get_session_action_audit()
 
     # Git diff TDD check — new functions must have corresponding tests
+    # Also checks for noqa additions in test files (linter-fighting)
     try:
         import subprocess as _sp
         diff_result = _sp.run(
@@ -302,19 +311,23 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
             capture_output=True, text=True, cwd=project_dir, timeout=10,
         )
         if diff_result.returncode == 0 and diff_result.stdout.strip():
-            untested = check_diff_for_untested_functions(diff_result.stdout)
+            diff_text = diff_result.stdout
         else:
             # Fall back to unstaged diff
             diff_result = _sp.run(
                 ["git", "diff", "HEAD", "--unified=0"],
                 capture_output=True, text=True, cwd=project_dir, timeout=10,
             )
-            untested = check_diff_for_untested_functions(diff_result.stdout) if diff_result.returncode == 0 else []
+            diff_text = diff_result.stdout if diff_result.returncode == 0 else ""
+        untested = check_diff_for_untested_functions(diff_text)
+        noqa_in_tests = check_diff_for_noqa_in_tests(diff_text)
     except Exception:
         untested = []
+        noqa_in_tests = []
 
     ready, reasons = _decide_precommit(
-        findings, test, lint, session_audit=action_audit, untested_functions=untested,
+        findings, test, lint, session_audit=action_audit,
+        untested_functions=untested, noqa_in_tests=noqa_in_tests,
     )
 
     # Session audit — warnings only, not blocking

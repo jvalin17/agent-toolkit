@@ -323,7 +323,7 @@ DUNDER_RE = re.compile(r"^__\w+__$")
 
 # Files/dirs exempt from TDD diff check
 DIFF_TDD_EXEMPT_DIRS = re.compile(
-    r"(^|/)(hooks|scripts|migrations|\.github|templates|config|docs)(/|$)"
+    r"(^|/)(hooks|scripts|migrations|\.github|templates|config|docs|static)(/|$)"
 )
 
 DIFF_TEST_FILE_PATTERN = re.compile(
@@ -392,6 +392,51 @@ def check_diff_for_untested_functions(diff_text: str) -> List[str]:
                 warnings.append(
                     f"{filepath}: new function '{func}' has no corresponding test"
                 )
+
+    return warnings
+
+
+def check_diff_for_noqa_in_tests(diff_text: str) -> List[str]:
+    """Scan a unified diff for added # noqa comments in test files.
+
+    Adding noqa to test files is almost always a sign the agent is fighting
+    the linter (e.g., renaming snake_case to camelCase then suppressing N802)
+    instead of fixing the actual issue.
+
+    Returns list of warning strings, one per offending line.
+    """
+    if not diff_text.strip():
+        return []
+
+    current_file: Optional[str] = None
+    warnings: List[str] = []
+
+    for line in diff_text.split("\n"):
+        if line.startswith("diff --git"):
+            match = re.search(r"b/(.+)$", line)
+            current_file = match.group(1) if match else None
+            continue
+
+        if current_file is None:
+            continue
+
+        # Only check added lines in test files
+        if not line.startswith("+"):
+            continue
+        # Skip nested diff content (e.g., diff examples inside test strings)
+        if line.startswith("++"):
+            continue
+        if not DIFF_TEST_FILE_PATTERN.search(current_file):
+            continue
+
+        # Match actual code with # noqa directive at end-of-line
+        # (not strings/docstrings that mention noqa as content)
+        code = line[1:]  # strip leading +
+        if re.search(r"[^\"']\s+#\s*noqa\b", code) and not code.lstrip().startswith(("#", '"""', "'''")):
+            warnings.append(
+                f"{current_file}: added '# noqa' suppression in test file — "
+                "fix the lint issue instead of suppressing it"
+            )
 
     return warnings
 

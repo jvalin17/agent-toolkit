@@ -269,6 +269,24 @@ class TestDecideGate:
         )
         assert ready is True
 
+    def test_blocks_on_noqa_in_test_files(self, valid_findings):
+        """noqa additions in test files → block."""
+        noqa_warnings = ["tests/test_foo.py: added '# noqa' suppression in test file"]
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            noqa_in_tests=noqa_warnings,
+        )
+        assert ready is False
+        assert any("noqa" in r.lower() for r in reasons)
+
+    def test_passes_when_no_noqa_in_tests(self, valid_findings):
+        """No noqa in test files → no block."""
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            noqa_in_tests=[],
+        )
+        assert ready is True
+
 
 # --- End-to-end: hook writes report into reports/ --------------------------
 

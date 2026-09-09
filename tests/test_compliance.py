@@ -418,3 +418,133 @@ diff --git a/tests/test_foo.py b/tests/test_foo.py
 
         result = check_diff_for_untested_functions("")
         assert len(result) == 0
+
+
+class TestCheckDiffForNoqaInTests:
+    """check_diff_for_noqa_in_tests scans a git diff for added # noqa
+    comments in test files — a sign the agent is fighting the linter."""
+
+    def test_detects_noqa_added_to_test_file(self):
+        from compliance import check_diff_for_noqa_in_tests
+
+        diff = """diff --git a/tests/test_foo.py b/tests/test_foo.py
+--- a/tests/test_foo.py
++++ b/tests/test_foo.py
+@@ -1,3 +1,6 @@
++def testCalculateTotal():  # noqa: N802
++    assert True
++
+ def test_existing():
+     pass
+"""
+        result = check_diff_for_noqa_in_tests(diff)
+        assert len(result) == 1
+        assert "noqa" in result[0]
+        assert "tests/test_foo.py" in result[0]
+
+    def test_no_warning_for_noqa_in_source_file(self):
+        from compliance import check_diff_for_noqa_in_tests
+
+        diff = """diff --git a/src/foo.py b/src/foo.py
+--- a/src/foo.py
++++ b/src/foo.py
+@@ -1,3 +1,6 @@
++import something  # noqa: F401
++
+ def existing():
+     pass
+"""
+        result = check_diff_for_noqa_in_tests(diff)
+        assert len(result) == 0
+
+    def test_no_warning_for_clean_test(self):
+        from compliance import check_diff_for_noqa_in_tests
+
+        diff = """diff --git a/tests/test_foo.py b/tests/test_foo.py
+--- a/tests/test_foo.py
++++ b/tests/test_foo.py
+@@ -1,3 +1,6 @@
++def test_calculate_total():
++    assert True
++
+ def test_existing():
+     pass
+"""
+        result = check_diff_for_noqa_in_tests(diff)
+        assert len(result) == 0
+
+    def test_detects_multiple_noqa_lines(self):
+        from compliance import check_diff_for_noqa_in_tests
+
+        diff = """diff --git a/tests/test_foo.py b/tests/test_foo.py
+--- a/tests/test_foo.py
++++ b/tests/test_foo.py
+@@ -1,5 +1,8 @@
++def testFoo():  # noqa: N802
++    pass
++def testBar():  # noqa: N802
++    pass
++
+ def test_existing():
+     pass
+"""
+        result = check_diff_for_noqa_in_tests(diff)
+        assert len(result) == 2
+
+    def test_empty_diff(self):
+        from compliance import check_diff_for_noqa_in_tests
+
+        result = check_diff_for_noqa_in_tests("")
+        assert len(result) == 0
+
+    def test_ignores_existing_noqa_not_in_diff(self):
+        from compliance import check_diff_for_noqa_in_tests
+
+        # The context line (no + prefix) contains a noqa directive
+        # but it's not an added line, so it should be ignored
+        noqa_directive = "# noqa: N802"
+        diff = (
+            "diff --git a/tests/test_foo.py b/tests/test_foo.py\n"
+            "--- a/tests/test_foo.py\n"
+            "+++ b/tests/test_foo.py\n"
+            "@@ -1,3 +1,6 @@\n"
+            "+def test_new():\n"
+            "+    pass\n"
+            "+\n"
+            f" def old_thing():  {noqa_directive}\n"
+            "     pass\n"
+        )
+        result = check_diff_for_noqa_in_tests(diff)
+        assert len(result) == 0
+
+    def test_ignores_noqa_inside_string_literals(self):
+        from compliance import check_diff_for_noqa_in_tests
+
+        diff = """diff --git a/tests/test_foo.py b/tests/test_foo.py
+--- a/tests/test_foo.py
++++ b/tests/test_foo.py
+@@ -1,3 +1,6 @@
++        warnings = ["file.py: added '# noqa' suppression"]
++        assert "noqa" in result[0]
++
+ def test_existing():
+     pass
+"""
+        result = check_diff_for_noqa_in_tests(diff)
+        assert len(result) == 0
+
+    def test_ignores_nested_diff_content(self):
+        from compliance import check_diff_for_noqa_in_tests
+
+        diff = """diff --git a/tests/test_foo.py b/tests/test_foo.py
+--- a/tests/test_foo.py
++++ b/tests/test_foo.py
+@@ -1,3 +1,6 @@
+++def testFoo():  # noqa: N802
+++    pass
++
+ def test_existing():
+     pass
+"""
+        result = check_diff_for_noqa_in_tests(diff)
+        assert len(result) == 0
