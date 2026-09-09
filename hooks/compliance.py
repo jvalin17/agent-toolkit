@@ -315,7 +315,7 @@ FUNCTION_DEF_PATTERNS = [
     # Rust: fn func_name(
     re.compile(r"^\+\s*(?:pub\s+)?fn\s+(\w+)\s*\("),
     # Java/C#: public void methodName(
-    re.compile(r"^\+\s*(?:public|private|protected|static|\s)*\s+(\w+)\s*\("),
+    re.compile(r"^\+\s*(?:public|private|protected)\s+(?:static\s+)?(?:\w+\s+)*(\w+)\s*\("),
 ]
 
 # Dunder / magic methods to ignore

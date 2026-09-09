@@ -413,6 +413,42 @@ diff --git a/tests/test_foo.py b/tests/test_foo.py
         result = check_diff_for_untested_functions(diff)
         assert len(result) == 0
 
+    def test_does_not_match_function_calls_as_definitions(self):
+        """Regression: the Java/C# regex must not match indented function
+        calls like select(Round) or process(data)."""
+        from compliance import check_diff_for_untested_functions
+
+        diff = """diff --git a/src/app.py b/src/app.py
+--- a/src/app.py
++++ b/src/app.py
+@@ -1,3 +1,8 @@
++    select(Round)
++    items.append(x)
++    result = process(data)
++    for item in collection(items):
++        self.validate(input)
+ def existing():
+     pass
+"""
+        result = check_diff_for_untested_functions(diff)
+        assert len(result) == 0, f"False positives: {result}"
+
+    def test_detects_java_method_definition(self):
+        from compliance import check_diff_for_untested_functions
+
+        diff = """diff --git a/src/App.java b/src/App.java
+--- a/src/App.java
++++ b/src/App.java
+@@ -1,3 +1,6 @@
++public void calculateTotal(List items) {
++    return items.stream().sum();
++}
+ public class App {}
+"""
+        result = check_diff_for_untested_functions(diff)
+        assert len(result) > 0
+        assert any("calculateTotal" in r for r in result)
+
     def test_empty_diff(self):
         from compliance import check_diff_for_untested_functions
 
