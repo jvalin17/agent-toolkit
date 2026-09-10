@@ -33,5 +33,19 @@
     "type": "repo",
     "studied_at": "2026-08-17T01:14:38.640042",
     "knowledge_file": "mattermost-mattermost.md"
+  },
+  {
+    "name": "goldbergyoni-javascript-testing-best-practices",
+    "url": "https://github.com/goldbergyoni/javascript-testing-best-practices",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:42:26.034644",
+    "knowledge_file": "goldbergyoni-javascript-testing-best-practices.md"
+  },
+  {
+    "name": "goldbergyoni-javascript-testing-best-practices",
+    "url": "https://github.com/goldbergyoni/javascript-testing-best-practices",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:07:28.041094",
+    "knowledge_file": "goldbergyoni-javascript-testing-best-practices.md"
   }
 ]

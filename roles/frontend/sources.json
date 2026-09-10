@@ -47,5 +47,19 @@
     "type": "url",
     "studied_at": "2026-08-17T00:41:04.538412",
     "knowledge_file": "airbnb-engineering-recent-web-performance-fixes-on-airbnb-listing-pages-6004f87c7f78.md"
+  },
+  {
+    "name": "mutasim77-design-patterns",
+    "url": "https://github.com/mutasim77/design-patterns",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:38:02.807316",
+    "knowledge_file": "mutasim77-design-patterns.md"
+  },
+  {
+    "name": "mutasim77-design-patterns",
+    "url": "https://github.com/mutasim77/design-patterns",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:03:19.446649",
+    "knowledge_file": "mutasim77-design-patterns.md"
   }
 ]

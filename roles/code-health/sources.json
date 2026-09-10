@@ -26,5 +26,19 @@
     "type": "repo",
     "studied_at": "2026-08-17T02:16:13.490654",
     "knowledge_file": "renovatebot-renovate.md"
+  },
+  {
+    "name": "juancrg90-clean-code-notes",
+    "url": "https://github.com/JuanCrg90/Clean-Code-Notes",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:36:23.124060",
+    "knowledge_file": "juancrg90-clean-code-notes.md"
+  },
+  {
+    "name": "juancrg90-clean-code-notes",
+    "url": "https://github.com/JuanCrg90/Clean-Code-Notes",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:01:45.318177",
+    "knowledge_file": "juancrg90-clean-code-notes.md"
   }
 ]

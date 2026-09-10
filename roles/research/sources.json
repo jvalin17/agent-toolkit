@@ -33,5 +33,12 @@
     "type": "repo",
     "studied_at": "2026-08-17T02:29:35.729482",
     "knowledge_file": "ebookfoundation-free-programming-books.md"
+  },
+  {
+    "name": "papers-we-love-papers-we-love",
+    "url": "https://github.com/papers-we-love/papers-we-love",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:16:37.910770",
+    "knowledge_file": "papers-we-love-papers-we-love.md"
   }
 ]

@@ -47,5 +47,12 @@
     "type": "url",
     "studied_at": "2026-08-17T01:53:36.112971",
     "knowledge_file": "03-the-rise-and-lessons-learned-of-ml-models-to-personalize-content-on-home-part-i.md"
+  },
+  {
+    "name": "mlabonne-llm-course",
+    "url": "https://github.com/mlabonne/llm-course",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:14:37.847806",
+    "knowledge_file": "mlabonne-llm-course.md"
   }
 ]

@@ -54,5 +54,47 @@
     "type": "url",
     "studied_at": "2026-08-17T00:32:12.470220",
     "knowledge_file": "netflixtechblog-com-zuul-2-the-netflix-journey-to-asynchronous-non-blocking-systems-45947377fb5c.md"
+  },
+  {
+    "name": "serodriguez68-clean-architecture",
+    "url": "https://github.com/serodriguez68/clean-architecture",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:35:34.591031",
+    "knowledge_file": "serodriguez68-clean-architecture.md"
+  },
+  {
+    "name": "juancrg90-clean-code-notes",
+    "url": "https://github.com/JuanCrg90/Clean-Code-Notes",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:35:56.099231",
+    "knowledge_file": "juancrg90-clean-code-notes.md"
+  },
+  {
+    "name": "mutasim77-design-patterns",
+    "url": "https://github.com/mutasim77/design-patterns",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:37:06.261533",
+    "knowledge_file": "mutasim77-design-patterns.md"
+  },
+  {
+    "name": "serodriguez68-clean-architecture",
+    "url": "https://github.com/serodriguez68/clean-architecture",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:01:02.636976",
+    "knowledge_file": "serodriguez68-clean-architecture.md"
+  },
+  {
+    "name": "juancrg90-clean-code-notes",
+    "url": "https://github.com/JuanCrg90/Clean-Code-Notes",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:01:19.103346",
+    "knowledge_file": "juancrg90-clean-code-notes.md"
+  },
+  {
+    "name": "mutasim77-design-patterns",
+    "url": "https://github.com/mutasim77/design-patterns",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:02:27.793388",
+    "knowledge_file": "mutasim77-design-patterns.md"
   }
 ]

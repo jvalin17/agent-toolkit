@@ -33,5 +33,26 @@
     "type": "repo",
     "studied_at": "2026-08-17T01:29:18.460346",
     "knowledge_file": "android-nowinandroid.md"
+  },
+  {
+    "name": "dbacinski-design-patterns-in-kotlin",
+    "url": "https://github.com/dbacinski/Design-Patterns-In-Kotlin",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:47:00.689303",
+    "knowledge_file": "dbacinski-design-patterns-in-kotlin.md"
+  },
+  {
+    "name": "android-architecture-samples",
+    "url": "https://github.com/android/architecture-samples",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:12:15.252748",
+    "knowledge_file": "android-architecture-samples.md"
+  },
+  {
+    "name": "dbacinski-design-patterns-in-kotlin",
+    "url": "https://github.com/dbacinski/Design-Patterns-In-Kotlin",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:13:11.193824",
+    "knowledge_file": "dbacinski-design-patterns-in-kotlin.md"
   }
 ]

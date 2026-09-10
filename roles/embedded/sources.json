@@ -33,5 +33,12 @@
     "type": "repo",
     "studied_at": "2026-08-17T02:44:23.025359",
     "knowledge_file": "embassy-rs-embassy.md"
+  },
+  {
+    "name": "nhivp-awesome-embedded",
+    "url": "https://github.com/nhivp/Awesome-Embedded",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:17:16.537740",
+    "knowledge_file": "nhivp-awesome-embedded.md"
   }
 ]

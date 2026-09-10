@@ -33,5 +33,33 @@
     "type": "repo",
     "studied_at": "2026-08-17T01:21:49.488779",
     "knowledge_file": "alamofire-alamofire.md"
+  },
+  {
+    "name": "vsouza-awesome-ios",
+    "url": "https://github.com/vsouza/awesome-ios",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:45:06.700549",
+    "knowledge_file": "vsouza-awesome-ios.md"
+  },
+  {
+    "name": "ochococo-design-patterns-in-swift",
+    "url": "https://github.com/ochococo/Design-Patterns-In-Swift",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:46:04.114904",
+    "knowledge_file": "ochococo-design-patterns-in-swift.md"
+  },
+  {
+    "name": "vsouza-awesome-ios",
+    "url": "https://github.com/vsouza/awesome-ios",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:10:07.881972",
+    "knowledge_file": "vsouza-awesome-ios.md"
+  },
+  {
+    "name": "ochococo-design-patterns-in-swift",
+    "url": "https://github.com/ochococo/Design-Patterns-In-Swift",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:11:09.084246",
+    "knowledge_file": "ochococo-design-patterns-in-swift.md"
   }
 ]

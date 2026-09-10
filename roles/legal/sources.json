@@ -19,5 +19,12 @@
     "type": "repo",
     "studied_at": "2026-08-17T02:49:00.424454",
     "knowledge_file": "privacyguides-privacyguides-org.md"
+  },
+  {
+    "name": "github-choosealicense-com",
+    "url": "https://github.com/github/choosealicense.com",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:19:20.470757",
+    "knowledge_file": "github-choosealicense-com.md"
   }
 ]

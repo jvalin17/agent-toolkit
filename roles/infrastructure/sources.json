@@ -47,5 +47,19 @@
     "type": "url",
     "studied_at": "2026-08-17T01:07:11.868088",
     "knowledge_file": "blog-cloudflare-com-workers.md"
+  },
+  {
+    "name": "bregman-arie-devops-exercises",
+    "url": "https://github.com/bregman-arie/devops-exercises",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:53:50.487489",
+    "knowledge_file": "bregman-arie-devops-exercises.md"
+  },
+  {
+    "name": "bregman-arie-devops-exercises",
+    "url": "https://github.com/bregman-arie/devops-exercises",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:15:37.819442",
+    "knowledge_file": "bregman-arie-devops-exercises.md"
   }
 ]

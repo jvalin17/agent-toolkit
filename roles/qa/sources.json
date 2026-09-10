@@ -33,5 +33,33 @@
     "type": "repo",
     "studied_at": "2026-08-17T02:00:48.259533",
     "knowledge_file": "stryker-mutator-stryker-js.md"
+  },
+  {
+    "name": "goldbergyoni-javascript-testing-best-practices",
+    "url": "https://github.com/goldbergyoni/javascript-testing-best-practices",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:40:19.971759",
+    "knowledge_file": "goldbergyoni-javascript-testing-best-practices.md"
+  },
+  {
+    "name": "testjavascript-nodejs-integration-tests-best-practices",
+    "url": "https://github.com/testjavascript/nodejs-integration-tests-best-practices",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:41:32.630199",
+    "knowledge_file": "testjavascript-nodejs-integration-tests-best-practices.md"
+  },
+  {
+    "name": "goldbergyoni-javascript-testing-best-practices",
+    "url": "https://github.com/goldbergyoni/javascript-testing-best-practices",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:05:25.055850",
+    "knowledge_file": "goldbergyoni-javascript-testing-best-practices.md"
+  },
+  {
+    "name": "testjavascript-nodejs-integration-tests-best-practices",
+    "url": "https://github.com/testjavascript/nodejs-integration-tests-best-practices",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:06:38.553780",
+    "knowledge_file": "testjavascript-nodejs-integration-tests-best-practices.md"
   }
 ]

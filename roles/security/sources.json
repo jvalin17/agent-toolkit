@@ -47,5 +47,33 @@
     "type": "url",
     "studied_at": "2026-08-17T00:58:31.270114",
     "knowledge_file": "security-supply-chain-security.md"
+  },
+  {
+    "name": "owasp-cheatsheetseries",
+    "url": "https://github.com/OWASP/CheatSheetSeries",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:43:41.595499",
+    "knowledge_file": "owasp-cheatsheetseries.md"
+  },
+  {
+    "name": "paragonie-awesome-appsec",
+    "url": "https://github.com/paragonie/awesome-appsec",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:44:37.813225",
+    "knowledge_file": "paragonie-awesome-appsec.md"
+  },
+  {
+    "name": "owasp-cheatsheetseries",
+    "url": "https://github.com/OWASP/CheatSheetSeries",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:08:47.470767",
+    "knowledge_file": "owasp-cheatsheetseries.md"
+  },
+  {
+    "name": "paragonie-awesome-appsec",
+    "url": "https://github.com/paragonie/awesome-appsec",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:09:36.232535",
+    "knowledge_file": "paragonie-awesome-appsec.md"
   }
 ]

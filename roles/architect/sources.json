@@ -47,5 +47,61 @@
     "type": "url",
     "studied_at": "2026-08-17T02:09:54.373788",
     "knowledge_file": "framework-welcome-html.md"
+  },
+  {
+    "name": "yzxbiz-ddia",
+    "url": "https://github.com/YZXBiz/ddia",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:31:46.775663",
+    "knowledge_file": "yzxbiz-ddia.md"
+  },
+  {
+    "name": "serodriguez68-clean-architecture",
+    "url": "https://github.com/serodriguez68/clean-architecture",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:34:25.390884",
+    "knowledge_file": "serodriguez68-clean-architecture.md"
+  },
+  {
+    "name": "castorm-engineering-principles",
+    "url": "https://github.com/castorm/engineering-principles",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:38:40.878380",
+    "knowledge_file": "castorm-engineering-principles.md"
+  },
+  {
+    "name": "ept-ddia2-references",
+    "url": "https://github.com/ept/ddia2-references",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:39:18.195814",
+    "knowledge_file": "ept-ddia2-references.md"
+  },
+  {
+    "name": "yzxbiz-ddia",
+    "url": "https://github.com/YZXBiz/ddia",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:57:03.614619",
+    "knowledge_file": "yzxbiz-ddia.md"
+  },
+  {
+    "name": "serodriguez68-clean-architecture",
+    "url": "https://github.com/serodriguez68/clean-architecture",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:00:04.129533",
+    "knowledge_file": "serodriguez68-clean-architecture.md"
+  },
+  {
+    "name": "castorm-engineering-principles",
+    "url": "https://github.com/castorm/engineering-principles",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:04:00.075945",
+    "knowledge_file": "castorm-engineering-principles.md"
+  },
+  {
+    "name": "ept-ddia2-references",
+    "url": "https://github.com/ept/ddia2-references",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:04:38.988031",
+    "knowledge_file": "ept-ddia2-references.md"
   }
 ]

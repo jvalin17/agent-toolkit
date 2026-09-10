@@ -33,5 +33,19 @@
     "type": "repo",
     "studied_at": "2026-08-17T01:44:22.750806",
     "knowledge_file": "evidentlyai-evidently.md"
+  },
+  {
+    "name": "jakevdp-pythondatasciencehandbook",
+    "url": "https://github.com/jakevdp/PythonDataScienceHandbook",
+    "type": "repo",
+    "studied_at": "2026-08-20T02:47:52.777935",
+    "knowledge_file": "jakevdp-pythondatasciencehandbook.md"
+  },
+  {
+    "name": "jakevdp-pythondatasciencehandbook",
+    "url": "https://github.com/jakevdp/PythonDataScienceHandbook",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:14:03.617091",
+    "knowledge_file": "jakevdp-pythondatasciencehandbook.md"
   }
 ]

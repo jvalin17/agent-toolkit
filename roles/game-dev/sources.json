@@ -33,5 +33,12 @@
     "type": "repo",
     "studied_at": "2026-08-17T02:36:30.014970",
     "knowledge_file": "michelpereira-awesome-open-source-games.md"
+  },
+  {
+    "name": "miloyip-game-programmer",
+    "url": "https://github.com/miloyip/game-programmer",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:17:55.669923",
+    "knowledge_file": "miloyip-game-programmer.md"
   }
 ]

@@ -33,5 +33,12 @@
     "type": "repo",
     "studied_at": "2026-08-17T02:23:43.772410",
     "knowledge_file": "i18next-i18next.md"
+  },
+  {
+    "name": "joelparkerhenderson-architecture-decision-record",
+    "url": "https://github.com/joelparkerhenderson/architecture-decision-record",
+    "type": "repo",
+    "studied_at": "2026-08-20T03:20:30.551598",
+    "knowledge_file": "joelparkerhenderson-architecture-decision-record.md"
   }
 ]
