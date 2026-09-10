@@ -35,6 +35,34 @@ jobs:
           python -m pytest tests/ -q
           bash tests/test-hooks.sh
 
+      - name: MCP server smoke test
+        run: |
+          echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
+          {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
+          {"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"select_agent","arguments":{"task_type":"fetch"}}}
+          {"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"list_roles","arguments":{}}}
+          {"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_skills","arguments":{}}}
+          {"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"list_agents","arguments":{}}}' \
+          | python -m toolkit_mcp \
+          | python -c "
+          import sys, json
+          for line in sys.stdin:
+              msg = json.loads(line)
+              r = msg.get('result', {})
+              if 'serverInfo' in r:
+                  assert r['serverInfo']['name'] == 'agent-toolkit', 'bad server name'
+              elif 'tools' in r:
+                  names = [t['name'] for t in r['tools']]
+                  assert len(names) == 8, f'expected 8 tools, got {len(names)}'
+              elif 'content' in r:
+                  data = json.loads(r['content'][0]['text'])
+                  if isinstance(data, dict) and 'model' in data:
+                      assert data['model'] == 'haiku', f'fetch should be haiku, got {data[\"model\"]}'
+                  elif isinstance(data, list):
+                      assert len(data) >= 5, f'expected >=5 items, got {len(data)}'
+          print('MCP smoke test passed: 8 tools, protocol ok, routing correct')
+          "
+
       - name: Bootstrap gate layout (idempotent)
         run: bash scripts/bootstrap-project-gates.sh "$(pwd)" "$(pwd)"
 
