@@ -14,6 +14,7 @@ project-state.md
 *proposal*
 *PROPOSAL*
 *.proposal.md
+SEARCH_RESULTS.md
 handoff-history.log
 memory/
 
@@ -21,6 +22,9 @@ memory/
 .session/
 .gates/
 .scratch/
+
+# Generated reports — hook-managed, not source
+reports/
 
 # Agent-toolkit local config
 .agent-toolkit/config.json
