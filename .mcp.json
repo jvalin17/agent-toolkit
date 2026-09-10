@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "agent-toolkit": {
-      "command": "bash",
-      "args": ["-c", "VENV_PY=$(bash scripts/ensure-python.sh --venv 2>/dev/null) && exec \"$VENV_PY\" -m toolkit_mcp || exec python3 -m toolkit_mcp"]
+      "command": "python3",
+      "args": ["-m", "toolkit_mcp"]
     }
   }
 }
