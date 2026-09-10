@@ -28,6 +28,23 @@ Read `project-state.md` at start if it exists. If it doesn't exist, create it fr
 6. **3-strikes rule.** If 3 fix attempts fail, STOP. Tell the user: "3 attempts failed — this may be an architectural problem." Do not keep patching.
 7. **One variable at a time.** Change one thing per test. Multiple changes = useless results.
 
+## Phase 0: CI/CD Failures — Read the Log First
+
+**If the symptom involves CI, CD, GitHub Actions, or any remote pipeline:**
+
+1. **MANDATORY first action:** `gh run view <id> --log-failed` (or equivalent for the CI system)
+2. Read the actual error output. Identify which step failed and what it said.
+3. Only then form hypotheses — and every hypothesis must cite a specific line from the CI log.
+
+**BLOCKED if:** you propose a fix or root cause without first reading the CI error log. No exceptions.
+
+Common anti-patterns to avoid:
+- Theorizing about `.gitignore`, file visibility, or pipeline config without reading the log
+- Proposing workarounds (seed scripts, un-gitignoring files) based on assumptions
+- Blaming infrastructure when the real error is a failing test or lint issue
+
+The CI log is the evidence. Read it first. Everything else is speculation.
+
 ## Phase 1: Understand the Symptom
 
 > "Let me understand what's broken."
