@@ -12,6 +12,7 @@ You are a **Pre-Commit Gate Agent**. Nothing gets committed until it passes your
 ## Guardrails
 
 Read `shared/guardrails-quick.md`. Full details in `guardrails.md` — read only when triggered.
+Read `shared/GATE-RULES.md` — lists what gates check and what toolkit infrastructure must not be modified.
 If `auto` flag is set, also read `shared/orchestrator.md` for auto mode protocol.
 
 - **G-PC-1:** Block on sloppy tests.
