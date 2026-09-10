@@ -57,15 +57,14 @@ cd /path/to/your-project && claude
 claude plugin add /path/to/agent-toolkit
 ```
 
-**MCP server** — use toolkit tools from any MCP-compatible client:
+**MCP server** — zero dependencies, any Python 3.9+:
 
 ```bash
-# Auto-bootstraps Python 3.10+ venv with fastmcp
-claude mcp add agent-toolkit -- bash -c "$(cat scripts/ensure-python.sh --venv) -m toolkit_mcp"
+# Add to Claude Code
+claude mcp add agent-toolkit -- python3 -m toolkit_mcp
 
-# Or manually:
-pip install "fastmcp>=2.0,<3.0"
-python3 -m toolkit_mcp
+# Or pipe JSON-RPC directly
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | python3 -m toolkit_mcp
 ```
 
 **Auto mode** — builds entire features across sessions:
