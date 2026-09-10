@@ -98,13 +98,15 @@ Grep CLAUDE.md, project-state.md, DECISIONS.md, architecture docs. BLOCKED on co
 
 See `references/readme-validation.md`.
 
-## Step 5c: Parallel Role Review (MANDATORY)
+## Step 5c: Parallel Role Review (skip if /reviewer already ran)
 
-Spawn one Agent per detected role (parallel, haiku) to review the changed code:
+If `/reviewer` was already invoked this session (check Step 5e result first), **skip this step** — the reviewer already did role-based quality checks. Do not double-review.
+
+If `/reviewer` was NOT called, spawn one Agent per detected role (parallel, opus) to review the changed code — reviews are quality judgments, not mechanical tasks:
 
 ```
 For each role in ACTIVE ROLES:
-  Agent(model="haiku"): "Review as [ROLE]. Check quality checks, anti-patterns,
+  Agent(model="opus"): "Review as [ROLE]. Check quality checks, anti-patterns,
     foundational principles, practical patterns against changed files.
     Return: findings with file:line evidence."
 ```
@@ -164,9 +166,41 @@ Record `git rev-parse HEAD` at the start of verification. Include in findings:
 
 If HEAD changes between verification and commit, the verification is stale — re-run `/precommit`.
 
-## Step 5e: Session Audit Verification
+## Step 5e: Reviewer Gate (code changes require review)
 
-Run this to verify what actually happened in this session:
+If `git diff --cached --name-only` (or `git diff --name-only` if nothing staged) shows **any changed source files** (not just config/docs), check whether `/reviewer` was invoked this session:
+
+1. Check the session JSONL log for a Skill call to `reviewer`
+2. If `/reviewer` was called → proceed
+3. If `/reviewer` was NOT called → **invoke it now** before continuing:
+   - Run `/reviewer` on the changed files (code quality + tests at minimum)
+   - Wait for results
+4. If reviewer found **outstanding issues** (HIGH or MEDIUM severity):
+   - **BLOCKED** — do not proceed to commit
+   - Suggest a fix prompt to the user:
+     ```
+     ⚠ Reviewer found issues that must be fixed before commit:
+     [list issues with file:line]
+
+     Suggested fix: "Fix the reviewer findings: [brief description of each issue]"
+     ```
+   - Wait for user to fix and re-run `/precommit`
+5. If reviewer passed or only found LOW severity items → proceed
+
+Include reviewer status in findings:
+```json
+"reviewer_gate": {
+  "code_changed": true,
+  "reviewer_called": true,
+  "called_by_precommit": false,
+  "issues_found": 0,
+  "blocked": false
+}
+```
+
+## Step 5f: Session Audit Verification
+
+Run this to verify what actually happened in this session (including whether reviewer was called or invoked by precommit):
 
 ```python
 from compliance import get_session_skill_usage
@@ -193,7 +227,7 @@ This is read from Claude Code's JSONL log — the agent cannot fake it.
 - Expensive model (opus/fable) used for file search/lint → **waste**
 - Cheap model (haiku) used for architecture/security → **risk**
 
-## Step 5f: Compliance Summary
+## Step 5g: Compliance Summary
 
 If role quality checks were run, include a compliance summary in findings:
 
@@ -233,6 +267,11 @@ Findings schema (all keys required):
                         "evidence": "<string>" },
   "app_verification": { "status": "done|pending|na",
                         "notes": "<string>" },
+  "reviewer_gate":    { "code_changed": "<bool>",
+                        "reviewer_called": "<bool>",
+                        "called_by_precommit": "<bool>",
+                        "issues_found": "<int>",
+                        "blocked": "<bool>" },
   "summary": "<optional agent narrative>"
 }
 ```

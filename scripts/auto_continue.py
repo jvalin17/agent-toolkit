@@ -62,12 +62,21 @@ class AutoContinue:
 
         self._seed_handoff()
 
+        max_sessions = int(os.environ.get("AGENT_TOOLKIT_MAX_SESSIONS", "20"))
         while True:
             self.session_count += 1
+            if self.session_count > max_sessions:
+                print(
+                    f"\n⚠ Reached max sessions ({max_sessions}). "
+                    f"Set AGENT_TOOLKIT_MAX_SESSIONS to increase. Stopping."
+                )
+                self._log_history("MAX_SESSIONS")
+                return 1
+
             self._clean_session_dir()
 
             prompt = self._build_prompt()
-            print(f"\n--- Session {self.session_count} starting ---")
+            print(f"\n--- Session {self.session_count}/{max_sessions} starting ---")
             exit_code = self._launch_session(prompt)
 
             if self._is_complete():

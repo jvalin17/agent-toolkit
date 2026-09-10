@@ -36,7 +36,14 @@ MODEL_MAP = {
     "cheap": "haiku",
     "mid": "sonnet",
     "expensive": "opus",
+    "review": "opus",  # quality reviews always use expensive models
 }
+
+# Evaluation types: mechanical checks vs quality reviews
+# Mechanical: lint, format, test-run, snapshot — cheap model fine
+# Quality: cross-role review, precommit gate, architecture fitness — needs expensive
+MECHANICAL_EVAL_ROLES = {"production"}  # roles that just run/verify things
+QUALITY_EVAL_TYPES = {"for_evaluation"}  # phases that need deep review
 
 
 def _parse_frontmatter(role_path: Path) -> Dict[str, Any]:
@@ -243,8 +250,34 @@ def build_orchestration_plan(
     active_set = set(active_roles)
     steps = []
 
+    # --- Front-of-pipeline: requirements → architecture → explore ---
+    # These run for new_feature and migration; skipped if docs already exist
+    if task_type in ("new_feature", "migration"):
+        steps.append({
+            "type": "skill",
+            "skill": "requirements",
+            "description": "Gather requirements (skip if requirements/ doc exists)",
+            "model_tier": "expensive",
+            "conditional": "requirements_missing",
+        })
+        steps.append({
+            "type": "skill",
+            "skill": "architecture",
+            "description": "Design architecture (skip if architecture doc exists)",
+            "model_tier": "expensive",
+            "conditional": "architecture_missing",
+        })
+
+    # Explore always runs — builds codebase context for implementation
+    steps.append({
+        "type": "skill",
+        "skill": "explore",
+        "description": "Build codebase context (tech stack, conventions, existing patterns)",
+        "model_tier": "mid",
+    })
+
     if task_type == "new_feature":
-        # Step 1: Primary role builds
+        # Build
         steps.append({
             "type": "build",
             "role": primary_role,
@@ -256,13 +289,25 @@ def build_orchestration_plan(
         after_skeleton = get_invocations(primary_role, "after_skeleton", roles_dir)
         active_evaluators = [r for r in after_skeleton if r in active_set]
         if active_evaluators:
-            steps.append({
-                "type": "evaluate",
-                "roles": active_evaluators,
-                "description": f"Post-skeleton review by {', '.join(active_evaluators)}",
-                "model_tier": "cheap",
-                "parallel": True,
-            })
+            # Split: mechanical roles (production) → cheap, review roles → expensive
+            mechanical = [r for r in active_evaluators if r in MECHANICAL_EVAL_ROLES]
+            reviewers = [r for r in active_evaluators if r not in MECHANICAL_EVAL_ROLES]
+            if mechanical:
+                steps.append({
+                    "type": "evaluate",
+                    "roles": mechanical,
+                    "description": f"Mechanical checks by {', '.join(mechanical)}",
+                    "model_tier": "cheap",
+                    "parallel": True,
+                })
+            if reviewers:
+                steps.append({
+                    "type": "evaluate",
+                    "roles": reviewers,
+                    "description": f"Quality review by {', '.join(reviewers)}",
+                    "model_tier": "review",
+                    "parallel": True,
+                })
 
             # Step 3: Primary applies feedback
             steps.append({
@@ -272,38 +317,26 @@ def build_orchestration_plan(
                 "model_tier": get_model_tier(primary_role, "code-generation", roles_dir),
             })
 
-        # Step 4: Final evaluation
+        # Step 4: Final evaluation — quality gate, always use expensive model
         for_eval = get_invocations(primary_role, "for_evaluation", roles_dir)
         active_final = [r for r in for_eval if r in active_set]
         if active_final:
             steps.append({
                 "type": "evaluate",
                 "roles": active_final,
-                "description": f"Final evaluation by {', '.join(active_final)}",
-                "model_tier": "cheap",
+                "description": f"Final quality gate by {', '.join(active_final)}",
+                "model_tier": "review",
                 "parallel": True,
             })
 
     elif task_type == "bug_fix":
-        # Step 1: Primary diagnoses and fixes
+        # Use /debug_tool — the sole owner of bug diagnosis and fix
         steps.append({
-            "type": "fix",
-            "role": primary_role,
-            "description": f"{primary_role} diagnoses and fixes using learned patterns",
-            "model_tier": get_model_tier(primary_role, "bug-fix", roles_dir),
+            "type": "skill",
+            "skill": "debug_tool",
+            "description": f"Diagnose and fix bug (hypothesis-driven, layered elimination)",
+            "model_tier": "expensive",
         })
-
-        # Step 2: Evaluation to verify fix doesn't introduce issues
-        for_eval = get_invocations(primary_role, "for_evaluation", roles_dir)
-        active_eval = [r for r in for_eval if r in active_set]
-        if active_eval:
-            steps.append({
-                "type": "evaluate",
-                "roles": active_eval,
-                "description": f"Verify fix with {', '.join(active_eval)}",
-                "model_tier": "cheap",
-                "parallel": True,
-            })
 
     elif task_type == "refactor":
         # Step 1: Snapshot current behavior
@@ -368,15 +401,15 @@ def build_orchestration_plan(
             "model_tier": get_model_tier(primary_role, "code-generation", roles_dir),
         })
 
-        # Step 4: Full evaluation
+        # Step 4: Full evaluation — post-migration quality gate
         for_eval = get_invocations(primary_role, "for_evaluation", roles_dir)
         active_final = [r for r in for_eval if r in active_set]
         if active_final:
             steps.append({
                 "type": "evaluate",
                 "roles": active_final,
-                "description": f"Post-migration evaluation by {', '.join(active_final)}",
-                "model_tier": "cheap",
+                "description": f"Post-migration quality gate by {', '.join(active_final)}",
+                "model_tier": "review",
                 "parallel": True,
             })
 
@@ -395,10 +428,31 @@ def build_orchestration_plan(
             steps.append({
                 "type": "evaluate",
                 "roles": active_eval,
-                "description": f"Evaluation by {', '.join(active_eval)}",
-                "model_tier": "cheap",
+                "description": f"Quality review by {', '.join(active_eval)}",
+                "model_tier": "review",
                 "parallel": True,
             })
+
+    # --- Back-of-pipeline: reviewer → evaluate → precommit ---
+    # Applies to ALL task types
+    steps.append({
+        "type": "skill",
+        "skill": "reviewer",
+        "description": "Review changed code (quality, tests, runtime)",
+        "model_tier": "review",
+    })
+    steps.append({
+        "type": "skill",
+        "skill": "evaluate",
+        "description": "Score quality (% gate — must pass threshold)",
+        "model_tier": "expensive",
+    })
+    steps.append({
+        "type": "skill",
+        "skill": "precommit",
+        "description": "Final commit gate (instruction compliance, standards, git state)",
+        "model_tier": "mid",
+    })
 
     return {
         "primary": primary_role,
@@ -439,6 +493,15 @@ def plan_to_context(
         model = MODEL_MAP.get(step.get("model_tier", "mid"), step.get("model_tier", "sonnet"))
         is_parallel = step.get("parallel", False)
 
+        if step.get("type") == "skill":
+            skill = step["skill"]
+            lines.append(f"Step {i}: [SKILL] /{skill} — {step['description']}")
+            lines.append(f"  Model: {model}")
+            if step.get("conditional"):
+                lines.append(f"  Conditional: skip if {step['conditional'].replace('_', ' ')}")
+            lines.append("")
+            continue
+
         if "roles" in step:
             roles_str = ", ".join(step["roles"])
             lines.append(f"Step {i}: [{step['type'].upper()}] {step['description']}")
@@ -477,7 +540,10 @@ def plan_to_context(
     lines.append("Follow these steps in order. Do not skip steps or change the sequence.")
     lines.append("For PARALLEL steps: use the Agent tool to spawn multiple subagents in a single message.")
     lines.append("")
-    lines.append("Model guide: haiku=mechanical/cheap, sonnet=implementation/mid, opus/fable=reasoning/expensive.")
-    lines.append("Use the cheapest model that can handle the task. Fetch/lint/search → haiku. Code/review → sonnet. Architecture/security → opus/fable.")
+    lines.append("Model guide:")
+    lines.append("  haiku  = mechanical (file search, lint, format, compare, diff)")
+    lines.append("  sonnet = implementation (code generation, bug fix, test writing)")
+    lines.append("  opus   = quality review + deep reasoning (architecture, security, cross-role evaluation, final quality gate)")
+    lines.append("Use the cheapest model that handles the task. Reviews that judge quality MUST use opus — never haiku.")
 
     return "\n".join(lines)

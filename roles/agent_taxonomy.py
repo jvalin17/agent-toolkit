@@ -69,6 +69,20 @@ TASK_TAXONOMY = {
         "fallback": ["opus"],
         "max_tokens": 4000,
     },
+    "quality_review": {
+        "description": "Final quality gate — cross-role review, precommit, evaluate",
+        "needs": "deep judgment, multi-perspective evaluation, catch subtle issues",
+        "preferred": ["fable", "opus"],
+        "fallback": ["sonnet"],
+        "max_tokens": 4000,
+    },
+    "comparison": {
+        "description": "Compare outputs, diff files, check before/after",
+        "needs": "structured comparison, no deep reasoning",
+        "preferred": ["haiku"],
+        "fallback": ["sonnet"],
+        "max_tokens": 2000,
+    },
     "code_generation": {
         "description": "Write new code, implement features",
         "needs": "understand spec + write correct code",

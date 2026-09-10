@@ -184,15 +184,17 @@ def handle_post_tool_use(
 
     # Detect failed edits — block until agent re-reads the file
     edit_warning = _check_edit_failure(tool_name, tool_result, file_path)
+    _resolved_fp = str(Path(file_path).resolve()) if file_path else ""
+    _resolved_pending = str(Path(state.pending_failed_edit).resolve()) if state.pending_failed_edit else ""
     if edit_warning and file_path:
-        state.pending_failed_edit = file_path
+        state.pending_failed_edit = str(Path(file_path).resolve())
     elif tool_name in ("Edit", "Write") and not edit_warning and file_path:
         # Successful edit clears any pending failure on this file
-        if state.pending_failed_edit == file_path:
+        if _resolved_pending == _resolved_fp:
             state.pending_failed_edit = ""
 
     # Reading the failed file clears the pending state
-    if tool_name == "Read" and file_path and state.pending_failed_edit == file_path:
+    if tool_name == "Read" and file_path and _resolved_pending == _resolved_fp:
         state.pending_failed_edit = ""
 
     if tool_name in ("Edit", "Write") and is_test_file(file_path):
@@ -267,8 +269,11 @@ def handle_pre_tool_use(
     # Edit failure recovery: block everything except Read on the failed file
     if state.pending_failed_edit:
         failed_file = state.pending_failed_edit
+        # Normalize both paths for comparison (resolve absolute vs relative)
+        _norm_fp = str(Path(file_path).resolve()) if file_path else ""
+        _norm_ff = str(Path(failed_file).resolve()) if failed_file else ""
         # Allow Read on the failed file (to recover)
-        if tool_name == "Read" and file_path == failed_file:
+        if tool_name == "Read" and (_norm_fp == _norm_ff):
             pass  # allow through
         # Allow Bash (need git, tests, etc.)
         elif tool_name == "Bash":

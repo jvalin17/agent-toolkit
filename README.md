@@ -11,22 +11,22 @@ Describe what you want in plain English. The toolkit's 19 specialized roles hand
 ```
 
 Works with **Claude Code, Cursor, Gemini, Codex, Windsurf, Aider**, or any AI tool.
+Also available as a **Claude Code plugin** and **MCP server**.
 
 ---
 
 ## What happens when you say "Build a price comparison app"
 
 ```
-1. Requirements Engineer    → gathers specs, tracks what needs building
-2. System Architect         → designs API + database + frontend approach
-3. Research Engineer        → compares frameworks, picks best tools with evidence
-4. Backend Engineer         → builds API with validation, pagination, caching
-5. Frontend Engineer        → builds UI with lazy loading, no heavy computation on load
-6. DBA                      → designs schema with indexes, cursor pagination
-7. Security Engineer        → input validation, auth, no secrets in code
-8. QA Engineer              → writes test suite, edge cases, E2E flows
-9. Production Engineer      → runs the app, verifies everything works
-10. /precommit              → role quality checks block bad code from committing
+ 1. /requirements            → gathers specs, tracks what needs building
+ 2. /architecture            → designs API + database + frontend approach
+ 3. /explore                 → maps codebase, conventions, existing patterns
+ 4. Research agents          → compares frameworks, picks best tools with evidence
+ 5. /implementation          → builds with TDD, slab-by-slab (sonnet — cheap)
+ 6. /reviewer                → judges code quality, tests, runtime (opus — thorough)
+ 7. /evaluate                → scores quality % — must pass threshold (opus)
+ 8. /precommit               → final gate: standards, role checks, reviewer gate
+ 9. On test failure           → /debug_tool (hypothesis-driven, not retry loops)
 ```
 
 All automatic. 19 roles with two layers of knowledge:
@@ -51,15 +51,32 @@ cd agent-toolkit && ./install.sh
 cd /path/to/your-project && claude
 ```
 
+**Claude Code plugin**:
+
+```bash
+claude plugin add /path/to/agent-toolkit
+```
+
+**MCP server** — use toolkit tools from any MCP-compatible client:
+
+```bash
+# Auto-bootstraps Python 3.10+ venv with fastmcp
+claude mcp add agent-toolkit -- bash -c "$(cat scripts/ensure-python.sh --venv) -m toolkit_mcp"
+
+# Or manually:
+pip install "fastmcp>=2.0,<3.0"
+python3 -m toolkit_mcp
+```
+
 **Auto mode** — builds entire features across sessions:
 
 ```bash
 # Enable auto mode in gates.json:
 { "auto": true }
 
-# Launch with the continuation wrapper:
+# Launch with the continuation wrapper (max 20 sessions, configurable):
 agent-toolkit-continue "Build a price comparison feature for utensils in my inventory"
-# → requirements → architecture → implementation → testing → verification
+# → requirements → architecture → explore → implementation → reviewer → evaluate → precommit
 # Sessions restart automatically, picking up from HANDOFF.md
 ```
 
@@ -117,35 +134,61 @@ Each role has two layers of knowledge:
 - **Foundational** — SOLID, DDD, GoF design patterns, Clean Architecture, DDIA, OWASP, 12-Factor App
 - **Practical** — patterns from 95+ production repos (NestJS, FastAPI, Signal, cal.com, PostHog, Kubernetes)
 
-### 13 Skills
+### 14 Skills (orchestrator chains them automatically)
 
-| Skill | Purpose |
-|-------|---------|
-| `/explore` | Understand existing code |
-| `/requirements` | Gather and track requirements |
-| `/architecture` | Design with tradeoffs |
-| `/implementation` | Build with TDD |
-| `/debug_tool` | Hypothesis-driven debugging |
-| `/precommit` | Quality gate before commit |
-| `/evaluate` | Quality score (push gate) |
-| `/reviewer` | Code review |
-| `/assess` | Architecture fitness |
-| `/setup` | Generate install/deploy config |
-| `/status` | Project dashboard |
-| `/verify` | Verify changes work |
-| `/updater` | Audit toolkit health |
+| Skill | Purpose | Pipeline position |
+|-------|---------|-------------------|
+| `/requirements` | Gather and track requirements | Front (if missing) |
+| `/architecture` | Design with tradeoffs | Front (if missing) |
+| `/explore` | Understand existing code | Before implementation |
+| `/implementation` | Build with TDD | Build step |
+| `/debug_tool` | Hypothesis-driven debugging | On test failure |
+| `/reviewer` | Code review, tests, runtime | After implementation |
+| `/evaluate` | Quality score (% gate) | After reviewer |
+| `/precommit` | Final commit gate | Before commit |
+| `/assess` | Architecture fitness | Final quality |
+| `/readme` | Validate README line-by-line | Called by precommit |
+| `/setup` | Generate install/deploy config | New projects |
+| `/status` | Project dashboard | On demand |
+| `/verify` | Verify changes work | Legacy (absorbed by reviewer) |
+| `/updater` | Audit toolkit health | Maintenance |
+
+### 8 MCP Tools (usable from any MCP client)
+
+| Tool | Purpose |
+|------|---------|
+| `select_agent` | Best model for a task type (haiku/sonnet/opus) |
+| `build_plan` | Deterministic orchestration plan |
+| `plan_to_text` | Render plan as injectable context |
+| `get_role_context` | Detect roles + generate context for any AI tool |
+| `list_roles` | All 19 roles with metadata |
+| `list_skills` | All skills with descriptions |
+| `list_agents` | All 9 sub-agents |
+| `build_research_plan` | Fan-out research plan (cheap fetchers + expensive synthesizer) |
+
+### Model Routing (saves tokens, enforced by hooks)
+
+| Task | Model | Cost |
+|------|-------|------|
+| File search, grep, lint, diff, compare | **haiku** | ~$0.25/MTok |
+| Code generation, bug fix, test writing | **sonnet** | ~$3/MTok |
+| Quality reviews, architecture, security | **opus/fable** | ~$15/MTok |
+
+`taxonomy_enforce.py` blocks every Agent subagent call that uses the wrong tier. Cheap tasks can't waste opus tokens; critical reviews can't cut corners with haiku.
 
 ### Enforcement (hooks — can't be bypassed)
 
 - **Precommit mandatory** — `gate_hook.py` blocks `git commit` without a passing precommit gate, even in `enforcement: "warn"` mode
-- **Model routing** — `taxonomy_enforce.py` blocks Agent subagent calls missing a `model` parameter or using the wrong tier (haiku for search, sonnet for code, opus for architecture)
+- **Model routing** — `taxonomy_enforce.py` blocks Agent subagent calls missing a `model` parameter or using the wrong tier
+- **Reviewer gate** — `/precommit` verifies `/reviewer` was called on code changes; auto-invokes it if skipped
 - **Mechanical verification** — `compliance.py` reads session JSONL to verify server starts, HTTP requests, TDD file ordering, and role agent spawns. Agent self-reports are overridden by machine evidence.
 - **Diff TDD check** — `compliance.py` scans the git diff for new functions without corresponding test functions; `finalize_report.py` blocks the precommit gate
 - **TDD enforcement** — `tdd_enforce.py` blocks/reminds on Edit/Write of source files without a test file; `taxonomy_enforce.py` injects "write failing test FIRST" into implementation-like Agent subagent prompts
 - **Skill enforcement** — `skill_enforce.py` in strict mode blocks code edits without an active skill workflow
-- **Parallel role review** — precommit skill instructs the agent to spawn one reviewer per detected role in parallel; JSONL audit verifies role agents were actually spawned
+- **Parallel role review** — precommit spawns one reviewer per detected role in parallel (opus); skips if `/reviewer` already ran
 - **Evidence verification** — `compliance.py` requires concrete output (command results, file:line references) — not "it works"
 - **Session audit** — `compliance.py` reads Claude Code's JSONL log to track what the agent actually did (skills invoked, tools used, agents spawned)
+- **Session limits** — `auto_continue.py` caps at 20 sessions (configurable via `AGENT_TOOLKIT_MAX_SESSIONS`), preventing infinite restart loops
 - **Lint always passes** — `finalize_report.py` re-runs lint independently; any failure blocks the gate regardless of source
 
 → [All 19 roles](roles/ROLES-FINAL.md) · [Architecture](architecture/role-context-layer.md) · [Skills reference](docs/skills.md)

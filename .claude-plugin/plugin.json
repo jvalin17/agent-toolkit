@@ -1,0 +1,12 @@
+{
+  "name": "agent-toolkit",
+  "version": "1.0.0",
+  "description": "19 specialized roles, 13 skills, 9 agents, and quality gates for any AI coding agent",
+  "author": {
+    "name": "jvalin17",
+    "url": "https://github.com/jvalin17"
+  },
+  "repository": "https://github.com/jvalin17/agent-toolkit",
+  "license": "Apache-2.0",
+  "keywords": ["roles", "skills", "agents", "quality-gates", "orchestration", "tdd", "code-review"]
+}

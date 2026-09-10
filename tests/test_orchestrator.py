@@ -160,8 +160,14 @@ class TestBuildOrchestrationPlan:
         )
 
         step_types = [s["type"] for s in plan["steps"]]
-        assert "fix" in step_types
-        assert "evaluate" in step_types
+        # bug_fix now uses /debug_tool skill instead of generic "fix" step
+        assert "skill" in step_types
+        skill_names = [s.get("skill") for s in plan["steps"] if s.get("type") == "skill"]
+        assert "debug_tool" in skill_names
+        # Back-of-pipeline skills always present
+        assert "reviewer" in skill_names
+        assert "evaluate" in skill_names
+        assert "precommit" in skill_names
 
     def test_only_includes_active_roles(self, tmp_path):
         from orchestrator import build_orchestration_plan

@@ -84,6 +84,7 @@ def _decide_precommit(
     session_audit: dict | None = None,
     untested_functions: list[str] | None = None,
     noqa_in_tests: list[str] | None = None,
+    config: dict | None = None,
 ) -> tuple[bool, list[str]]:
     reasons: list[str] = []
 
@@ -124,7 +125,9 @@ def _decide_precommit(
                 )
 
         # TDD ordering: source files edited before test files
-        if not session_audit.get("tdd_order_respected", True):
+        # Only block in strict mode — remind mode shouldn't hard-block on ordering
+        tdd_mode = (config or {}).get("tdd_mode", "remind")
+        if tdd_mode == "strict" and not session_audit.get("tdd_order_respected", True):
             reasons.append(
                 "TDD violation: source files edited before test files — "
                 "write failing tests first"
@@ -328,6 +331,7 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     ready, reasons = _decide_precommit(
         findings, test, lint, session_audit=action_audit,
         untested_functions=untested, noqa_in_tests=noqa_in_tests,
+        config=config,
     )
 
     # Session audit — warnings only, not blocking

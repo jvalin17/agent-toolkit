@@ -25,6 +25,9 @@ memory/
 # Agent-toolkit local config
 .agent-toolkit/config.json
 
+# MCP server venv
+.venv-mcp/
+
 # Signed gate — private keys never commit
 .gate/signing.key
 .gate/private.pem

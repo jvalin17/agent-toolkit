@@ -210,8 +210,8 @@ class TestDecideGate:
         )
         assert ready is True
 
-    def test_blocks_when_tdd_order_violated(self, valid_findings):
-        """Session audit shows source was edited before test."""
+    def test_blocks_when_tdd_order_violated_strict_mode(self, valid_findings):
+        """TDD ordering only blocks in strict mode, not remind mode."""
         audit = {
             "available": True,
             "server_started": True,
@@ -219,12 +219,21 @@ class TestDecideGate:
             "role_agents_spawned": 2,
             "tdd_order_respected": False,
         }
+        # Strict mode → blocks
         ready, reasons = fr._decide_precommit(
             valid_findings, CheckResult("tests", True), CheckResult("lint", True),
-            session_audit=audit,
+            session_audit=audit, config={"tdd_mode": "strict"},
         )
         assert ready is False
         assert any("tdd" in r.lower() for r in reasons)
+
+        # Remind mode (default) → does not block
+        ready2, reasons2 = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit=audit, config={"tdd_mode": "remind"},
+        )
+        assert ready2 is True
+        assert not any("tdd" in r.lower() for r in reasons2)
 
     def test_app_verification_na_skips_server_check(self, valid_findings):
         """When app_verification is 'na', server check is skipped."""

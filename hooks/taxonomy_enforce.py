@@ -22,18 +22,24 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "roles"))
 
 # Task keywords → expected tier
+# Be precise: "review" alone is ambiguous, so we match on specific phrases
 CHEAP_KEYWORDS = [
     "file search", "search for", "find file", "grep", "glob",
     "lint", "format", "boilerplate", "scaffold",
     "list", "count", "check if",
+    "compare", "diff", "before/after", "check difference",
 ]
 
 EXPENSIVE_KEYWORDS = [
     "architecture", "architect", "design system",
     "security audit", "security review", "threat model",
     "complex debug", "cross-module", "multi-file debug",
-    "synthesize", "merge", "evaluate", "assess",
+    "synthesize", "merge findings",
     "migration plan", "decompose task",
+    # Quality reviews — these are judgment calls, not mechanical checks
+    "quality review", "quality gate", "evaluate", "assess",
+    "cross-role", "final review", "precommit review",
+    "review as", "review code for quality",
 ]
 
 MODEL_TIERS = {

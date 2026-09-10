@@ -49,11 +49,15 @@ Everything else: **keep going.**
 |-------|-------|-----|
 | Requirements gathering | Opus | Judgment, ambiguity detection |
 | Architecture decisions | Opus | Trade-off analysis, evidence weighing |
+| Explore (codebase context) | Sonnet | Read + summarize, no deep reasoning |
 | Code change planning | Opus | File-level design, dependency analysis |
 | Implementation | Sonnet/Haiku | Mechanical — plan specifies what to write |
 | Test writing | Sonnet/Haiku | Follows patterns from plan |
-| Precommit checks | Sonnet | Pattern matching against rules |
-| Evaluation | Opus | Quality judgment, nuanced scoring |
+| Debug (bug diagnosis) | Opus | Hypothesis-driven, multi-layer reasoning |
+| Reviewer (quality judgment) | Opus | Quality judgment — must catch subtle issues |
+| Evaluation (scoring) | Opus | Nuanced scoring, evidence weighing |
+| Precommit (commit gate) | Sonnet | Pattern matching against rules |
+| Assess (architecture fitness) | Opus | Cross-cutting architectural judgment |
 | README/Cleanup | Sonnet | Mechanical consolidation |
 
 User can override: `/implementation auto model=opus X` forces Opus throughout.
@@ -61,18 +65,23 @@ User can override: `/implementation auto model=opus X` forces Opus throughout.
 ## Auto Pipeline
 
 ```
-1. RESUME?    — read HANDOFF.md if it exists (resume, don't restart)
-2. RESEARCH   — auto-trigger relevant agents for context
-3. PLAN       — concrete code change plan (file-by-file, function-by-function)
-4. EVAL PLAN  — plan must score ≥ 95% completeness before implementation starts
-5. BUILD      — /implementation per slab (Sonnet/Haiku)
-6. VERIFY     — /verify (output quality, skip user-confirms)
-7. GATE       — /precommit full mode (tests, G-IMPL-6, standards, README)
-8. EVAL       — /evaluate quick on slab (must score ≥ 95%)
-9. COMMIT     — auto-commit with descriptive message
-10. NEXT      — loop to step 5 for next slab, or FINAL QUALITY
-11. FINAL     — /evaluate full, readme-validator fix, guardrail audit
-12. CLEANUP   — archive artifacts, README = source of truth
+ 1. RESUME?       — read HANDOFF.md if it exists (resume, don't restart)
+ 2. REQUIREMENTS  — /requirements (skip if requirements/ doc exists)
+ 3. ARCHITECTURE  — /architecture (skip if architecture doc exists)
+ 4. RESEARCH      — auto-trigger relevant agents for context
+ 5. EXPLORE       — /explore (codebase context, conventions, patterns)
+ 6. PLAN          — concrete code change plan (file-by-file, function-by-function)
+ 7. EVAL PLAN     — plan must score ≥ 95% completeness before implementation starts
+ 8. BUILD         — /implementation per slab (Sonnet/Haiku)
+ 9. REVIEWER      — /reviewer on changed code (quality, tests, runtime)
+10. EVAL          — /evaluate quick on slab (must score ≥ 95%)
+11. GATE          — /precommit full mode (tests, standards, reviewer gate)
+12. COMMIT        — auto-commit with descriptive message
+13. NEXT          — loop to step 8 for next slab, or FINAL QUALITY
+14. FINAL         — /evaluate full, readme-validator fix, guardrail audit
+15. CLEANUP       — archive artifacts, README = source of truth
+
+On test failure during BUILD: escalate to /debug_tool (max 2 attempts, then PAUSE)
 ```
 
 ## Step 1: Resume Check
@@ -84,7 +93,23 @@ On startup, check for `HANDOFF.md` in project root.
 
 Also read `project-state.md` if it exists — check decisions, feature status, warnings.
 
-## Step 2: Auto-Research
+## Step 2: Requirements
+
+Run `/requirements` if no requirements document exists in `requirements/`.
+
+- If requirements doc exists and covers the current task → skip
+- If sparse user input (one-liner) → requirements is MANDATORY
+- Output: `requirements/<slug>.md` with functional, non-functional, UI/UX, testing scope
+
+## Step 3: Architecture
+
+Run `/architecture` if no architecture document exists.
+
+- If architecture doc exists and covers the current task → skip
+- Present 2-3 options with trade-offs, pick one with evidence
+- Output: architecture doc with stack, data layer, API, components, security
+
+## Step 4: Auto-Research
 
 **CRITICAL: When user input is sparse (one-liner like "build inventory app"), research is MANDATORY before building.** Don't assume what the app needs — investigate what every app in that category has. The one-line input defines the domain. Research fills in the details.
 
@@ -106,9 +131,18 @@ Trigger research agents:
 - Research output becomes evidence for decisions (cited as `[functional-researcher]`, `[tech-stack-advisor]`)
 - Research stays scoped — don't exhaustively survey, get enough to decide
 - If requirements/architecture docs already exist and are sufficient, skip research
-- After research, draft requirements that include domain table-stakes — not just what the user said
+- After research, update requirements to include domain table-stakes — not just what the user said
 
-## Step 3: Code Change Plan
+## Step 5: Explore
+
+Run `/explore` to build codebase context before implementation.
+
+- Maps tech stack, conventions, existing patterns, file structure
+- Produces `project-state.md` with Codebase Index
+- Informs implementation about what already exists (avoid reinventing)
+- Skip only if `project-state.md` exists and is fresh (same session)
+
+## Step 6: Code Change Plan
 
 **Mandatory before any code is written.** Produced by Opus.
 
@@ -134,7 +168,7 @@ Trigger research agents:
 - [D-IMPL-N] pattern choice with rationale
 ```
 
-## Step 4: Eval Plan
+## Step 7: Eval Plan
 
 Quick evaluation of the plan before implementation:
 - Does every file map to a requirement? (no orphan files)
@@ -144,21 +178,23 @@ Quick evaluation of the plan before implementation:
 
 If plan scores < 95% → revise plan. Do not proceed to code.
 
-## Step 5: Build (per slab)
+## Step 8: Build (per slab)
 
 Run `/implementation` for the current slab using the cheaper model (Sonnet/Haiku).
 - Follow all existing implementation rules (TDD, slab discipline, mock-first)
 - Session limits still apply
 - The plan constrains what gets built — Sonnet executes, doesn't redesign
 
-**Auto-fix:** If a test fails, attempt fix (max 2 attempts). Still failing → PAUSE.
+**Auto-fix:** If a test fails, escalate to `/debug_tool` (hypothesis-driven diagnosis). Max 2 attempts. Still failing → PAUSE.
 
-## Step 6: Verify
+## Step 9: Reviewer
 
-Run `/verify` in auto mode:
-- Session health check (Step 1) — still applies
-- Output quality check (Step 3) — still applies
-- Skip "user confirms" (Step 5) — eval gate replaces human judgment
+Run `/reviewer` on all changed code (Opus — quality judgment requires best model):
+
+- Code quality review (SOLID, DRY, anti-patterns)
+- Test quality review (meaningful assertions, coverage)
+- Runtime verification (app works with real input)
+- Output quality check (matches requirements, curated not raw dump)
 
 **Auto-judge heuristics (since user isn't watching):**
 - Does output match format described in requirements?
@@ -166,34 +202,36 @@ Run `/verify` in auto mode:
 - Are there unexplained numbers without context?
 - Does it answer the user's question or just return data?
 
+If reviewer finds HIGH severity issues → fix immediately (max 2 attempts), then re-review.
 If any heuristic fails → PAUSE with specific concern.
 
-## Step 7: Gate (Precommit)
-
-Run `/precommit` full mode. All steps mandatory:
-- Step 1: Instruction compliance
-- Step 2: Test quality audit
-- Step 2b: Test suite execution (if runner exists)
-- Step 3: Code standards + G-IMPL-6 (no easy way out)
-- Step 5: Project rules compliance
-- Step 5b: README validation+fix (readme-validator in fix mode)
-
-**Auto-fix minor issues:** missing imports, naming violations, missing .env.example entries.
-**PAUSE on:** unaddressed instructions, architectural decisions, ambiguous choices, test failures that aren't obvious.
-
-## Step 8: Eval Gate
+## Step 10: Eval Gate
 
 Run `/evaluate` quick mode on the current slab (Opus).
 
 | Score | Action |
 |-------|--------|
-| ≥ 95% | Proceed to commit |
+| ≥ 95% | Proceed to precommit |
 | 70-94% | Auto-fix mechanical issues (naming, missing tests, formatting). Re-eval ONCE. If still < 95% → PAUSE |
 | < 70% | PAUSE immediately — something fundamental is wrong |
 
-**Commit requires:** precommit passing AND eval ≥ 95%. Both gates, not either.
+## Step 11: Gate (Precommit)
 
-## Step 9: Auto-Commit
+Run `/precommit` full mode. All steps mandatory:
+- Step 1: Instruction compliance
+- Step 2: Test quality audit + test suite execution
+- Step 3: Code standards + G-IMPL-6 (no easy way out)
+- Step 5: Project rules compliance
+- Step 5b: README validation+fix (readme-validator in fix mode)
+- Step 5c: Parallel role review (Opus)
+- Step 5e: Reviewer gate (verifies /reviewer was called — it was, at step 9)
+
+**Auto-fix minor issues:** missing imports, naming violations, missing .env.example entries.
+**PAUSE on:** unaddressed instructions, architectural decisions, ambiguous choices, test failures that aren't obvious.
+
+**Commit requires:** reviewer passed AND eval ≥ 95% AND precommit passing. All three gates.
+
+## Step 12: Auto-Commit
 
 If all gates pass:
 1. Stage specific changed files (never `git add -A`)
@@ -201,16 +239,18 @@ If all gates pass:
 3. Format: `[slab N/M] <what this slab does> (<test count> tests)`
 4. Push only if user previously authorized pushing
 
-## Step 10: Next Slab or Final
+## Step 13: Next Slab or Final
 
-If more slabs remain → loop to Step 5 (build).
+If more slabs remain → loop to Step 8 (build).
 If all slabs complete → proceed to Final Quality.
 
-## Step 11: Final Quality (Opus)
+## Step 14: Final Quality (Opus)
 
-1. `/evaluate` full — all dimensions, all slabs, overall score
-2. readme-validator in fix mode — validate+fix entire README line-by-line
-3. Guardrail audit — scan all committed code for violations:
+1. `/reviewer` full — comprehensive code review across all slabs
+2. `/evaluate` full — all dimensions, all slabs, overall score
+3. `/assess` — architecture fitness check (does the final result hold together?)
+4. readme-validator in fix mode — validate+fix entire README line-by-line
+5. Guardrail audit — scan all committed code for violations:
    - G-IMPL-6 (no shortcuts)
    - G-PUSH-1 (precommit ran)
    - G-PC-1-5 (test quality, instructions)
@@ -218,7 +258,7 @@ If all slabs complete → proceed to Final Quality.
 
 If any violation → fix and re-commit. If unfixable → report to user.
 
-## Step 12: Cleanup (Sonnet)
+## Step 15: Cleanup (Sonnet)
 
 1. Consolidate key decisions from requirements/, architecture/, reports/ into README "Architecture Decisions" section
 2. Archive artifacts: `archive/<date>/requirements/`, `archive/<date>/reports/`
