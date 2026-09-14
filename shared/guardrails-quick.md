@@ -40,5 +40,6 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G-IMPL-1/2/3/4/5:** No SQL concat, no hardcoded secrets, overwrite protection (exempt TDD), trusted packages, 1 file per cycle
 - **G-IMPL-7:** Ground truth — test fixtures must cite data source (query output, user sample, spec, factory). "I read the code" is not valid provenance. Hard blocker in strict mode.
 - **G-IMPL-6:** No easy way out — no hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean flag arguments
+- **G-IMPL-8:** No ungrounded claims — never state what code "used to do", "originally did", or "the old behavior was" without citing evidence (`git log`, `git blame`, file:line, test output). If you don't know the original behavior, say "I don't know what this did before" — don't fabricate history.
 - **G-EVAL-1/2:** Highlight unverifiable, guardrail-aware grading
 - **G-UPD-1/2:** No auto-update, offline graceful

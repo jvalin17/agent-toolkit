@@ -95,6 +95,10 @@ Read `implementation/references/ai-antipatterns.md`. Scan changed code for:
 
 **Soft blocks (flag, fix before merge):** defensive over-engineering, boolean flag args, copy-paste x3, premature abstraction, options-bag with all-optional fields, god functions, vacuous names (`data`/`result`/`temp`), apologetic comments, ignoring codebase conventions, unnecessary deps, no observability on external calls, type assertions without validation, generating without searching existing code.
 
+### 3d: G-IMPL-8 (Ungrounded Claims)
+
+Scan commit message, code comments, and session output for claims about prior behavior without evidence. Flag: "the original behavior was", "it used to", "previously this", "the old code did" — unless followed by a git log/blame citation. Agents fabricate history confidently. If a claim has no evidence, **BLOCKED** — rewrite without the false claim or add the evidence.
+
 ## Step 4: Verify in Running App
 
 Tests passing ≠ shipped. Port check (`lsof`), curl APIs, describe UI verification steps, empty states, input validation.

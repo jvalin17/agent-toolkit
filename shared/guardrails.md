@@ -295,6 +295,26 @@ If a boolean parameter causes the function to do fundamentally different things,
 **If triggered during evaluate:** Deduct from Code Quality dimension.
 **Template:** "BLOCKED (G-IMPL-6): [pattern] detected in [file:line]. This is a shortcut, not a solution. Fix: [specific fix]."
 
+#### G-IMPL-8: No Ungrounded Claims
+Never state what code "used to do", "originally did", "the old behavior was", or "previously worked by" without citing evidence. Agents confidently fabricate history — this guardrail stops that.
+
+**Blocked phrases (without evidence):**
+- "The original behavior was..."
+- "It used to work by..."
+- "Previously, this function..."
+- "The old code did..."
+- "Before this change, it..."
+
+**Required evidence for historical claims:**
+- `git log` / `git blame` output showing the actual previous state
+- File:line from a specific commit
+- Test output that demonstrates prior behavior
+- User statement confirming what it did before
+
+**If you don't know:** Say "I don't know what this did before — let me check git history" and actually check. Never guess.
+
+**Template:** "BLOCKED (G-IMPL-8): Ungrounded claim about prior behavior in [context]. Cite git log/blame evidence, or state 'I don't know the original behavior.'"
+
 ### /precommit
 
 #### G-PC-1: No Sloppy Tests
