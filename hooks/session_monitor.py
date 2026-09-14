@@ -333,7 +333,7 @@ def handle_pre_tool_use(
                 f"DAMAGE RADIUS: {n_files} files edited this session (limit: {DAMAGE_RADIUS_BLOCK}). "
                 f"This is likely off track. Confirm with the user before continuing."
             ), True
-        if n_files >= DAMAGE_RADIUS_WARN and n_files == DAMAGE_RADIUS_WARN:
+        if n_files == DAMAGE_RADIUS_WARN:
             # Warn once at threshold (not every subsequent edit)
             pass  # warning injected below, not blocking
 

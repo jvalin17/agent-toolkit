@@ -111,3 +111,17 @@ class TestTddInjection:
 
         result = get_tdd_injection("build the API endpoint for users")
         assert result is not None
+
+    def test_mixed_review_and_fix_gets_tdd(self):
+        """'review and fix' should inject TDD because 'fix' is implementation."""
+        from taxonomy_enforce import get_tdd_injection
+
+        result = get_tdd_injection("review and fix the broken login")
+        assert result is not None, "keyword priority inversion: 'review' matched before 'fix'"
+
+    def test_analyze_and_refactor_gets_tdd(self):
+        """'analyze and refactor' should inject TDD because 'refactor' is implementation."""
+        from taxonomy_enforce import get_tdd_injection
+
+        result = get_tdd_injection("analyze and refactor the auth module")
+        assert result is not None, "keyword priority inversion: 'analyze' matched before 'refactor'"

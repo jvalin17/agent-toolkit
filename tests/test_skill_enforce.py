@@ -110,3 +110,52 @@ class TestSkillEnforce:
             make_event("src/app.py"), tmp_path
         )
         assert output == ""
+
+    def test_pre_code_skill_blocks_in_block_mode(self, tmp_path):
+        """PRE_CODE_SKILLS (requirements, architecture) should NOT authorize code edits."""
+        from skill_enforce import run_skill_enforce
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+        (scratch / "skill_state.json").write_text(
+            json.dumps({"last_skill_routed": "requirements"})
+        )
+        (tmp_path / "gates.json").write_text('{"skill_enforce": "block"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output != "", "pre_code skill should not authorize code edits"
+        data = json.loads(output)
+        assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+
+    def test_pre_code_skill_warns_in_remind_mode(self, tmp_path):
+        """PRE_CODE_SKILLS in remind mode should inject warning context."""
+        from skill_enforce import run_skill_enforce
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+        (scratch / "skill_state.json").write_text(
+            json.dumps({"last_skill_routed": "architecture"})
+        )
+        (tmp_path / "gates.json").write_text('{"skill_enforce": "remind"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output != "", "pre_code skill should warn, not allow silently"
+        data = json.loads(output)
+        assert "additionalContext" in data.get("hookSpecificOutput", {})
+
+    def test_code_change_skill_allows(self, tmp_path):
+        """CODE_CHANGE_SKILLS (implementation, debug_tool) should authorize edits."""
+        from skill_enforce import run_skill_enforce
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+        (scratch / "skill_state.json").write_text(
+            json.dumps({"last_skill_routed": "implementation"})
+        )
+        (tmp_path / "gates.json").write_text('{"skill_enforce": "block"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output == "", "implementation skill should authorize code edits"

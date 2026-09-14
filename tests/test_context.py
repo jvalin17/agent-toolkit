@@ -71,3 +71,72 @@ class TestContextCLI:
 
         assert "QUALITY" in context
         assert "SCOPE" in context
+
+
+class TestSetupForProject:
+    def test_cursor_writes_rules_file(self, tmp_path):
+        from context import setup_for_project
+        (tmp_path / ".cursor").mkdir()
+        roles_dir = ROOT / "roles"
+        result = setup_for_project(
+            tmp_path, roles_dir=roles_dir, config_roles=["qa"]
+        )
+        target = tmp_path / ".cursor" / "rules" / "roles.md"
+        assert target.is_file(), f"Expected {target}, got: {result}"
+        assert "Role Context" in target.read_text()
+
+    def test_gemini_writes_rules_file(self, tmp_path):
+        from context import setup_for_project
+        (tmp_path / ".gemini").mkdir()
+        roles_dir = ROOT / "roles"
+        result = setup_for_project(
+            tmp_path, roles_dir=roles_dir, config_roles=["qa"]
+        )
+        target = tmp_path / ".gemini" / "rules" / "roles.md"
+        assert target.is_file(), f"Expected {target}, got: {result}"
+        assert "Role Context" in target.read_text()
+
+    def test_generic_writes_agents_md(self, tmp_path):
+        from context import setup_for_project
+        roles_dir = ROOT / "roles"
+        result = setup_for_project(
+            tmp_path, roles_dir=roles_dir, config_roles=["qa"]
+        )
+        target = tmp_path / "AGENTS.md"
+        assert target.is_file(), f"Expected AGENTS.md, got: {result}"
+        assert "Role Context" in target.read_text()
+
+    def test_generic_appends_to_existing_agents_md(self, tmp_path):
+        from context import setup_for_project
+        roles_dir = ROOT / "roles"
+        agents = tmp_path / "AGENTS.md"
+        agents.write_text("# Existing content\n")
+        setup_for_project(tmp_path, roles_dir=roles_dir, config_roles=["qa"])
+        content = agents.read_text()
+        assert "Existing content" in content
+        assert "Role Context" in content
+
+    def test_generic_replaces_existing_role_section(self, tmp_path):
+        from context import setup_for_project
+        roles_dir = ROOT / "roles"
+        agents = tmp_path / "AGENTS.md"
+        agents.write_text("# Before\n# Role Context\nold stuff\n")
+        setup_for_project(tmp_path, roles_dir=roles_dir, config_roles=["qa"])
+        content = agents.read_text()
+        assert "Before" in content
+        assert "old stuff" not in content
+
+    def test_claude_skips_setup(self, tmp_path):
+        from context import setup_for_project
+        (tmp_path / "CLAUDE.md").write_text("# Claude")
+        roles_dir = ROOT / "roles"
+        result = setup_for_project(
+            tmp_path, roles_dir=roles_dir, config_roles=["qa"]
+        )
+        assert "No setup needed" in result
+
+    def test_no_roles_returns_message(self, tmp_path):
+        from context import setup_for_project
+        roles_dir = ROOT / "roles"
+        result = setup_for_project(tmp_path, roles_dir=roles_dir)
+        assert "No roles detected" in result

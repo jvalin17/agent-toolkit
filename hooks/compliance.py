@@ -38,26 +38,14 @@ def get_user_requests() -> List[str]:
     Returns list of user requests — what they actually asked for.
     Use in /reviewer to verify code delivers what was asked.
     """
-    claude_projects = Path.home() / ".claude" / "projects"
-    if not claude_projects.is_dir():
-        return []
+    from hooks.session_log import find_latest_session_log
 
-    cwd_slug = str(Path.cwd()).replace("/", "-")
-    project_dir = None
-    for d in claude_projects.iterdir():
-        if cwd_slug.lstrip("-") in d.name:
-            project_dir = d
-            break
-
-    if not project_dir:
-        return []
-
-    logs = sorted(project_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
-    if not logs:
+    log_path = find_latest_session_log()
+    if not log_path:
         return []
 
     requests = []
-    for line in logs[-1].read_text(errors="ignore").split("\n"):
+    for line in log_path.read_text(errors="ignore").split("\n"):
         if not line.strip():
             continue
         try:
@@ -97,27 +85,11 @@ def get_session_skill_usage() -> Dict[str, Any]:
     Returns tool call counts, skills invoked, agents spawned.
     Cannot be faked — JSONL is written by Claude Code, not the agent.
     """
-    claude_projects = Path.home() / ".claude" / "projects"
-    if not claude_projects.is_dir():
-        return {"available": False, "reason": "no Claude Code logs found"}
+    from hooks.session_log import find_latest_session_log
 
-    # Find current project's log dir
-    cwd_slug = str(Path.cwd()).replace("/", "-")
-    project_dir = None
-    for d in claude_projects.iterdir():
-        if cwd_slug.lstrip("-") in d.name:
-            project_dir = d
-            break
-
-    if not project_dir:
-        return {"available": False, "reason": "no logs for current project"}
-
-    # Find latest session JSONL
-    logs = sorted(project_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
-    if not logs:
+    log_path = find_latest_session_log()
+    if not log_path:
         return {"available": False, "reason": "no session logs found"}
-
-    log_path = logs[-1]
     tools: Dict[str, int] = {}
     skills: list = []
 
@@ -230,6 +202,7 @@ def audit_session_actions(log_path: Path) -> Dict[str, Any]:
     role_agents_spawned = 0
     first_test_edit_index = None
     first_source_edit_index = None
+    first_test_plan_write_index = None
     tool_index = 0
 
     try:
@@ -275,14 +248,19 @@ def audit_session_actions(log_path: Path) -> Dict[str, Any]:
                     if any(p.search(prompt) for p in ROLE_AGENT_PATTERNS):
                         role_agents_spawned += 1
 
-                # Track Edit/Write for TDD ordering
+                # Track Edit/Write for TDD ordering and test plan ordering
                 elif name in ("Edit", "Write"):
                     file_path = inp.get("file_path", "")
-                    is_test = bool(TEST_FILE_PATTERN.search(file_path))
-                    if is_test and first_test_edit_index is None:
-                        first_test_edit_index = tool_index
-                    elif not is_test and first_source_edit_index is None:
-                        first_source_edit_index = tool_index
+                    # Track test plan writes
+                    if "test-plan_" in file_path and ".scratch" in file_path:
+                        if first_test_plan_write_index is None:
+                            first_test_plan_write_index = tool_index
+                    else:
+                        is_test = bool(TEST_FILE_PATTERN.search(file_path))
+                        if is_test and first_test_edit_index is None:
+                            first_test_edit_index = tool_index
+                        elif not is_test and first_source_edit_index is None:
+                            first_source_edit_index = tool_index
 
         except (json.JSONDecodeError, TypeError, KeyError):
             continue
@@ -293,12 +271,23 @@ def audit_session_actions(log_path: Path) -> Dict[str, Any]:
     if first_test_edit_index is not None and first_source_edit_index is not None:
         tdd_order_respected = first_test_edit_index < first_source_edit_index
 
+    # Test plan ordering: plan must be written before first source edit
+    # Vacuously true if no source edits or no test plan
+    test_plan_before_source = True
+    if first_source_edit_index is not None and first_test_plan_write_index is not None:
+        test_plan_before_source = first_test_plan_write_index < first_source_edit_index
+    elif first_source_edit_index is not None and first_test_plan_write_index is None:
+        # Source was edited but no test plan was ever written — still vacuously true
+        # (the _require_test_plan check handles the "no plan at all" case)
+        pass
+
     return {
         "available": True,
         "server_started": server_started,
         "http_request_made": http_request_made,
         "role_agents_spawned": role_agents_spawned,
         "tdd_order_respected": tdd_order_respected,
+        "test_plan_before_source": test_plan_before_source,
     }
 
 

@@ -481,7 +481,7 @@ def plan_to_context(
 
     # Pre-load checklists for roles that have build steps
     checklists: Dict[str, Dict[str, List[str]]] = {}
-    build_step_types = {"build", "fix", "refactor"}
+    build_step_types = {"build", "refactor"}
 
     for step in plan["steps"]:
         if step.get("type") in build_step_types:

@@ -136,15 +136,16 @@ def get_tdd_injection(description: str) -> Optional[str]:
     """
     desc_lower = description.lower()
 
-    # If it's clearly read-only, skip
-    for keyword in READONLY_KEYWORDS:
-        if keyword in desc_lower:
-            return None
-
-    # If it's implementation-like, inject
+    # Check implementation keywords first — they take priority
+    # (e.g., "review and fix" should inject TDD because of "fix")
     for keyword in IMPLEMENTATION_KEYWORDS:
         if keyword in desc_lower:
             return TDD_INJECTION
+
+    # If no implementation keywords, check read-only
+    for keyword in READONLY_KEYWORDS:
+        if keyword in desc_lower:
+            return None
 
     return None
 

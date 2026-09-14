@@ -284,25 +284,13 @@ def _get_session_action_audit() -> dict:
     """Run mechanical session audit from the current session JSONL."""
     try:
         from compliance import audit_session_actions
+        from hooks.session_log import find_latest_session_log
 
-        claude_projects = Path.home() / ".claude" / "projects"
-        if not claude_projects.is_dir():
+        log_path = find_latest_session_log()
+        if not log_path:
             return {"available": False}
 
-        cwd_slug = str(Path.cwd()).replace("/", "-")
-        project_dir_log = None
-        for d in claude_projects.iterdir():
-            if cwd_slug.lstrip("-") in d.name:
-                project_dir_log = d
-                break
-        if not project_dir_log:
-            return {"available": False}
-
-        logs = sorted(project_dir_log.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
-        if not logs:
-            return {"available": False}
-
-        return audit_session_actions(logs[-1])
+        return audit_session_actions(log_path)
     except Exception:
         return {"available": False}
 
@@ -487,24 +475,13 @@ def _append_session_summary(project_dir: Path) -> None:
 
     # Find latest session JSONL
     try:
-        claude_projects = Path.home() / ".claude" / "projects"
-        if not claude_projects.is_dir():
+        from hooks.session_log import find_latest_session_log
+
+        log_path = find_latest_session_log()
+        if not log_path:
             return
 
-        cwd_slug = str(Path.cwd()).replace("/", "-")
-        project_log_dir = None
-        for d in claude_projects.iterdir():
-            if cwd_slug.lstrip("-") in d.name:
-                project_log_dir = d
-                break
-        if not project_log_dir:
-            return
-
-        logs = sorted(project_log_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
-        if not logs:
-            return
-
-        summary = generate_session_summary(logs[-1])
+        summary = generate_session_summary(log_path)
         if "No toolkit activity" in summary or "unavailable" in summary.lower():
             return
 
