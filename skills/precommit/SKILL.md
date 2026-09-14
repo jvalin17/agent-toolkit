@@ -101,6 +101,29 @@ Tests passing ≠ shipped. Port check (`lsof`), curl APIs, describe UI verificat
 
 Never say "it's fixed." Say: "Change is ready. Please verify: [action]."
 
+## Step 4b: UI Regression Check (if UI files changed)
+
+Check `git diff` for UI file changes (`.tsx`, `.jsx`, `.vue`, `.svelte`, `.css`, `.swift`, `.xib`, `.kt`, component/page/view directories).
+
+If UI files changed:
+1. Run the reviewer UI checks (read `skills/reviewer/ui.md`):
+   - Overflow handling on dynamic text
+   - Empty states for data-dependent views
+   - No placeholder/dead buttons
+   - No false success messages
+   - Loading failure resilience (no `Promise.all` for display data)
+2. Run accessibility checks (read `skills/reviewer/accessibility.md`):
+   - Font sizes, contrast, keyboard nav, screen reader labels
+3. Check if E2E tests were updated for the changed components:
+   - If E2E tests exist and were NOT updated → **WARNING**: suggest updating them
+   - If no E2E tests exist → **ASK user**: "UI components changed but no E2E tests exist. Want me to generate Playwright regression tests for [component list]?"
+4. If user says yes → generate tests covering:
+   - Element existence and visibility
+   - Click/type/submit interactions
+   - Visual states (disabled, loading, error, empty, success)
+   - Edge cases (long text, empty data, rapid clicks)
+   - Write to `tests/e2e/` or project's existing E2E directory
+
 ## Step 5: Project Rules Compliance
 
 Grep CLAUDE.md, project-state.md, DECISIONS.md, architecture docs. BLOCKED on contradiction (comply / override logged / update rule).

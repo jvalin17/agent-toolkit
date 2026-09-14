@@ -460,6 +460,65 @@ DIFF_TEST_FILE_PATTERN = re.compile(
 )
 
 
+# UI file patterns — detect frontend component/style changes
+UI_FILE_PATTERN = re.compile(
+    r"\.(tsx|jsx|vue|svelte|css|scss|less|styl"
+    r"|swift|xib|storyboard"  # iOS
+    r"|xml|kt)$"  # Android layouts + Kotlin UI
+    r"|components?/|pages?/|views?/|screens?/|layouts?/"
+    r"|styles?/|theme",
+    re.IGNORECASE,
+)
+
+# E2E test patterns — detect existing Playwright/Cypress tests
+E2E_TEST_PATTERN = re.compile(
+    r"\.e2e\.|\.spec\.(ts|js)|e2e/|cypress/|playwright/|__e2e__/",
+    re.IGNORECASE,
+)
+
+
+def detect_ui_files_in_diff(diff_text: str) -> List[str]:
+    """Find UI/frontend files in a git diff. Returns list of file paths."""
+    if not diff_text.strip():
+        return []
+    ui_files = []
+    for line in diff_text.split("\n"):
+        if line.startswith("diff --git"):
+            match = re.search(r"b/(.+)$", line)
+            if match:
+                filepath = match.group(1)
+                if UI_FILE_PATTERN.search(filepath) and not DIFF_TEST_FILE_PATTERN.search(filepath):
+                    ui_files.append(filepath)
+    return ui_files
+
+
+def check_diff_for_ui_without_e2e(diff_text: str) -> List[str]:
+    """Check if UI files changed without corresponding E2E test updates.
+
+    Returns list of warning strings. Empty = all UI changes have E2E coverage.
+    """
+    ui_files = detect_ui_files_in_diff(diff_text)
+    if not ui_files:
+        return []
+
+    # Check if any E2E test files were also changed
+    e2e_updated = False
+    for line in diff_text.split("\n"):
+        if line.startswith("diff --git"):
+            match = re.search(r"b/(.+)$", line)
+            if match and E2E_TEST_PATTERN.search(match.group(1)):
+                e2e_updated = True
+                break
+
+    if e2e_updated:
+        return []
+
+    return [
+        f"UI component '{Path(f).name}' changed without E2E test update"
+        for f in ui_files[:5]  # cap at 5 to avoid noise
+    ]
+
+
 def check_diff_for_untested_functions(diff_text: str) -> List[str]:
     """Scan a unified diff for new functions/methods without corresponding tests.
 

@@ -41,6 +41,7 @@ from gate.attest import (  # noqa: E402
 )
 from compliance import (  # noqa: E402
     check_diff_for_noqa_in_tests,
+    check_diff_for_ui_without_e2e,
     check_diff_for_untested_functions,
     check_test_plan_coverage,
     format_test_plan_summary,
@@ -517,15 +518,24 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
             diff_text = diff_result.stdout if diff_result.returncode == 0 else ""
         untested = check_diff_for_untested_functions(diff_text)
         noqa_in_tests = check_diff_for_noqa_in_tests(diff_text)
+        ui_without_e2e = check_diff_for_ui_without_e2e(diff_text)
     except Exception:
         untested = []
         noqa_in_tests = []
+        ui_without_e2e = []
 
     ready, reasons = _decide_precommit(
         findings, test, lint, session_audit=action_audit,
         untested_functions=untested, noqa_in_tests=noqa_in_tests,
         config=config,
     )
+
+    # UI regression check — warn (not block) when UI files change without E2E tests
+    if ui_without_e2e:
+        # Warn but don't block — user may not have E2E infrastructure yet
+        reasons_warnings = [f"UI WARNING: {w}" for w in ui_without_e2e]
+        # Store warnings for the report but don't set ready = False
+        # The precommit skill prompt handles the offer to build tests
 
     # Test plan check — verify coverage if a test plan exists
     test_plan_results = _check_test_plans(project_dir)

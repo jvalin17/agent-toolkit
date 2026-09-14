@@ -258,6 +258,51 @@ def _track_skill_routed(project_dir: Path, skill_key: str) -> None:
         pass
 
 
+def _detect_ui_changes(project_dir: Path) -> str:
+    """Check git diff for UI file changes and inject review guidance."""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            capture_output=True, text=True, cwd=project_dir, timeout=5,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            # Try staged
+            result = subprocess.run(
+                ["git", "diff", "--cached", "--name-only"],
+                capture_output=True, text=True, cwd=project_dir, timeout=5,
+            )
+        if result.returncode != 0 or not result.stdout.strip():
+            return ""
+
+        roles_path = Path(__file__).resolve().parent.parent / "roles"
+        if str(roles_path) not in sys.path:
+            sys.path.insert(0, str(roles_path))
+        from compliance import UI_FILE_PATTERN, DIFF_TEST_FILE_PATTERN
+
+        ui_files = []
+        for f in result.stdout.strip().split("\n"):
+            if UI_FILE_PATTERN.search(f) and not DIFF_TEST_FILE_PATTERN.search(f):
+                ui_files.append(f)
+
+        if not ui_files:
+            return ""
+
+        files_list = ", ".join(Path(f).name for f in ui_files[:5])
+        return (
+            f"UI CHANGES DETECTED: {len(ui_files)} UI file(s) changed ({files_list}).\n"
+            "After implementation, you MUST:\n"
+            "1. Run /reviewer with UI checks (read skills/reviewer/ui.md + accessibility.md)\n"
+            "2. Check: overflow handling, empty states, loading failures, false success, a11y\n"
+            "3. Ask the user: 'UI components changed. Want me to generate E2E regression tests '\n"
+            "   'for these components? I can create Playwright/Cypress tests and add them to the codebase.'\n"
+            "4. If yes: generate detailed E2E tests covering interactions, states, and edge cases.\n"
+            "   Write test files to tests/e2e/ or the project's existing E2E test directory."
+        )
+    except Exception:
+        return ""
+
+
 def _get_orchestration_plan(project_dir: Path, config: dict, intent: str) -> str:
     """Build an orchestration plan for the current task. Fails silently."""
     task_type = _INTENT_TO_TASK_TYPE.get(intent)
@@ -397,6 +442,12 @@ def run_route_to_skill(
     _track_skill_routed(project_dir, intent)
 
     context = SKILL_CONTEXTS[intent]
+
+    # Detect UI file changes — inject UI review guidance for build/refactor tasks
+    if intent in ("build", "refactor"):
+        ui_context = _detect_ui_changes(project_dir)
+        if ui_context:
+            context = context + "\n\n" + ui_context
 
     # Append role context if roles are detected
     role_advisory = _get_role_advisory(project_dir, config)
