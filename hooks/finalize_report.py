@@ -531,11 +531,10 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     )
 
     # UI regression check — warn (not block) when UI files change without E2E tests
+    # Appended to reasons as warnings (prefixed) — visible in report but not blocking
     if ui_without_e2e:
-        # Warn but don't block — user may not have E2E infrastructure yet
-        reasons_warnings = [f"UI WARNING: {w}" for w in ui_without_e2e]
-        # Store warnings for the report but don't set ready = False
-        # The precommit skill prompt handles the offer to build tests
+        for w in ui_without_e2e:
+            reasons.append(f"UI WARNING (non-blocking): {w}")
 
     # Test plan check — verify coverage if a test plan exists
     test_plan_results = _check_test_plans(project_dir)

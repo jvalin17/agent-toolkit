@@ -875,3 +875,62 @@ class TestFormatTestPlanSummary:
         assert "test_login_success" in summary
         assert "empty password" in summary
         assert "SQL injection" in summary
+
+
+# --- UI file detection ---
+
+
+class TestDetectUiFilesInDiff:
+    def setup_method(self):
+        from compliance import detect_ui_files_in_diff, check_diff_for_ui_without_e2e
+        self.detect = detect_ui_files_in_diff
+        self.check_e2e = check_diff_for_ui_without_e2e
+
+    def test_tsx_file_detected(self):
+        diff = "diff --git a/src/Button.tsx b/src/Button.tsx\n+export const Button = () => {}"
+        assert "src/Button.tsx" in self.detect(diff)
+
+    def test_css_file_detected(self):
+        diff = "diff --git a/styles/main.css b/styles/main.css\n+body { color: red; }"
+        assert "styles/main.css" in self.detect(diff)
+
+    def test_vue_file_detected(self):
+        diff = "diff --git a/App.vue b/App.vue\n+<template></template>"
+        assert "App.vue" in self.detect(diff)
+
+    def test_swift_file_detected(self):
+        diff = "diff --git a/LoginView.swift b/LoginView.swift\n+struct LoginView {}"
+        assert "LoginView.swift" in self.detect(diff)
+
+    def test_python_file_not_detected(self):
+        diff = "diff --git a/app.py b/app.py\n+print('hello')"
+        assert self.detect(diff) == []
+
+    def test_readme_in_components_dir_not_detected(self):
+        """A non-UI file in a UI directory should NOT match."""
+        diff = "diff --git a/components/README.md b/components/README.md\n+docs"
+        assert self.detect(diff) == []
+
+    def test_test_file_excluded(self):
+        diff = "diff --git a/tests/Button.test.tsx b/tests/Button.test.tsx\n+test('works')"
+        assert self.detect(diff) == []
+
+    def test_empty_diff(self):
+        assert self.detect("") == []
+
+    def test_e2e_check_warns_without_e2e(self):
+        diff = "diff --git a/src/Button.tsx b/src/Button.tsx\n+export const Button = () => {}"
+        warnings = self.check_e2e(diff)
+        assert len(warnings) == 1
+        assert "Button.tsx" in warnings[0]
+
+    def test_e2e_check_passes_with_e2e(self):
+        diff = (
+            "diff --git a/src/Button.tsx b/src/Button.tsx\n+code\n"
+            "diff --git a/e2e/button.e2e.ts b/e2e/button.e2e.ts\n+test"
+        )
+        assert self.check_e2e(diff) == []
+
+    def test_e2e_check_no_ui_files(self):
+        diff = "diff --git a/app.py b/app.py\n+code"
+        assert self.check_e2e(diff) == []

@@ -1648,3 +1648,110 @@ class TestCompactAtLayer1:
         assert response == ""
 
 
+# --- Retry loop detection ---
+
+
+class TestRetryLoopDetection:
+    def test_error_tracked_on_bash_failure(self):
+        """Bash output with 'error' populates recent_errors."""
+        state = SessionState(session_start=int(time.time()))
+        state, _ = handle_post_tool_use(
+            state, tool_result="TypeError: cannot read property", tool_name="Bash"
+        )
+        assert len(state.recent_errors) == 1
+
+    def test_no_error_on_success(self):
+        """Successful bash output does not add to recent_errors."""
+        state = SessionState(session_start=int(time.time()))
+        state, _ = handle_post_tool_use(
+            state, tool_result="All 25 tests passed", tool_name="Bash"
+        )
+        assert len(state.recent_errors) == 0
+
+    def test_success_clears_errors(self):
+        """A successful bash run clears the error history."""
+        state = SessionState(session_start=int(time.time()))
+        state.recent_errors = ["error1", "error1", "error1"]
+        state, _ = handle_post_tool_use(
+            state, tool_result="Build complete, no issues", tool_name="Bash"
+        )
+        assert state.recent_errors == []
+
+    def test_blocks_after_3_identical_errors(self):
+        """Same error 3 times in a row triggers block."""
+        state = SessionState(session_start=int(time.time()))
+        error_msg = "ModuleNotFoundError: No module named 'foo'"
+        state.recent_errors = [
+            error_msg[:100],
+            error_msg[:100],
+            error_msg[:100],
+        ]
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Edit", file_path="foo.py", command=""
+        )
+        assert blocked is True
+        assert "RETRY LOOP" in response
+
+    def test_no_block_with_different_errors(self):
+        """3 different errors should not trigger retry loop."""
+        state = SessionState(session_start=int(time.time()))
+        state.recent_errors = ["error_a", "error_b", "error_c"]
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Edit", file_path="foo.py", command=""
+        )
+        assert blocked is False
+
+
+# --- Damage radius tracking ---
+
+
+class TestDamageRadius:
+    def test_tracks_edited_files(self):
+        """Edit/Write adds to files_edited."""
+        state = SessionState(session_start=int(time.time()))
+        state, _ = handle_post_tool_use(
+            state, tool_result="ok", tool_name="Edit", file_path="/tmp/a.py"
+        )
+        state, _ = handle_post_tool_use(
+            state, tool_result="ok", tool_name="Write", file_path="/tmp/b.py"
+        )
+        assert len(state.files_edited) == 2
+
+    def test_deduplicates_same_file(self):
+        """Same file edited twice is only counted once."""
+        state = SessionState(session_start=int(time.time()))
+        state, _ = handle_post_tool_use(
+            state, tool_result="ok", tool_name="Edit", file_path="/tmp/a.py"
+        )
+        state, _ = handle_post_tool_use(
+            state, tool_result="ok", tool_name="Edit", file_path="/tmp/a.py"
+        )
+        assert len(state.files_edited) == 1
+
+    def test_read_does_not_count(self):
+        """Read tool should not increase files_edited."""
+        state = SessionState(session_start=int(time.time()))
+        state, _ = handle_post_tool_use(
+            state, tool_result="content", tool_name="Read", file_path="/tmp/a.py"
+        )
+        assert len(state.files_edited) == 0
+
+    def test_blocks_at_damage_limit(self):
+        """Hard block when too many unique files edited."""
+        from session_monitor import DAMAGE_RADIUS_BLOCK
+        state = SessionState(session_start=int(time.time()))
+        state.files_edited = [f"/tmp/file{i}.py" for i in range(DAMAGE_RADIUS_BLOCK)]
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Edit", file_path="/tmp/new.py", command=""
+        )
+        assert blocked is True
+        assert "DAMAGE RADIUS" in response
+
+    def test_no_block_under_limit(self):
+        """No block when under the damage limit."""
+        state = SessionState(session_start=int(time.time()))
+        state.files_edited = ["/tmp/a.py", "/tmp/b.py"]
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Edit", file_path="/tmp/c.py", command=""
+        )
+        assert blocked is False

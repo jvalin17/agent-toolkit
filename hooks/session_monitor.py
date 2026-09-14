@@ -58,6 +58,15 @@ PATCH_FORWARD_WARN_THRESHOLD = 2
 SLABS_WITHOUT_DATA_WARN_THRESHOLD = 1
 LAST_TEST_EDITS_MAX = 5
 
+# Retry loop detection
+MAX_RECENT_ERRORS = 10  # keep last N errors
+RETRY_LOOP_THRESHOLD = 3  # same error 3 times = stuck
+ERROR_MATCH_LENGTH = 100  # compare first N chars of error message
+
+# Damage radius
+DAMAGE_RADIUS_WARN = 5  # warn after this many unique files edited
+DAMAGE_RADIUS_BLOCK = 15  # block after this many (likely off track)
+
 
 def _strict_integrity_response(state: SessionState) -> Optional[str]:
     """Periodic strict-mode integrity check (every DRIFT_CHECK_INTERVAL exchanges)."""
@@ -201,6 +210,29 @@ def handle_post_tool_use(
         state.last_test_edits.append(file_path)
         state.last_test_edits = state.last_test_edits[-LAST_TEST_EDITS_MAX:]
 
+    # Track unique files edited (blast radius)
+    if tool_name in ("Edit", "Write") and file_path:
+        resolved = str(Path(file_path).resolve())
+        if resolved not in state.files_edited:
+            state.files_edited.append(resolved)
+
+    # Track errors for retry loop detection
+    if tool_name == "Bash" and tool_result:
+        result_lower = tool_result.lower()
+        has_error = (
+            "error" in result_lower
+            or "traceback" in result_lower
+            or "failed" in result_lower
+            or "exit code" in result_lower
+        )
+        if has_error:
+            error_key = tool_result.strip()[:ERROR_MATCH_LENGTH]
+            state.recent_errors.append(error_key)
+            state.recent_errors = state.recent_errors[-MAX_RECENT_ERRORS:]
+        else:
+            # Success clears error history — agent is making progress
+            state.recent_errors = []
+
     if state.mode == "strict":
         entry = {"tool": tool_name}
 
@@ -284,13 +316,47 @@ def handle_pre_tool_use(
                 f"Edit to {filename} failed — re-read {failed_file} first, then retry."
             ), True
 
+    # Retry loop detection — same error 3+ times means agent is stuck
+    if state.recent_errors and len(state.recent_errors) >= RETRY_LOOP_THRESHOLD:
+        last_errors = state.recent_errors[-RETRY_LOOP_THRESHOLD:]
+        if len(set(last_errors)) == 1:
+            return state, (
+                f"RETRY LOOP DETECTED: Same error {RETRY_LOOP_THRESHOLD} times in a row. "
+                f"Stop and try a DIFFERENT approach. Error: {last_errors[0][:80]}..."
+            ), True
+
+    # Damage radius check — too many files edited
+    if tool_name in ("Edit", "Write") and file_path:
+        n_files = len(state.files_edited)
+        if n_files >= DAMAGE_RADIUS_BLOCK:
+            return state, (
+                f"DAMAGE RADIUS: {n_files} files edited this session (limit: {DAMAGE_RADIUS_BLOCK}). "
+                f"This is likely off track. Confirm with the user before continuing."
+            ), True
+        if n_files >= DAMAGE_RADIUS_WARN and n_files == DAMAGE_RADIUS_WARN:
+            # Warn once at threshold (not every subsequent edit)
+            pass  # warning injected below, not blocking
+
     blocked, block_msg = check_protected_paths(
         state, tool_name, file_path, command
     )
     if blocked:
         return state, block_msg, True
 
+    # Damage radius warning (non-blocking, injected as context)
+    blast_warning = ""
+    if tool_name in ("Edit", "Write") and len(state.files_edited) == DAMAGE_RADIUS_WARN:
+        blast_warning = (
+            f"DAMAGE RADIUS WARNING: {DAMAGE_RADIUS_WARN} unique files edited this session. "
+            f"If this is a targeted change, you may be touching too many files. "
+            f"Files so far: {', '.join(Path(f).name for f in state.files_edited[-5:])}"
+        )
+
     state, response = apply_session_limits(state)
+    if blast_warning and not response:
+        response = blast_warning
+    elif blast_warning and response:
+        response = blast_warning + "\n\n" + response
     return state, response, False
 
 

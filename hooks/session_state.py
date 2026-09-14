@@ -57,6 +57,10 @@ class SessionState:
     demo_completed: bool = False  # F3.3: set when agent demos after implementation slab
     continue_mode: bool = True  # Assume wrapper; set False only if explicitly disabled
     pending_failed_edit: str = ""  # File path of last failed Edit — blocks until re-read
+    # Retry loop detection — track recent errors to catch repeated failures
+    recent_errors: list = field(default_factory=list)  # last N error messages (truncated)
+    # Blast radius tracking — unique files edited this session
+    files_edited: list = field(default_factory=list)  # unique file paths edited
 
 
 def load_state(state_file: Path) -> SessionState:
@@ -67,6 +71,10 @@ def load_state(state_file: Path) -> SessionState:
         data = json.loads(state_file.read_text(encoding="utf-8"))
         valid_fields = {f.name for f in SessionState.__dataclass_fields__.values()}
         filtered = {k: v for k, v in data.items() if k in valid_fields}
+        # Guard against null values for list fields (corrupt state JSON)
+        for list_field in ("recent_errors", "files_edited", "last_test_edits", "last_tool_sequence"):
+            if list_field in filtered and filtered[list_field] is None:
+                filtered[list_field] = []
         state = SessionState(**filtered)
         if state.max_session_minutes > 0:
             elapsed = int(time.time()) - state.session_start

@@ -461,24 +461,34 @@ DIFF_TEST_FILE_PATTERN = re.compile(
 
 
 # UI file patterns — detect frontend component/style changes
-UI_FILE_PATTERN = re.compile(
+# Two conditions: file has a UI extension, OR file has a UI extension AND lives in a UI directory.
+# Directory-only matches (components/README.md) are excluded by requiring an extension match.
+UI_FILE_EXTENSIONS = re.compile(
     r"\.(tsx|jsx|vue|svelte|css|scss|less|styl"
     r"|swift|xib|storyboard"  # iOS
-    r"|xml|kt)$"  # Android layouts + Kotlin UI
-    r"|components?/|pages?/|views?/|screens?/|layouts?/"
-    r"|styles?/|theme",
+    r"|xml|kt)$",  # Android layouts + Kotlin UI
+    re.IGNORECASE,
+)
+UI_DIR_PATTERN = re.compile(
+    r"components?/|pages?/|views?/|screens?/|layouts?/"
+    r"|styles?/|theme/",
     re.IGNORECASE,
 )
 
 # E2E test patterns — detect existing Playwright/Cypress tests
 E2E_TEST_PATTERN = re.compile(
-    r"\.e2e\.|\.spec\.(ts|js)|e2e/|cypress/|playwright/|__e2e__/",
+    r"\.e2e\.\w+$|e2e/|cypress/|playwright/|__e2e__/",
     re.IGNORECASE,
 )
 
 
 def detect_ui_files_in_diff(diff_text: str) -> List[str]:
-    """Find UI/frontend files in a git diff. Returns list of file paths."""
+    """Find UI/frontend files in a git diff. Returns list of file paths.
+
+    A file is considered UI if it has a UI extension (.tsx, .jsx, .vue, .css, etc.).
+    Files in UI directories (components/, pages/) are included only if they also
+    have a UI extension — prevents matching README.md in components/.
+    """
     if not diff_text.strip():
         return []
     ui_files = []
@@ -487,7 +497,9 @@ def detect_ui_files_in_diff(diff_text: str) -> List[str]:
             match = re.search(r"b/(.+)$", line)
             if match:
                 filepath = match.group(1)
-                if UI_FILE_PATTERN.search(filepath) and not DIFF_TEST_FILE_PATTERN.search(filepath):
+                if DIFF_TEST_FILE_PATTERN.search(filepath):
+                    continue  # skip test files
+                if UI_FILE_EXTENSIONS.search(filepath):
                     ui_files.append(filepath)
     return ui_files
 

@@ -41,5 +41,7 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G-IMPL-7:** Ground truth — test fixtures must cite data source (query output, user sample, spec, factory). "I read the code" is not valid provenance. Hard blocker in strict mode.
 - **G-IMPL-6:** No easy way out — no hardcoded returns, magic numbers, copy-paste x3, shipped stubs, swallowed errors, boolean flag arguments
 - **G-IMPL-8:** No ungrounded claims — never state what code "used to do", "originally did", or "the old behavior was" without citing evidence (`git log`, `git blame`, file:line, test output). If you don't know the original behavior, say "I don't know what this did before" — don't fabricate history.
+- **G-IMPL-9:** No retry loops — if the same error appears 3 times, stop and try a different approach. Never attempt the same fix more than twice. The hook blocks on the third identical error.
+- **G-IMPL-10:** Damage radius limit — warn after editing 5 unique files, block after 15. If a targeted change touches too many files, confirm with the user. Exception: planned refactors across files.
 - **G-EVAL-1/2:** Highlight unverifiable, guardrail-aware grading
 - **G-UPD-1/2:** No auto-update, offline graceful

@@ -278,11 +278,11 @@ def _detect_ui_changes(project_dir: Path) -> str:
         roles_path = Path(__file__).resolve().parent.parent / "roles"
         if str(roles_path) not in sys.path:
             sys.path.insert(0, str(roles_path))
-        from compliance import UI_FILE_PATTERN, DIFF_TEST_FILE_PATTERN
+        from compliance import UI_FILE_EXTENSIONS, DIFF_TEST_FILE_PATTERN
 
         ui_files = []
         for f in result.stdout.strip().split("\n"):
-            if UI_FILE_PATTERN.search(f) and not DIFF_TEST_FILE_PATTERN.search(f):
+            if UI_FILE_EXTENSIONS.search(f) and not DIFF_TEST_FILE_PATTERN.search(f):
                 ui_files.append(f)
 
         if not ui_files:
