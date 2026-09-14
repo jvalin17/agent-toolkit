@@ -314,3 +314,45 @@ class TestPlanToContext:
 
         assert "MUST NOT" in context or "DO NOT" in context or "NEVER" in context
         assert "MUST" in context
+
+
+class TestPlanSummary:
+    """plan_to_context should include an execution summary showing
+    slabs/steps with applicable roles and skills for each."""
+
+    def test_plan_has_execution_summary(self):
+        from orchestrator import build_orchestration_plan, plan_to_context
+
+        roles_dir = Path(__file__).resolve().parents[1] / "roles"
+        plan = build_orchestration_plan(
+            "backend", "new_feature",
+            ["backend", "security", "qa"],
+            roles_dir=roles_dir,
+        )
+        text = plan_to_context(plan, roles_dir=roles_dir)
+
+        # Must show which skills are in the pipeline
+        assert "/requirements" in text or "requirements" in text
+        assert "/reviewer" in text or "reviewer" in text
+        assert "/evaluate" in text or "evaluate" in text
+        assert "/precommit" in text or "precommit" in text
+
+        # Must show which roles review at which step
+        assert "security" in text
+        assert "qa" in text
+
+    def test_plan_summary_shows_model_per_step(self):
+        from orchestrator import build_orchestration_plan, plan_to_context
+
+        roles_dir = Path(__file__).resolve().parents[1] / "roles"
+        plan = build_orchestration_plan(
+            "backend", "new_feature",
+            ["backend", "security"],
+            roles_dir=roles_dir,
+        )
+        text = plan_to_context(plan, roles_dir=roles_dir)
+
+        # Must show model assignments
+        assert "haiku" in text
+        assert "sonnet" in text
+        assert "opus" in text

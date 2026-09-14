@@ -85,10 +85,44 @@ If no orchestration plan is in context, proceed normally — roles still inject 
 
 ## Build Mode: Sequence
 
-STOP. Before writing ANY code, verify:
+STOP. Before writing ANY code:
+
+### Step 0: Execution Plan (MANDATORY — show before first line of code)
+
+Present a full execution plan to the user. This is not optional. The user must see what will happen before any code is written.
+
+**0a. Prerequisites check:**
 1. Requirements exist (`requirements/<slug>.md`) — if not, tell user: "Run /requirements first."
 2. Architecture exists (`architecture/<slug>.md`) — if not, tell user: "Run /architecture first."
 3. Do NOT invent requirements or architecture. Do NOT assume. Ask.
+
+**0b. Slab breakdown:**
+Derive slabs from architecture + requirements. For EACH slab, show:
+
+```
+EXECUTION PLAN: <feature name>
+
+Slab 1: <name> — <what it does>
+  Build:    <primary role> (model: sonnet)
+  Reviews:  <roles that review> (model: opus)
+  Skills:   /implementation → /reviewer → /evaluate → /precommit
+  Tests:    <what gets tested>
+
+Slab 2: <name> — <what it does>
+  Build:    <primary role> (model: sonnet)
+  Reviews:  <roles that review> (model: opus)
+  Skills:   /implementation → /reviewer → /evaluate → /precommit
+  Tests:    <what gets tested>
+
+Final quality:
+  /reviewer (full) → /evaluate (full) → /assess (architecture fitness)
+
+Pipeline per slab: build → reviewer → evaluate → precommit → commit
+```
+
+**0c. User confirms:** Wait for user to approve the plan or adjust it. Do NOT proceed until confirmed.
+
+If session context contains an "ORCHESTRATION PLAN" from the orchestrator, use it to populate the execution plan — it already has roles, skills, and model tiers per step.
 
 ### Phase 1: Walking Skeleton (greenfield only)
 Read `skeleton.md`. Thin end-to-end path. No TDD. Port from env var (default 8040). Commit as first slab.
