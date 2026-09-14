@@ -148,8 +148,10 @@ class AutoContinue:
             cmd = [
                 "claude", "-p", prompt,
                 "--output-format", "json",
-                "--dangerously-skip-permissions",
             ]
+            # Only skip permissions if explicitly opted in via env var
+            if os.environ.get("AGENT_TOOLKIT_SKIP_PERMISSIONS") == "1":
+                cmd.append("--dangerously-skip-permissions")
         else:
             # Interactive: launch claude normally, let user interact
             # First session uses --init-prompt, continuations use --resume

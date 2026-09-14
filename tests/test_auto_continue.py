@@ -409,3 +409,50 @@ class TestModelConfig:
             runner._launch_session("test prompt")
         printed = mock_print.call_args[0][0]
         assert "--model opus" in printed
+
+
+# --- Security: permissions bypass must be opt-in ---
+
+
+class TestPermissionsBypass:
+    def test_headless_no_skip_permissions_by_default(self, project_dir):
+        """Headless mode should NOT pass --dangerously-skip-permissions unless opted in."""
+        runner = AutoContinue(
+            goal="Build it", max_budget=None, project_dir=project_dir, headless=True,
+        )
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            runner._launch_session("test prompt")
+        cmd = mock_run.call_args[0][0]
+        assert "--dangerously-skip-permissions" not in cmd
+
+    def test_headless_skip_permissions_with_env_var(self, project_dir):
+        """Opt-in via AGENT_TOOLKIT_SKIP_PERMISSIONS=1."""
+        runner = AutoContinue(
+            goal="Build it", max_budget=None, project_dir=project_dir, headless=True,
+        )
+        with patch("subprocess.run") as mock_run, \
+             patch.dict(os.environ, {"AGENT_TOOLKIT_SKIP_PERMISSIONS": "1"}):
+            mock_run.return_value = MagicMock(returncode=0)
+            runner._launch_session("test prompt")
+        cmd = mock_run.call_args[0][0]
+        assert "--dangerously-skip-permissions" in cmd
+
+
+# --- Max session cap ---
+
+
+class TestMaxSessionCap:
+    def test_stops_at_max_sessions(self, project_dir):
+        """Loop should stop after max sessions."""
+        (project_dir / "HANDOFF.md").write_text("# HANDOFF\n\n## Goal\n\ntest\n")
+        runner = AutoContinue(
+            goal="test", max_budget=None, project_dir=project_dir, headless=True,
+        )
+        with patch("subprocess.run") as mock_run, \
+             patch.dict(os.environ, {"AGENT_TOOLKIT_MAX_SESSIONS": "2"}):
+            mock_run.return_value = MagicMock(returncode=0)
+            result = runner.run()
+        assert result == 1
+        # Ran 2 sessions, then incremented to 3 and stopped
+        assert mock_run.call_count == 2
