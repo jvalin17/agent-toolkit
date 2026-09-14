@@ -1,7 +1,7 @@
 # Coding Standards Index
 
 > Quick reference for all language standards. Each language has a detailed file.
-> Last verified: 2026-04-24
+> Last verified: 2026-09-14
 
 ## Universal Rules (ALL languages)
 
@@ -18,7 +18,14 @@
 
 | Language | File | Official Style Guide |
 |----------|------|---------------------|
-| Python | [coding-standards-python.md](coding-standards-python.md) | [PEP 8](https://peps.python.org/pep-0008/) |
-| TypeScript/React | [coding-standards-typescript.md](coding-standards-typescript.md) | [Google TS Guide](https://google.github.io/styleguide/tsguide.html) |
+| C | [coding-standards-c.md](coding-standards-c.md) | [CERT C](https://wiki.sei.cmu.edu/confluence/display/c) |
+| C++ | [coding-standards-cpp.md](coding-standards-cpp.md) | [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/) |
+| C# | [coding-standards-csharp.md](coding-standards-csharp.md) | [Microsoft C# Conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/) |
+| Go | [coding-standards-go.md](coding-standards-go.md) | [Effective Go](https://go.dev/doc/effective_go) |
 | Java | [coding-standards-java.md](coding-standards-java.md) | [Google Java Guide](https://google.github.io/styleguide/javaguide.html) |
+| Kotlin | [coding-standards-kotlin.md](coding-standards-kotlin.md) | [Kotlin Conventions](https://kotlinlang.org/docs/coding-conventions.html) |
+| MATLAB | [coding-standards-matlab.md](coding-standards-matlab.md) | [MATLAB Style Guidelines](https://www.mathworks.com/matlabcentral/fileexchange/46056) |
+| Python | [coding-standards-python.md](coding-standards-python.md) | [PEP 8](https://peps.python.org/pep-0008/) |
 | Rust | [coding-standards-rust.md](coding-standards-rust.md) | [Rust API Guidelines](https://rust-lang.github.io/api-guidelines/) |
+| Swift | [coding-standards-swift.md](coding-standards-swift.md) | [Swift API Design Guidelines](https://www.swift.org/documentation/api-design-guidelines/) |
+| TypeScript/React | [coding-standards-typescript.md](coding-standards-typescript.md) | [Google TS Guide](https://google.github.io/styleguide/tsguide.html) |
