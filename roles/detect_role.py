@@ -408,22 +408,20 @@ def load_role_context(
                 parts.append("")
                 parts.append(body)
 
-        # Load foundational knowledge (books — principles, patterns, frameworks)
-        books = books_index.get(role_name, "")
-        if books:
-            if len(books) > 1500:
-                books = books[:1500] + "\n\n[... truncated — full in books-knowledge.json]"
+        # Knowledge references (compact — full text loaded on demand)
+        has_books = role_name in books_index
+        has_practical = role_name in knowledge_index
+        if has_books or has_practical:
+            refs = []
+            if has_books:
+                refs.append("books-knowledge.json (foundational principles)")
+            if has_practical:
+                refs.append("knowledge.json (practical patterns)")
             parts.append("")
-            parts.append(f"## {role_name.upper()} — Foundational Principles")
-            parts.append(books)
-
-        # Load practical knowledge (repos — implementation patterns)
-        synthesis = knowledge_index.get(role_name, "")
-        if synthesis:
-            if len(synthesis) > 1500:
-                synthesis = synthesis[:1500] + "\n\n[... truncated — full in knowledge.json]"
-            parts.append("")
-            parts.append(f"## {role_name.upper()} — Practical Patterns")
-            parts.append(synthesis)
+            parts.append(
+                f"## {role_name.upper()} — Knowledge (read on demand)\n"
+                f"For architecture decisions, security audits, or deep design work, "
+                f"read the full knowledge from: {', '.join(refs)} in the roles/ directory."
+            )
 
     return "\n".join(parts)

@@ -390,6 +390,35 @@ class TestCleanupTestPlans:
         assert "test_login" in content
         assert "empty password" in content
 
+    def test_compresses_old_entries(self, tmp_path):
+        """When > 10 test plan entries, older ones are archived."""
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+
+        state = tmp_path / "project-state.md"
+        # Create 12 existing entries
+        entries = "\n\n## Test Plans\n\n"
+        for i in range(12):
+            entries += f"### feature-{i} (2026-01-{i+1:02d})\n- TC1: Test {i}\n\n"
+        state.write_text(f"# Project\n{entries}")
+
+        plan = {
+            "feature": "new-feature",
+            "cases": [{"id": "TC1", "description": "Works",
+                       "test_file": "tests/test_new.py", "test_name": "test_works"}],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        (scratch / "test-plan_new.json").write_text(json.dumps(plan))
+
+        fr._cleanup_test_plans(tmp_path, [plan])
+
+        content = state.read_text()
+        assert "archived" in content
+        # Should keep last 10, not all 13
+        assert content.count("### ") <= 11  # 10 old + 1 new
+        assert "new-feature" in content
+
     def test_appends_to_existing_test_plans_section(self, tmp_path):
         """If ## Test Plans already exists, append without duplicating header."""
         scratch = tmp_path / ".scratch"

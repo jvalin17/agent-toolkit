@@ -113,7 +113,7 @@ See `references/readme-validation.md`.
 
 If `/reviewer` was already invoked this session (check Step 5e result first), **skip this step** — the reviewer already did role-based quality checks. Do not double-review.
 
-If `/reviewer` was NOT called, spawn one Agent per detected role (parallel, opus) to review the changed code — reviews are quality judgments, not mechanical tasks:
+If `/reviewer` was NOT called, spawn one Agent per detected role (parallel, sonnet) to review the changed code — reviews are quality judgments against checklists, not architecture decisions:
 
 ```
 For each role in ACTIVE ROLES:

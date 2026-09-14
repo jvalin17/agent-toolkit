@@ -308,7 +308,7 @@ class TestLoadRoleContext:
         # Should only include 3 roles
         assert context.count("## Advisory") <= 3
 
-    def test_loads_synthesis_knowledge(self, tmp_path):
+    def test_includes_compact_knowledge_reference(self, tmp_path):
         from detect_role import load_role_context
 
         roles_root = tmp_path / "roles"
@@ -323,9 +323,11 @@ class TestLoadRoleContext:
         }))
 
         context = load_role_context(["backend"], roles_dir=roles_root)
-        assert "cursor pagination" in context
-        assert "Connection pooling" in context
-        assert "Practical Patterns" in context
+        # Should have compact reference, not full text
+        assert "knowledge.json" in context
+        assert "read on demand" in context.lower()
+        # Full content should NOT be injected
+        assert "cursor pagination" not in context
 
     def test_skips_synthesis_if_missing(self, tmp_path):
         from detect_role import load_role_context
@@ -342,7 +344,7 @@ class TestLoadRoleContext:
         assert "FE role" in context
         assert "Practical Patterns" not in context
 
-    def test_truncates_large_synthesis(self, tmp_path):
+    def test_large_knowledge_still_compact_reference(self, tmp_path):
         from detect_role import load_role_context
 
         roles_root = tmp_path / "roles"
@@ -356,4 +358,6 @@ class TestLoadRoleContext:
         }))
 
         context = load_role_context(["backend"], roles_dir=roles_root)
-        assert "truncated" in context
+        # Should be compact reference, not 5000 chars of content
+        assert len(context) < 1000
+        assert "knowledge.json" in context

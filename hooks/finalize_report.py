@@ -351,6 +351,61 @@ def _check_test_plans(project_dir: Path) -> dict:
     }
 
 
+MAX_TEST_PLAN_ENTRIES = 10
+
+
+def _compress_test_plans_section(content: str) -> str:
+    """Keep last N test plan entries in project-state.md.
+
+    Entries start with '### ' under '## Test Plans'. If there are more than
+    MAX_TEST_PLAN_ENTRIES, older ones are replaced with a count summary.
+    """
+    marker = "## Test Plans"
+    if marker not in content:
+        return content
+
+    before, after = content.split(marker, 1)
+
+    # Find where the next ## section starts (if any)
+    next_section = after.find("\n## ", 1)
+    if next_section == -1:
+        plans_text = after
+        remainder = ""
+    else:
+        plans_text = after[:next_section]
+        remainder = after[next_section:]
+
+    # Split into entries by ### headers
+    entries: list[str] = []
+    current: list[str] = []
+    for line in plans_text.split("\n"):
+        if line.startswith("### ") and current:
+            entries.append("\n".join(current))
+            current = [line]
+        else:
+            current.append(line)
+    if current:
+        entries.append("\n".join(current))
+
+    # Filter out empty entries (just whitespace)
+    entries = [e for e in entries if e.strip() and "### " in e]
+
+    if len(entries) <= MAX_TEST_PLAN_ENTRIES:
+        return content
+
+    archived_count = len(entries) - MAX_TEST_PLAN_ENTRIES
+    kept = entries[-MAX_TEST_PLAN_ENTRIES:]
+
+    compressed = (
+        f"{marker}\n\n"
+        f"*({archived_count} older test plan(s) archived)*\n\n"
+        + "\n\n".join(kept)
+        + "\n"
+    )
+
+    return before + compressed + remainder
+
+
 def _cleanup_test_plans(project_dir: Path, plans: list[dict]) -> None:
     """Delete test plan files and append summaries to project-state.md."""
     # Append summaries
@@ -364,6 +419,10 @@ def _cleanup_test_plans(project_dir: Path, plans: list[dict]) -> None:
         if "## Test Plans" not in content:
             content += "\n\n## Test Plans\n"
         content += "\n" + "\n\n".join(summaries) + "\n"
+
+        # Compress: keep last 10 test plan entries, archive the rest
+        content = _compress_test_plans_section(content)
+
         state_file.write_text(content, encoding="utf-8")
 
     # Delete plan files
