@@ -44,6 +44,7 @@ from compliance import (  # noqa: E402
     check_diff_for_untested_functions,
     check_test_plan_coverage,
     format_test_plan_summary,
+    generate_session_summary,
     validate_test_plan,
 )
 from finalize_common import EVAL_DIMENSION_WEIGHTS, fail  # noqa: E402
@@ -406,6 +407,60 @@ def _compress_test_plans_section(content: str) -> str:
     return before + compressed + remainder
 
 
+def _append_session_summary(project_dir: Path) -> None:
+    """Generate and append a session summary to project-state.md."""
+    state_file = project_dir / "project-state.md"
+    if not state_file.is_file():
+        return
+
+    # Find latest session JSONL
+    try:
+        claude_projects = Path.home() / ".claude" / "projects"
+        if not claude_projects.is_dir():
+            return
+
+        cwd_slug = str(Path.cwd()).replace("/", "-")
+        project_log_dir = None
+        for d in claude_projects.iterdir():
+            if cwd_slug.lstrip("-") in d.name:
+                project_log_dir = d
+                break
+        if not project_log_dir:
+            return
+
+        logs = sorted(project_log_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
+        if not logs:
+            return
+
+        summary = generate_session_summary(logs[-1])
+        if "No toolkit activity" in summary or "unavailable" in summary.lower():
+            return
+
+        # Add date to summary header
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        summary = summary.replace("## Session Summary", f"## Session Summary ({date})")
+
+        content = state_file.read_text(encoding="utf-8")
+
+        # Replace existing session summary or append
+        if "## Session Summary" in content:
+            # Replace the old summary (keep only latest)
+            import re as _re
+            content = _re.sub(
+                r"## Session Summary[^\n]*\n(?:(?!^## ).)*",
+                summary + "\n\n",
+                content,
+                count=1,
+                flags=_re.MULTILINE | _re.DOTALL,
+            )
+        else:
+            content += "\n\n" + summary + "\n"
+
+        state_file.write_text(content, encoding="utf-8")
+    except Exception:
+        pass  # Non-critical — don't block the gate
+
+
 def _cleanup_test_plans(project_dir: Path, plans: list[dict]) -> None:
     """Delete test plan files and append summaries to project-state.md."""
     # Append summaries
@@ -503,6 +558,10 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     # On success: clean up test plans and append summaries to project-state.md
     if ready and test_plan_results.get("plans"):
         _cleanup_test_plans(project_dir, test_plan_results["plans"])
+
+    # Append session summary to project-state.md
+    if ready:
+        _append_session_summary(project_dir)
 
     return _emit_response(
         {

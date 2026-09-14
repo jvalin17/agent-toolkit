@@ -302,6 +302,134 @@ def audit_session_actions(log_path: Path) -> Dict[str, Any]:
     }
 
 
+# --- Session summary -------------------------------------------------------
+
+# Pattern to extract test results from pytest output
+TEST_RESULT_PATTERN = re.compile(r"(\d+)\s+passed(?:,\s*(\d+)\s+(?:skipped|failed|error))?")
+
+# Role names to detect in agent prompts
+ROLE_NAMES = [
+    "qa", "security", "backend", "frontend", "dba", "architect",
+    "infrastructure", "legal", "data-engineer", "data-scientist",
+    "embedded", "ios", "android", "game-dev", "research",
+    "production", "code-health", "ai-ml", "requirements-eng",
+]
+
+
+def generate_session_summary(log_path: Path) -> str:
+    """Read a session JSONL and produce a markdown summary of toolkit usage.
+
+    Extracts: skills used, files changed, test results, roles checked.
+    Returns a markdown string suitable for appending to project-state.md.
+    """
+    if not log_path.is_file():
+        return "Session summary unavailable — log not found."
+
+    try:
+        text = log_path.read_text(errors="ignore")
+    except OSError:
+        return "Session summary unavailable — cannot read log."
+
+    skills: List[str] = []
+    files_changed: set = set()
+    test_results: List[str] = []
+    roles_checked: set = set()
+
+    for line in text.split("\n"):
+        if not line.strip():
+            continue
+        try:
+            entry = json.loads(line)
+            msg = entry.get("message", {})
+            content = msg.get("content", "")
+
+            # Handle tool_result entries (test output as string)
+            if isinstance(content, str):
+                m = TEST_RESULT_PATTERN.search(content)
+                if m:
+                    test_results.append(m.group(0))
+                continue
+
+            if not isinstance(content, list):
+                continue
+
+            # Also check list-form content for tool_result text blocks
+            for text_block in content:
+                if isinstance(text_block, dict) and text_block.get("type") == "text":
+                    txt = text_block.get("text", "")
+                    m = TEST_RESULT_PATTERN.search(txt)
+                    if m:
+                        test_results.append(m.group(0))
+
+            for block in content:
+                block_type = block.get("type", "")
+                name = block.get("name", "")
+                inp = block.get("input", {})
+
+                if block_type == "tool_use":
+                    # Skills invoked
+                    if name == "Skill":
+                        skill = inp.get("skill", "?")
+                        if skill not in skills:
+                            skills.append(skill)
+
+                    # Files changed
+                    elif name in ("Edit", "Write"):
+                        fp = inp.get("file_path", "")
+                        if fp:
+                            # Keep just filename for brevity
+                            files_changed.add(fp.split("/")[-1])
+
+                    # Role agents
+                    elif name == "Agent":
+                        prompt = (inp.get("prompt", "") + " " + inp.get("description", "")).lower()
+                        for role in ROLE_NAMES:
+                            if role in prompt and ("review" in prompt or "check" in prompt or "audit" in prompt):
+                                roles_checked.add(role)
+
+                    # Test results from Bash output
+                    elif name == "Bash":
+                        cmd = inp.get("command", "")
+                        if "pytest" in cmd or "test" in cmd:
+                            pass  # results come in tool_result
+
+                # Check tool_result text for test output
+                elif block_type == "tool_result":
+                    result_text = block.get("content", "")
+                    if isinstance(result_text, str):
+                        m = TEST_RESULT_PATTERN.search(result_text)
+                        if m:
+                            test_results.append(m.group(0))
+
+        except (json.JSONDecodeError, TypeError, KeyError):
+            continue
+
+    # No toolkit activity
+    if not skills and not files_changed and not test_results and not roles_checked:
+        return "No toolkit activity detected in this session."
+
+    # Build summary
+    lines = ["## Session Summary", ""]
+
+    if skills:
+        lines.append(f"**Skills used:** {', '.join(f'/{s}' for s in skills)}")
+
+    if roles_checked:
+        lines.append(f"**Roles checked:** {', '.join(sorted(roles_checked))}")
+
+    if files_changed:
+        file_list = ", ".join(sorted(files_changed))
+        if len(file_list) > 200:
+            file_list = file_list[:200] + "..."
+        lines.append(f"**Files changed:** {file_list}")
+
+    if test_results:
+        # Use the last test result (most recent run)
+        lines.append(f"**Tests:** {test_results[-1]}")
+
+    return "\n".join(lines)
+
+
 # --- Git diff TDD check ---------------------------------------------------
 
 # Patterns for function/method definitions (added lines only)

@@ -586,6 +586,74 @@ class TestCheckDiffForNoqaInTests:
         assert len(result) == 0
 
 
+# --- Session summary -------------------------------------------------------
+
+
+class TestGenerateSessionSummary:
+    """generate_session_summary reads a JSONL log and produces a markdown summary."""
+
+    def test_summary_includes_skills(self, tmp_path):
+        from compliance import generate_session_summary
+
+        log = _make_jsonl(tmp_path, [
+            _tool_use_entry("Skill", {"skill": "implementation"}),
+            _tool_use_entry("Skill", {"skill": "precommit"}),
+        ])
+        summary = generate_session_summary(log)
+        assert "implementation" in summary
+        assert "precommit" in summary
+
+    def test_summary_includes_files_changed(self, tmp_path):
+        from compliance import generate_session_summary
+
+        log = _make_jsonl(tmp_path, [
+            _tool_use_entry("Edit", {"file_path": "/project/src/foo.py", "old_string": "a", "new_string": "b"}),
+            _tool_use_entry("Write", {"file_path": "/project/tests/test_foo.py", "content": "x"}),
+        ])
+        summary = generate_session_summary(log)
+        assert "foo.py" in summary
+        assert "test_foo.py" in summary
+
+    def test_summary_includes_test_results(self, tmp_path):
+        from compliance import generate_session_summary
+
+        log = _make_jsonl(tmp_path, [
+            _tool_use_entry("Bash", {"command": "python3 -m pytest tests/ -q"}),
+            {
+                "type": "tool_result",
+                "message": {"content": "806 passed, 1 skipped in 12.5s"},
+            },
+        ])
+        summary = generate_session_summary(log)
+        assert "806 passed" in summary
+
+    def test_summary_includes_roles(self, tmp_path):
+        from compliance import generate_session_summary
+
+        log = _make_jsonl(tmp_path, [
+            _tool_use_entry("Agent", {
+                "description": "QA role review",
+                "prompt": "Review as QA role — check test coverage",
+                "model": "sonnet",
+            }),
+        ])
+        summary = generate_session_summary(log)
+        assert "QA" in summary or "qa" in summary
+
+    def test_empty_log(self, tmp_path):
+        from compliance import generate_session_summary
+
+        log = _make_jsonl(tmp_path, [])
+        summary = generate_session_summary(log)
+        assert "No toolkit activity" in summary
+
+    def test_missing_log(self, tmp_path):
+        from compliance import generate_session_summary
+
+        summary = generate_session_summary(tmp_path / "nonexistent.jsonl")
+        assert "unavailable" in summary.lower() or "not found" in summary.lower()
+
+
 # --- Test plan validation -------------------------------------------------
 
 
