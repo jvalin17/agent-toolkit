@@ -1,0 +1,17 @@
+{
+  "name": "agent-toolkit",
+  "owner": {
+    "name": "jvalin17",
+    "url": "https://github.com/jvalin17"
+  },
+  "plugins": [
+    {
+      "name": "agent-toolkit",
+      "description": "Specialized roles, skills, agents, model routing, and quality gates for AI coding",
+      "source": "./",
+      "version": "1.0.0",
+      "category": "productivity",
+      "tags": ["roles", "skills", "agents", "quality-gates", "orchestration", "tdd"]
+    }
+  ]
+}
