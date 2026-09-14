@@ -12,14 +12,15 @@ These are the **only** things the precommit gate checks. If a requirement is not
 6. **TDD ordering** — test files must be edited before source files (when TDD mode is active)
 7. **Test plan coverage** — if `.scratch/test-plan_*.json` exists, every test case must have a matching test function. On pass, plan is auto-deleted and summary appended to `project-state.md`
 8. **Test plan required** — if source files were edited, a test plan must exist (either in `.scratch/test-plan_*.json` or as a completed summary in `project-state.md`). Exempt: test files, hooks, scripts, config, docs, markdown. Write the plan BEFORE coding — see `/implementation` Step 4.
+9. **Test plan ordering** — if a test plan was written, it must appear in the session JSONL *before* the first source file edit. Writing the plan after implementing → block. This is checked from JSONL timestamps and cannot be faked.
 
 ## Agent-reported checks (verified by finalize)
 
-9. **Instructions addressed** — all user instructions marked as addressed
-10. **No rule violations** — role rule violations count is 0
-11. **README valid** — readme validation passed
-12. **Tests meaningful** — test quality is not "sloppy"
-13. **App verification** — not still "pending" (must be "done" or "skip")
+10. **Instructions addressed** — all user instructions marked as addressed
+11. **No rule violations** — role rule violations count is 0
+12. **README valid** — readme validation passed
+13. **Tests meaningful** — test quality is not "sloppy"
+14. **App verification** — not still "pending" (must be "done" or "skip")
 
 ## Toolkit infrastructure — do NOT modify
 
