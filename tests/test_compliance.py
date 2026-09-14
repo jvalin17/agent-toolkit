@@ -267,6 +267,35 @@ class TestAuditSessionActions:
         result = audit_session_actions(log)
         assert result["tdd_order_respected"] is False
 
+    def test_plan_written_before_source(self, tmp_path):
+        from compliance import audit_session_actions
+
+        log = _make_jsonl(tmp_path, [
+            _tool_use_entry("Write", {"file_path": "/project/.scratch/test-plan_auth.json", "content": "{}"}),
+            _tool_use_entry("Edit", {"file_path": "/project/src/auth.py", "old_string": "a", "new_string": "b"}),
+        ])
+        result = audit_session_actions(log)
+        assert result["test_plan_before_source"] is True
+
+    def test_plan_written_after_source(self, tmp_path):
+        from compliance import audit_session_actions
+
+        log = _make_jsonl(tmp_path, [
+            _tool_use_entry("Edit", {"file_path": "/project/src/auth.py", "old_string": "a", "new_string": "b"}),
+            _tool_use_entry("Write", {"file_path": "/project/.scratch/test-plan_auth.json", "content": "{}"}),
+        ])
+        result = audit_session_actions(log)
+        assert result["test_plan_before_source"] is False
+
+    def test_no_plan_no_source_vacuously_true(self, tmp_path):
+        from compliance import audit_session_actions
+
+        log = _make_jsonl(tmp_path, [
+            _tool_use_entry("Bash", {"command": "git status"}),
+        ])
+        result = audit_session_actions(log)
+        assert result["test_plan_before_source"] is True
+
     def test_empty_log(self, tmp_path):
         from compliance import audit_session_actions
 
@@ -276,6 +305,7 @@ class TestAuditSessionActions:
         assert result["http_request_made"] is False
         assert result["role_agents_spawned"] == 0
         assert result["tdd_order_respected"] is True  # vacuously true
+        assert result["test_plan_before_source"] is True  # vacuously true
 
     def test_missing_log_file(self, tmp_path):
         from compliance import audit_session_actions

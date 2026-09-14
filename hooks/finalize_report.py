@@ -144,6 +144,13 @@ def _decide_precommit(
                 "write failing tests first"
             )
 
+        # Test plan ordering: plan must be written before source edits
+        if not session_audit.get("test_plan_before_source", True):
+            reasons.append(
+                "test plan written after source edits — "
+                "write .scratch/test-plan_<slug>.json BEFORE implementing"
+            )
+
     # Git diff TDD: new functions without tests
     if untested_functions:
         reasons.append(
