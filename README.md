@@ -22,11 +22,13 @@ Also available as a **Claude Code plugin** and **MCP server**.
  2. /architecture            → designs API + database + frontend approach
  3. /explore                 → maps codebase, conventions, existing patterns
  4. Research agents          → compares frameworks, picks best tools with evidence
- 5. /implementation          → builds with TDD, slab-by-slab (sonnet — cheap)
- 6. /reviewer                → judges code quality, tests, runtime (opus — thorough)
- 7. /evaluate                → scores quality % — must pass threshold (opus)
- 8. /precommit               → final gate: standards, role checks, reviewer gate
- 9. On test failure           → /debug_tool (hypothesis-driven, not retry loops)
+ 5. /implementation Step 0   → shows EXECUTION PLAN: slabs, roles, skills per slab
+                               → user confirms before first line of code
+ 6. /implementation          → builds with TDD, slab-by-slab (sonnet — cheap)
+ 7. /reviewer                → judges code quality, tests, runtime (opus — thorough)
+ 8. /evaluate                → scores quality % — must pass threshold (opus)
+ 9. /precommit               → verifies execution plan was followed, blocks if not
+10. On test failure           → /debug_tool (hypothesis-driven, not retry loops)
 ```
 
 All automatic. 19 roles with two layers of knowledge:
@@ -134,6 +136,8 @@ Each role has two layers of knowledge:
 - **Foundational** — SOLID, DDD, GoF design patterns, Clean Architecture, DDIA, OWASP, 12-Factor App
 - **Practical** — patterns from 95+ production repos (NestJS, FastAPI, Signal, cal.com, PostHog, Kubernetes)
 
+Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python, Rust, Swift, TypeScript.
+
 ### 14 Skills (orchestrator chains them automatically)
 
 | Skill | Purpose | Pipeline position |
@@ -180,7 +184,12 @@ Each role has two layers of knowledge:
 
 - **Precommit mandatory** — `gate_hook.py` blocks `git commit` without a passing precommit gate, even in `enforcement: "warn"` mode
 - **Model routing** — `taxonomy_enforce.py` blocks Agent subagent calls missing a `model` parameter or using the wrong tier
+- **Execution plan enforcement** — `/implementation` writes an execution plan (slabs, roles, skills); `/precommit` reads it and blocks if any planned skill was skipped
 - **Reviewer gate** — `/precommit` verifies `/reviewer` was called on code changes; auto-invokes it if skipped
+- **UI regression detection** — hooks detect UI file changes and inject reviewer checks (overflow, empty states, a11y); offer to generate Playwright E2E tests
+- **Retry loop detection** — `session_monitor.py` blocks after 3 identical errors; clears on success (G-IMPL-9)
+- **Damage radius limit** — warns after 5 unique files edited, blocks after 15 (G-IMPL-10)
+- **No fabricated history** — G-IMPL-8 blocks claims about prior code behavior without git log/blame evidence
 - **Mechanical verification** — `compliance.py` reads session JSONL to verify server starts, HTTP requests, TDD file ordering, and role agent spawns. Agent self-reports are overridden by machine evidence.
 - **Diff TDD check** — `compliance.py` scans the git diff for new functions without corresponding test functions; `finalize_report.py` blocks the precommit gate
 - **TDD enforcement** — `tdd_enforce.py` blocks/reminds on Edit/Write of source files without a test file; `taxonomy_enforce.py` injects "write failing test FIRST" into implementation-like Agent subagent prompts
