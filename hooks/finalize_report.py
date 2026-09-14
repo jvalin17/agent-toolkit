@@ -21,6 +21,7 @@ Exit codes:
 from __future__ import annotations
 
 import json
+import re
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -306,6 +307,74 @@ def _get_session_action_audit() -> dict:
         return {"available": False}
 
 
+# Files/dirs exempt from test plan requirement
+_TEST_PLAN_EXEMPT = re.compile(
+    r"(^|/)(hooks|scripts|migrations|\.github|templates|config|docs|static|shared|\.scratch|\.session|\.gates)(/|$)"
+)
+_TEST_FILE_RE = re.compile(
+    r"(test_|_test\.|\.test\.|\.spec\.|tests/|__tests__/|spec/)", re.IGNORECASE
+)
+_NON_SOURCE_EXTENSIONS = re.compile(
+    r"\.(md|txt|json|yml|yaml|toml|cfg|ini|env|lock|gitignore|dockerignore)$", re.IGNORECASE
+)
+
+
+def _require_test_plan(project_dir: Path, diff_text: str) -> dict:
+    """Check that a test plan exists if source files were edited.
+
+    Returns dict with:
+        blocked: bool
+        reasons: list[str]
+    """
+    if not diff_text.strip():
+        return {"blocked": False, "reasons": []}
+
+    # Extract changed files from diff
+    has_source_changes = False
+    for line in diff_text.split("\n"):
+        if not line.startswith("diff --git"):
+            continue
+        match = re.search(r"b/(.+)$", line)
+        if not match:
+            continue
+        filepath = match.group(1)
+
+        # Skip test files, exempt dirs, non-source extensions
+        if _TEST_FILE_RE.search(filepath):
+            continue
+        if _TEST_PLAN_EXEMPT.search(filepath):
+            continue
+        if _NON_SOURCE_EXTENSIONS.search(filepath):
+            continue
+
+        has_source_changes = True
+        break
+
+    if not has_source_changes:
+        return {"blocked": False, "reasons": []}
+
+    # Check 1: test plan file exists in .scratch/
+    scratch = project_dir / ".scratch"
+    if scratch.is_dir() and list(scratch.glob("test-plan_*.json")):
+        return {"blocked": False, "reasons": []}
+
+    # Check 2: test plan summary exists in project-state.md
+    state_file = project_dir / "project-state.md"
+    if state_file.is_file():
+        content = state_file.read_text(encoding="utf-8", errors="replace")
+        if "## Test Plans" in content and "### " in content[content.index("## Test Plans"):]:
+            return {"blocked": False, "reasons": []}
+
+    return {
+        "blocked": True,
+        "reasons": [
+            "test plan required: source files were edited but no test plan found. "
+            "Write .scratch/test-plan_<slug>.json before implementing. "
+            "See /implementation Step 4 for the schema."
+        ],
+    }
+
+
 def _check_test_plans(project_dir: Path) -> dict:
     """Find and validate test plans in .scratch/test-plan_*.json.
 
@@ -522,6 +591,7 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
         noqa_in_tests = check_diff_for_noqa_in_tests(diff_text)
         ui_without_e2e = check_diff_for_ui_without_e2e(diff_text)
     except Exception:
+        diff_text = ""
         untested = []
         noqa_in_tests = []
         ui_without_e2e = []
@@ -543,6 +613,12 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     if test_plan_results.get("blocked"):
         ready = False
         reasons.extend(test_plan_results["reasons"])
+
+    # Test plan required — source files edited but no test plan anywhere
+    test_plan_required = _require_test_plan(project_dir, diff_text)
+    if test_plan_required.get("blocked"):
+        ready = False
+        reasons.extend(test_plan_required["reasons"])
 
     # Execution plan check — verify all planned skills were invoked
     exec_plan_file = project_dir / ".scratch" / "execution-plan.json"

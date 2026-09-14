@@ -358,6 +358,54 @@ class TestCheckTestPlans:
         assert result["blocked"] is True
 
 
+class TestRequireTestPlan:
+    """Block commit if source files were edited but no test plan exists."""
+
+    def test_blocks_when_source_edited_no_plan(self, tmp_path):
+        """Source files in diff, no test plan anywhere → blocked."""
+        diff = "diff --git a/src/foo.py b/src/foo.py\n+def new_func(): pass\n"
+        result = fr._require_test_plan(tmp_path, diff)
+        assert result["blocked"] is True
+        assert any("test plan" in r.lower() for r in result["reasons"])
+
+    def test_passes_when_plan_exists_in_scratch(self, tmp_path):
+        """Source files in diff, test plan in .scratch → not blocked."""
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+        (scratch / "test-plan_foo.json").write_text('{"feature":"foo","cases":[]}')
+
+        diff = "diff --git a/src/foo.py b/src/foo.py\n+def new_func(): pass\n"
+        result = fr._require_test_plan(tmp_path, diff)
+        assert result["blocked"] is False
+
+    def test_passes_when_summary_in_project_state(self, tmp_path):
+        """Source files in diff, test plan summary in project-state → not blocked."""
+        state = tmp_path / "project-state.md"
+        state.write_text("# Project\n\n## Test Plans\n\n### foo (2026-09-14)\n- TC1: test\n")
+
+        diff = "diff --git a/src/foo.py b/src/foo.py\n+def new_func(): pass\n"
+        result = fr._require_test_plan(tmp_path, diff)
+        assert result["blocked"] is False
+
+    def test_passes_when_only_test_files_changed(self, tmp_path):
+        """Only test files in diff → not blocked (no source changes)."""
+        diff = "diff --git a/tests/test_foo.py b/tests/test_foo.py\n+def test_x(): pass\n"
+        result = fr._require_test_plan(tmp_path, diff)
+        assert result["blocked"] is False
+
+    def test_passes_when_only_config_changed(self, tmp_path):
+        """Only config/docs in diff → not blocked."""
+        diff = "diff --git a/README.md b/README.md\n+update\n"
+        result = fr._require_test_plan(tmp_path, diff)
+        assert result["blocked"] is False
+
+    def test_passes_when_only_hooks_changed(self, tmp_path):
+        """Hook files are exempt from test plan requirement."""
+        diff = "diff --git a/hooks/my_hook.py b/hooks/my_hook.py\n+code\n"
+        result = fr._require_test_plan(tmp_path, diff)
+        assert result["blocked"] is False
+
+
 class TestCleanupTestPlans:
     def test_deletes_plan_and_appends_summary(self, tmp_path):
         """On success: plan file deleted, summary in project-state.md."""
