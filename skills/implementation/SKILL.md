@@ -120,7 +120,17 @@ Final quality:
 Pipeline per slab: build → reviewer → evaluate → precommit → commit
 ```
 
-**0c. User confirms:** Wait for user to approve the plan or adjust it. Do NOT proceed until confirmed.
+**0c. Save the plan:** Write the execution plan to `.scratch/execution-plan.json`:
+```json
+{"feature": "<slug>", "slabs": [
+  {"name": "<slab name>", "build_role": "<role>",
+   "review_roles": ["<role1>", "<role2>"],
+   "skills": ["reviewer", "evaluate", "precommit"]}
+], "created_at": "<ISO date>"}
+```
+Precommit reads this file and blocks if any planned skill was skipped.
+
+**0d. User confirms:** Wait for user to approve the plan or adjust it. Do NOT proceed until confirmed.
 
 If session context contains an "ORCHESTRATION PLAN" from the orchestrator, use it to populate the execution plan — it already has roles, skills, and model tiers per step.
 

@@ -957,3 +957,56 @@ def verify_evidence(claim: str, evidence: str) -> Dict[str, Any]:
         "verified": True,
         "reason": "Evidence includes concrete output.",
     }
+
+
+# --- Execution plan validation ---
+
+
+def validate_execution_plan(plan: dict) -> List[str]:
+    """Validate an execution plan structure.
+
+    Returns list of error strings. Empty list = valid.
+    """
+    errors = []
+    if not plan.get("feature"):
+        errors.append("missing 'feature' field")
+    if not isinstance(plan.get("slabs"), list):
+        errors.append("missing or invalid 'slabs' field (must be a list)")
+        return errors
+    for i, slab in enumerate(plan["slabs"]):
+        if not slab.get("name"):
+            errors.append(f"slab {i}: missing 'name'")
+        if not slab.get("build_role"):
+            errors.append(f"slab {i}: missing 'build_role'")
+        if not isinstance(slab.get("review_roles"), list):
+            errors.append(f"slab {i}: missing or invalid 'review_roles'")
+        if not isinstance(slab.get("skills"), list):
+            errors.append(f"slab {i}: missing or invalid 'skills'")
+    return errors
+
+
+def check_execution_plan_compliance(
+    plan: dict,
+    skills_invoked: List[str],
+) -> dict:
+    """Check whether the execution plan was followed.
+
+    Compares planned skills against actually invoked skills.
+    Returns dict with blocked (bool) and reasons (list).
+    """
+    reasons = []
+    invoked_set = set(skills_invoked)
+
+    # Check each slab's required skills were invoked
+    for slab in plan.get("slabs", []):
+        slab_name = slab.get("name", "unnamed")
+        for skill in slab.get("skills", []):
+            if skill not in invoked_set:
+                reasons.append(
+                    f"slab '{slab_name}' requires '{skill}' but it was not invoked this session"
+                )
+
+    return {
+        "blocked": len(reasons) > 0,
+        "reasons": reasons,
+    }

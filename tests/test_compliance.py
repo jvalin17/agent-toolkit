@@ -877,6 +877,71 @@ class TestFormatTestPlanSummary:
         assert "SQL injection" in summary
 
 
+# --- Execution plan validation ---
+
+
+class TestExecutionPlanValidation:
+    """Precommit should verify the execution plan was followed."""
+
+    def setup_method(self):
+        from compliance import validate_execution_plan, check_execution_plan_compliance
+        self.validate = validate_execution_plan
+        self.check = check_execution_plan_compliance
+
+    def test_valid_plan_passes(self):
+        plan = {
+            "feature": "inventory-app",
+            "slabs": [
+                {"name": "API skeleton", "build_role": "backend",
+                 "review_roles": ["security", "dba"],
+                 "skills": ["reviewer", "evaluate", "precommit"]},
+            ],
+            "created_at": "2026-09-14",
+        }
+        errors = self.validate(plan)
+        assert errors == []
+
+    def test_missing_feature_fails(self):
+        plan = {"slabs": []}
+        errors = self.validate(plan)
+        assert len(errors) > 0
+
+    def test_missing_slabs_fails(self):
+        plan = {"feature": "test"}
+        errors = self.validate(plan)
+        assert len(errors) > 0
+
+    def test_compliance_passes_when_skills_ran(self, tmp_path):
+        plan = {
+            "feature": "test-feature",
+            "slabs": [
+                {"name": "slab1", "build_role": "backend",
+                 "review_roles": ["security"],
+                 "skills": ["reviewer", "evaluate", "precommit"]},
+            ],
+        }
+        # Simulate skills that ran
+        skills_invoked = ["implementation", "reviewer", "evaluate", "precommit"]
+        result = self.check(plan, skills_invoked)
+        assert result["blocked"] is False
+
+    def test_compliance_blocks_when_reviewer_skipped(self, tmp_path):
+        plan = {
+            "feature": "test-feature",
+            "slabs": [
+                {"name": "slab1", "build_role": "backend",
+                 "review_roles": ["security"],
+                 "skills": ["reviewer", "evaluate", "precommit"]},
+            ],
+        }
+        # reviewer was NOT invoked
+        skills_invoked = ["implementation", "precommit"]
+        result = self.check(plan, skills_invoked)
+        assert result["blocked"] is True
+        assert any("reviewer" in r for r in result["reasons"])
+        assert any("slab1" in r for r in result["reasons"])
+
+
 # --- UI file detection ---
 
 

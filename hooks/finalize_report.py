@@ -43,9 +43,11 @@ from compliance import (  # noqa: E402
     check_diff_for_noqa_in_tests,
     check_diff_for_ui_without_e2e,
     check_diff_for_untested_functions,
+    check_execution_plan_compliance,
     check_test_plan_coverage,
     format_test_plan_summary,
     generate_session_summary,
+    validate_execution_plan,
     validate_test_plan,
 )
 from finalize_common import EVAL_DIMENSION_WEIGHTS, fail  # noqa: E402
@@ -541,6 +543,32 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     if test_plan_results.get("blocked"):
         ready = False
         reasons.extend(test_plan_results["reasons"])
+
+    # Execution plan check — verify all planned skills were invoked
+    exec_plan_file = project_dir / ".scratch" / "execution-plan.json"
+    if exec_plan_file.is_file():
+        try:
+            exec_plan = json.loads(exec_plan_file.read_text(encoding="utf-8"))
+            plan_errors = validate_execution_plan(exec_plan)
+            if plan_errors:
+                ready = False
+                reasons.append(f"execution plan invalid: {'; '.join(plan_errors)}")
+            else:
+                # Get skills invoked from session audit (uses get_session_skill_usage, not action audit)
+                skill_audit = _check_session_audit()
+                skills_from_audit = skill_audit.get("skills_invoked", []) if skill_audit.get("available") else []
+                compliance = check_execution_plan_compliance(exec_plan, skills_from_audit)
+                if compliance["blocked"]:
+                    ready = False
+                    reasons.extend(compliance["reasons"])
+                elif ready:
+                    # Plan passed — clean up
+                    try:
+                        exec_plan_file.unlink()
+                    except OSError:
+                        pass
+        except (json.JSONDecodeError, OSError):
+            reasons.append("execution plan: cannot read .scratch/execution-plan.json")
 
     # Session audit — warnings only, not blocking
     session_audit = _check_session_audit()

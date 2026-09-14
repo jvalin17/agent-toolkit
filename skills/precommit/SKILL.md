@@ -40,6 +40,16 @@ If `.scratch/test-plan_*.json` files exist, `finalize_report.py` automatically:
 
 You do NOT need to check this manually — finalize handles it. But if finalize reports test plan failures, fix the missing tests before re-running.
 
+## Execution Plan Verification (automated by finalize)
+
+If `.scratch/execution-plan.json` exists (written by /implementation Step 0), `finalize_report.py` automatically:
+1. Validates the plan schema (feature, slabs, roles, skills)
+2. Checks that every planned skill was actually invoked this session (via JSONL audit)
+3. **BLOCKS** if any required skill was skipped (e.g., /reviewer planned but never ran)
+4. On pass: deletes the plan file
+
+This enforces what was promised in the execution plan. If the agent showed the user "reviewer will check this" but never ran /reviewer, the commit is blocked.
+
 ## Step 1: Instruction Compliance Check
 
 Read the user's original instructions for this task.
