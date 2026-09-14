@@ -114,12 +114,20 @@ Derive from architecture + requirements priorities. Dependencies first, must bef
    - "I read the schema/model" is NOT sufficient (G-IMPL-7)
    - If mode is not strict, this step is optional but recommended
 3. SECURITY — if slab touches auth/data/APIs: read security.md
-4. TDD — meaningful assertions (assertEqual, toBe, toEqual)
-5. INTEGRATE — verify end-to-end
-6. VERIFY — run /verify (output quality + user confirms)
-7. PRE-COMMIT — MUST run /precommit (G-PUSH-1 — non-negotiable)
-8. COMMIT — only after /precommit passes AND user says go
-9. STOP — wait for user before next slab
+4. TEST PLAN — write `.scratch/test-plan_<slug>.json` BEFORE writing any tests:
+   ```json
+   {"feature": "<slug>", "cases": [
+     {"id": "TC1", "description": "what it tests", "test_file": "tests/test_x.py", "test_name": "test_func"}
+   ], "edge_cases": ["edge1", "edge2"], "created_at": "<ISO timestamp>"}
+   ```
+   The precommit gate verifies all cases are covered. On pass, the plan is auto-deleted
+   and a reproducible summary is appended to project-state.md under `## Test Plans`.
+5. TDD — meaningful assertions (assertEqual, toBe, toEqual)
+6. INTEGRATE — verify end-to-end
+7. VERIFY — run /verify (output quality + user confirms)
+8. PRE-COMMIT — MUST run /precommit (G-PUSH-1 — non-negotiable)
+9. COMMIT — only after /precommit passes AND user says go
+10. STOP — wait for user before next slab
 ```
 
 **Session limits:** /verify checks these automatically in Step 1. If the slab exceeds thresholds (300 lines, 20 exchanges, 2 failed fixes, 500-line files), it pauses before problems compound.

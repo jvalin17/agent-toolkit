@@ -30,6 +30,16 @@ Run `/precommit` before any `git commit`.
 
 **Full mode (>3 files or new features):** All steps.
 
+## Test Plan Verification (automated by finalize)
+
+If `.scratch/test-plan_*.json` files exist, `finalize_report.py` automatically:
+1. Validates the plan schema
+2. Checks that every test case has a matching test function in the specified file
+3. **BLOCKS** if any case is missing coverage
+4. On pass: deletes the plan file and appends a reproducible summary to `project-state.md`
+
+You do NOT need to check this manually — finalize handles it. But if finalize reports test plan failures, fix the missing tests before re-running.
+
 ## Step 1: Instruction Compliance Check
 
 Read the user's original instructions for this task.

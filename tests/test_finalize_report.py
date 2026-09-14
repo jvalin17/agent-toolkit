@@ -297,6 +297,124 @@ class TestDecideGate:
         assert ready is True
 
 
+# --- Test plan integration ------------------------------------------------
+
+
+class TestCheckTestPlans:
+    def test_no_plans_no_block(self, tmp_path):
+        """No test plan files → no block."""
+        result = fr._check_test_plans(tmp_path)
+        assert result["blocked"] is False
+        assert result["plans"] == []
+
+    def test_valid_plan_with_coverage_passes(self, tmp_path):
+        """Test plan with all cases covered → not blocked, plan in list."""
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+
+        # Create test file
+        tests_dir = tmp_path / "tests"
+        tests_dir.mkdir()
+        (tests_dir / "test_auth.py").write_text("def test_login():\n    pass\n")
+
+        plan = {
+            "feature": "auth",
+            "cases": [{"id": "TC1", "description": "Login works",
+                       "test_file": "tests/test_auth.py", "test_name": "test_login"}],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        (scratch / "test-plan_auth.json").write_text(json.dumps(plan))
+
+        result = fr._check_test_plans(tmp_path)
+        assert result["blocked"] is False
+        assert len(result["plans"]) == 1
+
+    def test_plan_with_missing_coverage_blocks(self, tmp_path):
+        """Test plan with uncovered cases → blocked."""
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+
+        plan = {
+            "feature": "auth",
+            "cases": [{"id": "TC1", "description": "Login works",
+                       "test_file": "tests/test_auth.py", "test_name": "test_login"}],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        (scratch / "test-plan_auth.json").write_text(json.dumps(plan))
+
+        result = fr._check_test_plans(tmp_path)
+        assert result["blocked"] is True
+        assert any("TC1" in r for r in result["reasons"])
+
+    def test_invalid_plan_blocks(self, tmp_path):
+        """Malformed test plan → blocked."""
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+        (scratch / "test-plan_bad.json").write_text(json.dumps({"cases": []}))
+
+        result = fr._check_test_plans(tmp_path)
+        assert result["blocked"] is True
+
+
+class TestCleanupTestPlans:
+    def test_deletes_plan_and_appends_summary(self, tmp_path):
+        """On success: plan file deleted, summary in project-state.md."""
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+
+        plan = {
+            "feature": "auth",
+            "cases": [{"id": "TC1", "description": "Login",
+                       "test_file": "tests/test_auth.py", "test_name": "test_login"}],
+            "edge_cases": ["empty password"],
+            "created_at": "2026-09-13",
+        }
+        plan_file = scratch / "test-plan_auth.json"
+        plan_file.write_text(json.dumps(plan))
+
+        state = tmp_path / "project-state.md"
+        state.write_text("# Project\n\nSome content.\n")
+
+        fr._cleanup_test_plans(tmp_path, [plan])
+
+        # Plan file deleted
+        assert not plan_file.exists()
+
+        # Summary appended
+        content = state.read_text()
+        assert "## Test Plans" in content
+        assert "auth" in content
+        assert "TC1" in content
+        assert "test_login" in content
+        assert "empty password" in content
+
+    def test_appends_to_existing_test_plans_section(self, tmp_path):
+        """If ## Test Plans already exists, append without duplicating header."""
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+
+        plan = {
+            "feature": "new-feature",
+            "cases": [{"id": "TC1", "description": "Works",
+                       "test_file": "tests/test_new.py", "test_name": "test_works"}],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        (scratch / "test-plan_new.json").write_text(json.dumps(plan))
+
+        state = tmp_path / "project-state.md"
+        state.write_text("# Project\n\n## Test Plans\n\n### old (2026-01-01)\n- TC0: Old test\n")
+
+        fr._cleanup_test_plans(tmp_path, [plan])
+
+        content = state.read_text()
+        assert content.count("## Test Plans") == 1
+        assert "new-feature" in content
+        assert "old" in content
+
+
 # --- End-to-end: hook writes report into reports/ --------------------------
 
 

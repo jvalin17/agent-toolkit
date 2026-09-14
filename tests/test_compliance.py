@@ -584,3 +584,157 @@ class TestCheckDiffForNoqaInTests:
 """
         result = check_diff_for_noqa_in_tests(diff)
         assert len(result) == 0
+
+
+# --- Test plan validation -------------------------------------------------
+
+
+class TestValidateTestPlan:
+    """validate_test_plan checks that a test plan JSON is well-formed."""
+
+    def test_valid_plan(self):
+        from compliance import validate_test_plan
+
+        plan = {
+            "feature": "user-auth",
+            "cases": [
+                {"id": "TC1", "description": "Login succeeds with valid creds",
+                 "test_file": "tests/test_auth.py", "test_name": "test_login_success"},
+            ],
+            "edge_cases": ["empty password"],
+            "created_at": "2026-09-13T10:00:00",
+        }
+        errors = validate_test_plan(plan)
+        assert errors == []
+
+    def test_missing_feature(self):
+        from compliance import validate_test_plan
+
+        plan = {"cases": [], "edge_cases": [], "created_at": "2026-09-13"}
+        errors = validate_test_plan(plan)
+        assert any("feature" in e for e in errors)
+
+    def test_empty_cases(self):
+        from compliance import validate_test_plan
+
+        plan = {"feature": "x", "cases": [], "edge_cases": [], "created_at": "2026-09-13"}
+        errors = validate_test_plan(plan)
+        assert any("cases" in e.lower() for e in errors)
+
+    def test_case_missing_fields(self):
+        from compliance import validate_test_plan
+
+        plan = {
+            "feature": "x",
+            "cases": [{"id": "TC1"}],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        errors = validate_test_plan(plan)
+        assert any("description" in e or "test_file" in e or "test_name" in e for e in errors)
+
+
+class TestCheckTestPlanCoverage:
+    """check_test_plan_coverage verifies each planned test case exists."""
+
+    def test_all_cases_covered(self, tmp_path):
+        from compliance import check_test_plan_coverage
+
+        test_file = tmp_path / "tests" / "test_auth.py"
+        test_file.parent.mkdir(parents=True)
+        test_file.write_text("def test_login_success():\n    assert True\n")
+
+        plan = {
+            "feature": "user-auth",
+            "cases": [
+                {"id": "TC1", "description": "Login succeeds",
+                 "test_file": "tests/test_auth.py", "test_name": "test_login_success"},
+            ],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        missing = check_test_plan_coverage(plan, tmp_path)
+        assert missing == []
+
+    def test_missing_test_function(self, tmp_path):
+        from compliance import check_test_plan_coverage
+
+        test_file = tmp_path / "tests" / "test_auth.py"
+        test_file.parent.mkdir(parents=True)
+        test_file.write_text("def test_other():\n    assert True\n")
+
+        plan = {
+            "feature": "user-auth",
+            "cases": [
+                {"id": "TC1", "description": "Login succeeds",
+                 "test_file": "tests/test_auth.py", "test_name": "test_login_success"},
+            ],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        missing = check_test_plan_coverage(plan, tmp_path)
+        assert len(missing) == 1
+        assert "TC1" in missing[0]
+
+    def test_missing_test_file(self, tmp_path):
+        from compliance import check_test_plan_coverage
+
+        plan = {
+            "feature": "user-auth",
+            "cases": [
+                {"id": "TC1", "description": "Login succeeds",
+                 "test_file": "tests/test_auth.py", "test_name": "test_login_success"},
+            ],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        missing = check_test_plan_coverage(plan, tmp_path)
+        assert len(missing) == 1
+
+    def test_multiple_cases_partial_coverage(self, tmp_path):
+        from compliance import check_test_plan_coverage
+
+        test_file = tmp_path / "tests" / "test_auth.py"
+        test_file.parent.mkdir(parents=True)
+        test_file.write_text("def test_login_success():\n    assert True\n")
+
+        plan = {
+            "feature": "user-auth",
+            "cases": [
+                {"id": "TC1", "description": "Login succeeds",
+                 "test_file": "tests/test_auth.py", "test_name": "test_login_success"},
+                {"id": "TC2", "description": "Login fails with bad password",
+                 "test_file": "tests/test_auth.py", "test_name": "test_login_bad_password"},
+            ],
+            "edge_cases": [],
+            "created_at": "2026-09-13",
+        }
+        missing = check_test_plan_coverage(plan, tmp_path)
+        assert len(missing) == 1
+        assert "TC2" in missing[0]
+
+
+class TestFormatTestPlanSummary:
+    """format_test_plan_summary produces a markdown summary for project-state."""
+
+    def test_produces_markdown(self):
+        from compliance import format_test_plan_summary
+
+        plan = {
+            "feature": "user-auth",
+            "cases": [
+                {"id": "TC1", "description": "Login succeeds",
+                 "test_file": "tests/test_auth.py", "test_name": "test_login_success"},
+                {"id": "TC2", "description": "Login fails",
+                 "test_file": "tests/test_auth.py", "test_name": "test_login_failure"},
+            ],
+            "edge_cases": ["empty password", "SQL injection"],
+            "created_at": "2026-09-13",
+        }
+        summary = format_test_plan_summary(plan)
+        assert "user-auth" in summary
+        assert "TC1" in summary
+        assert "TC2" in summary
+        assert "test_login_success" in summary
+        assert "empty password" in summary
+        assert "SQL injection" in summary

@@ -10,6 +10,7 @@ These are the **only** things the precommit gate checks. If a requirement is not
 4. **No noqa in test files** — adding `# noqa` to test files blocks the gate. Fix the lint issue instead of suppressing it.
 5. **TDD: new functions need tests** — new functions in the diff must have corresponding test functions
 6. **TDD ordering** — test files must be edited before source files (when TDD mode is active)
+7. **Test plan coverage** — if `.scratch/test-plan_*.json` exists, every test case must have a matching test function. On pass, plan is auto-deleted and summary appended to `project-state.md`
 
 ## Agent-reported checks (verified by finalize)
 

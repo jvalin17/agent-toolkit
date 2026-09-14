@@ -39,7 +39,13 @@ from gate.attest import (  # noqa: E402
     detect_and_run_lint,
     detect_and_run_tests,
 )
-from compliance import check_diff_for_noqa_in_tests, check_diff_for_untested_functions  # noqa: E402
+from compliance import (  # noqa: E402
+    check_diff_for_noqa_in_tests,
+    check_diff_for_untested_functions,
+    check_test_plan_coverage,
+    format_test_plan_summary,
+    validate_test_plan,
+)
 from finalize_common import EVAL_DIMENSION_WEIGHTS, fail  # noqa: E402
 from finalize_render import (  # noqa: E402
     compose_assess_markdown,
@@ -296,6 +302,79 @@ def _get_session_action_audit() -> dict:
         return {"available": False}
 
 
+def _check_test_plans(project_dir: Path) -> dict:
+    """Find and validate test plans in .scratch/test-plan_*.json.
+
+    Returns dict with:
+        blocked: bool — whether any test plan failed coverage
+        reasons: list[str] — blocking reasons
+        plans: list[dict] — validated plans (for cleanup on success)
+    """
+    scratch = project_dir / ".scratch"
+    if not scratch.is_dir():
+        return {"blocked": False, "reasons": [], "plans": []}
+
+    plan_files = sorted(scratch.glob("test-plan_*.json"))
+    if not plan_files:
+        return {"blocked": False, "reasons": [], "plans": []}
+
+    reasons: list[str] = []
+    valid_plans: list[dict] = []
+
+    for plan_file in plan_files:
+        try:
+            plan = json.loads(plan_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            reasons.append(f"test plan: cannot read {plan_file.name}")
+            continue
+
+        errors = validate_test_plan(plan)
+        if errors:
+            reasons.append(
+                f"test plan {plan_file.name}: invalid — {'; '.join(errors)}"
+            )
+            continue
+
+        missing = check_test_plan_coverage(plan, project_dir)
+        if missing:
+            reasons.append(
+                f"test plan '{plan['feature']}': {len(missing)} case(s) not covered — "
+                + "; ".join(missing[:5])
+            )
+        else:
+            valid_plans.append(plan)
+
+    return {
+        "blocked": len(reasons) > 0,
+        "reasons": reasons,
+        "plans": valid_plans,
+    }
+
+
+def _cleanup_test_plans(project_dir: Path, plans: list[dict]) -> None:
+    """Delete test plan files and append summaries to project-state.md."""
+    # Append summaries
+    state_file = project_dir / "project-state.md"
+    summaries: list[str] = []
+    for plan in plans:
+        summaries.append(format_test_plan_summary(plan))
+
+    if summaries and state_file.is_file():
+        content = state_file.read_text(encoding="utf-8")
+        if "## Test Plans" not in content:
+            content += "\n\n## Test Plans\n"
+        content += "\n" + "\n\n".join(summaries) + "\n"
+        state_file.write_text(content, encoding="utf-8")
+
+    # Delete plan files
+    scratch = project_dir / ".scratch"
+    for plan_file in scratch.glob("test-plan_*.json"):
+        try:
+            plan_file.unlink()
+        except OSError:
+            pass
+
+
 def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     findings = validate_precommit_findings(read_findings(findings_path))
     config = load_gate_config(project_dir)
@@ -334,6 +413,12 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
         config=config,
     )
 
+    # Test plan check — verify coverage if a test plan exists
+    test_plan_results = _check_test_plans(project_dir)
+    if test_plan_results.get("blocked"):
+        ready = False
+        reasons.extend(test_plan_results["reasons"])
+
     # Session audit — warnings only, not blocking
     session_audit = _check_session_audit()
 
@@ -355,6 +440,10 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
         out_path.write_text(markdown, encoding="utf-8")
 
     gate_flag = _write_gate_flag(project_dir, "precommit") if ready else None
+
+    # On success: clean up test plans and append summaries to project-state.md
+    if ready and test_plan_results.get("plans"):
+        _cleanup_test_plans(project_dir, test_plan_results["plans"])
 
     return _emit_response(
         {
