@@ -51,10 +51,11 @@ cd agent-toolkit && ./install.sh
 cd /path/to/your-project && claude
 ```
 
-**Claude Code plugin**:
+**Claude Code plugin** — installs skills, agents, hooks, and MCP server:
 
 ```bash
-claude plugin add /path/to/agent-toolkit
+claude plugin marketplace add jvalin17/agent-toolkit
+claude plugin install agent-toolkit
 ```
 
 **MCP server** — zero dependencies, any Python 3.9+:
