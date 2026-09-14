@@ -569,6 +569,78 @@ def check_diff_for_noqa_in_tests(diff_text: str) -> List[str]:
     return warnings
 
 
+# --- Test redundancy detection ---------------------------------------------
+
+# Pattern to extract function-under-test from test name
+# test_login_success → "login", test_add_numbers → "add"
+TEST_NAME_PATTERN = re.compile(r"^test_(\w+?)_")
+
+# Minimum group size to flag as potentially redundant
+MIN_REDUNDANCY_GROUP = 3
+
+
+def detect_test_redundancy(
+    test_files: List[Path],
+) -> List[Dict[str, Any]]:
+    """Scan test files for potentially redundant tests.
+
+    Groups test functions by the function they test (extracted from name).
+    Flags groups with 3+ tests as potentially redundant — the reviewer
+    agent makes the final judgment.
+
+    Returns list of findings, each with group name, count, and test names.
+    """
+    if not test_files:
+        return []
+
+    # Collect all test function names with their file locations
+    groups: Dict[str, List[Dict[str, str]]] = {}
+
+    for file_path in test_files:
+        if not file_path.is_file():
+            continue
+        try:
+            content = file_path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+
+        for line in content.split("\n"):
+            stripped = line.strip()
+            if not stripped.startswith("def test_"):
+                continue
+            # Extract function name
+            match = re.match(r"def (test_\w+)\s*\(", stripped)
+            if not match:
+                continue
+            test_name = match.group(1)
+
+            # Extract the function-under-test (first word after test_)
+            group_match = TEST_NAME_PATTERN.match(test_name)
+            if not group_match:
+                continue
+            group = group_match.group(1)
+
+            if group not in groups:
+                groups[group] = []
+            groups[group].append({
+                "test_name": test_name,
+                "file": file_path.name,
+            })
+
+    # Flag groups with 3+ tests
+    findings: List[Dict[str, Any]] = []
+    for group, tests in sorted(groups.items()):
+        if len(tests) >= MIN_REDUNDANCY_GROUP:
+            findings.append({
+                "group": group,
+                "count": len(tests),
+                "test_names": [t["test_name"] for t in tests],
+                "files": list({t["file"] for t in tests}),
+            })
+
+    return findings
+
+
 # --- Test plan validation --------------------------------------------------
 
 TEST_PLAN_REQUIRED_KEYS = {"feature", "cases", "edge_cases", "created_at"}

@@ -654,6 +654,75 @@ class TestGenerateSessionSummary:
         assert "unavailable" in summary.lower() or "not found" in summary.lower()
 
 
+# --- Test redundancy detection ---------------------------------------------
+
+
+class TestDetectTestRedundancy:
+    """detect_test_redundancy scans test files for potentially redundant tests."""
+
+    def test_detects_similar_test_names(self, tmp_path):
+        from compliance import detect_test_redundancy
+
+        test_file = tmp_path / "test_auth.py"
+        test_file.write_text(
+            "def test_login_success():\n    pass\n"
+            "def test_login_succeeds():\n    pass\n"
+            "def test_login_works():\n    pass\n"
+            "def test_login_valid_creds():\n    pass\n"
+        )
+        findings = detect_test_redundancy([test_file])
+        assert len(findings) > 0
+        assert any("login" in f["group"] for f in findings)
+
+    def test_no_redundancy_in_distinct_tests(self, tmp_path):
+        from compliance import detect_test_redundancy
+
+        test_file = tmp_path / "test_auth.py"
+        test_file.write_text(
+            "def test_login_success():\n    pass\n"
+            "def test_logout():\n    pass\n"
+            "def test_register():\n    pass\n"
+        )
+        findings = detect_test_redundancy([test_file])
+        assert len(findings) == 0
+
+    def test_detects_across_files(self, tmp_path):
+        from compliance import detect_test_redundancy
+
+        f1 = tmp_path / "test_auth.py"
+        f1.write_text(
+            "def test_login_success():\n    pass\n"
+            "def test_login_valid():\n    pass\n"
+            "def test_login_happy_path():\n    pass\n"
+        )
+        f2 = tmp_path / "test_auth2.py"
+        f2.write_text(
+            "def test_login_works():\n    pass\n"
+        )
+        findings = detect_test_redundancy([f1, f2])
+        assert len(findings) > 0
+
+    def test_empty_file_list(self):
+        from compliance import detect_test_redundancy
+
+        findings = detect_test_redundancy([])
+        assert findings == []
+
+    def test_returns_file_locations(self, tmp_path):
+        from compliance import detect_test_redundancy
+
+        test_file = tmp_path / "test_calc.py"
+        test_file.write_text(
+            "def test_add_numbers():\n    pass\n"
+            "def test_add_integers():\n    pass\n"
+            "def test_add_values():\n    pass\n"
+        )
+        findings = detect_test_redundancy([test_file])
+        assert len(findings) > 0
+        assert "tests" in findings[0] or "test_names" in findings[0]
+        assert len(findings[0].get("test_names", [])) >= 3
+
+
 # --- Test plan validation -------------------------------------------------
 
 

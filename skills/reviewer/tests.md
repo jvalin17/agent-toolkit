@@ -24,6 +24,26 @@ Scan ALL existing tests for these patterns — flag and fix before adding more t
 - Realistic data throughout
 - Test WOULD fail if feature code was deleted
 
+## Step 0b: Test Redundancy Detection
+
+After sloppy test detection, check for redundant/overlapping tests. Run mechanically:
+
+```python
+from compliance import detect_test_redundancy
+from pathlib import Path
+
+test_files = list(Path("tests").rglob("test_*.py"))  # adjust for project structure
+findings = detect_test_redundancy(test_files)
+```
+
+Each finding groups 3+ tests that target the same function (e.g., `test_login_success`, `test_login_works`, `test_login_valid`). For each group:
+
+1. Read the actual test bodies — do they test different scenarios or the same thing?
+2. If redundant: recommend merging or removing duplicates
+3. If distinct (different edge cases): recommend renaming for clarity
+
+Include redundancy findings in the review report. This is a **medium** severity finding — not blocking, but should be fixed before adding more tests.
+
 ## Step 1: Coverage Analysis
 
 Detect the test framework (jest, vitest, pytest, go test, cargo test, etc.) and existing test patterns.
