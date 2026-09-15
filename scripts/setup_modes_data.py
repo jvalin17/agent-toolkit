@@ -1,13 +1,17 @@
-"""Preset and setting definitions for setup_modes."""
+"""Preset and setting definitions for setup_modes.
+
+Modes: minimal, tdd, planned, guarded, default, standard, safe.
+See hooks/mode_resolver.py for the canonical mode definitions.
+"""
 
 SETTINGS = [
     {
-        "key": "tdd",
-        "label": "TDD enforcement",
-        "description": "Reminds you to write tests before editing source files",
-        "example": 'editing main.py without test_main.py -> "Write test first"',
-        "type": "bool",
-        "options": ["on", "off"],
+        "key": "mode",
+        "label": "Enforcement mode",
+        "description": "Controls which checks are enforced (TDD, plan ordering, precommit, reviewer)",
+        "example": "default = TDD + precommit, safe = all checks + reviewer on push",
+        "type": "choice",
+        "options": ["minimal", "tdd", "planned", "guarded", "default", "standard", "safe"],
     },
     {
         "key": "skill_routing",
@@ -16,38 +20,6 @@ SETTINGS = [
         "example": '"fix the login bug" -> routes to /debug_tool skill',
         "type": "bool",
         "options": ["on", "off"],
-    },
-    {
-        "key": "enforcement",
-        "label": "Commit gate",
-        "description": "Requires /precommit before git commit",
-        "example": "block = commit fails without it, warn = reminder only",
-        "type": "choice",
-        "options": ["block", "warn"],
-    },
-    {
-        "key": "profile",
-        "label": "Push gate profile",
-        "description": "Which skills are required before push",
-        "example": "minimal = precommit only, standard = + evaluate, strict = + reviewer",
-        "type": "choice",
-        "options": ["minimal", "standard", "strict", "paranoid"],
-    },
-    {
-        "key": "mode",
-        "label": "Strict mode",
-        "description": "Prevents agent faking. Test fixtures must cite real data sources",
-        "example": "Adds drift detection and periodic integrity checks",
-        "type": "strict_toggle",
-        "options": ["off", "on"],
-    },
-    {
-        "key": "tdd_mode",
-        "label": "TDD mode",
-        "description": "Remind (default) or block source edits until tests exist",
-        "example": "strict = block edits without tests; remind = advisory only",
-        "type": "choice",
-        "options": ["remind", "strict"],
     },
     {
         "key": "eval_threshold",
@@ -109,12 +81,8 @@ SETTINGS = [
 
 PRESETS = {
     "quick": {
-        "tdd": False,
-        "tdd_mode": "remind",
+        "mode": "minimal",
         "skill_routing": False,
-        "enforcement": "warn",
-        "profile": "minimal",
-        "mode": "normal",
         "eval_threshold": 95,
         "auto": False,
         "continue": False,
@@ -124,12 +92,8 @@ PRESETS = {
         "report_protect": True,
     },
     "balanced": {
-        "tdd": True,
-        "tdd_mode": "remind",
+        "mode": "default",
         "skill_routing": True,
-        "enforcement": "block",
-        "profile": "minimal",
-        "mode": "normal",
         "eval_threshold": 95,
         "auto": False,
         "continue": False,
@@ -139,12 +103,8 @@ PRESETS = {
         "report_protect": True,
     },
     "guarded": {
-        "tdd": True,
-        "tdd_mode": "remind",
+        "mode": "standard",
         "skill_routing": True,
-        "enforcement": "block",
-        "profile": "standard",
-        "mode": "normal",
         "eval_threshold": 95,
         "auto": False,
         "continue": False,
@@ -154,12 +114,8 @@ PRESETS = {
         "report_protect": True,
     },
     "lockdown": {
-        "tdd": True,
-        "tdd_mode": "remind",
+        "mode": "safe",
         "skill_routing": True,
-        "enforcement": "block",
-        "profile": "paranoid",
-        "mode": "strict",
         "eval_threshold": 95,
         "auto": False,
         "continue": False,
@@ -170,44 +126,24 @@ PRESETS = {
     },
 }
 
-PROFILES = {
-    "minimal": {
-        "commit_requires": ["precommit"],
-        "push_requires": [],
-    },
-    "standard": {
-        "commit_requires": ["precommit"],
-        "push_requires": ["evaluate"],
-    },
-    "strict": {
-        "commit_requires": ["precommit", "evaluate"],
-        "push_requires": ["evaluate", "reviewer"],
-    },
-    "paranoid": {
-        "commit_requires": ["precommit", "evaluate"],
-        "push_requires": ["evaluate", "reviewer", "assess"],
-    },
-}
-
 PRESET_DESCRIPTIONS = {
     "quick": (
-        "Local experiments only — not for production.\n"
-        "                 Disables structural gate protection and uses advisory enforcement.\n"
-        '                 Good for: learning the toolkit layout\n'
+        "No enforcement — for local experiments only.\n"
+        "                 Good for: learning the toolkit layout\n"
         '                 Prefer: balanced or guarded for real work'
     ),
     "balanced": (
-        "TDD + skill routing enabled. Commits gated.\n"
+        "TDD + precommit enforced. Commits gated.\n"
         '                 Good for: daily development, solo projects\n'
         '                 Example: "Guide me but let me work"'
     ),
     "guarded": (
-        "Everything checked. Eval required on push. Time-limited.\n"
+        "TDD + plan + precommit enforced. Time-limited.\n"
         '                 Good for: production code, team branches\n'
         '                 Example: "Check my work before it ships"'
     ),
     "lockdown": (
-        "Strict mode. All reviews required. Time-limited.\n"
+        "All checks + reviewer on push. Time-limited.\n"
         '                 Good for: regulated code, compliance, audits\n'
         '                 Example: "Nothing ships without full review"'
     ),

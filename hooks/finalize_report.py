@@ -136,16 +136,16 @@ def _decide_precommit(
                 )
 
         # TDD ordering: source files edited before test files
-        # Only block in strict mode — remind mode shouldn't hard-block on ordering
-        tdd_mode = (config or {}).get("tdd_mode", "remind")
-        if tdd_mode == "strict" and not session_audit.get("tdd_order_respected", True):
+        from mode_resolver import resolve_mode_from_config
+        mode = resolve_mode_from_config(config or {})
+        if mode.tdd and not session_audit.get("tdd_order_respected", True):
             reasons.append(
                 "TDD violation: source files edited before test files — "
                 "write failing tests first"
             )
 
         # Test plan ordering: plan must be written before source edits
-        if not session_audit.get("test_plan_before_source", True):
+        if mode.plan and not session_audit.get("test_plan_before_source", True):
             reasons.append(
                 "test plan written after source edits — "
                 "write .scratch/test-plan_<slug>.json BEFORE implementing"

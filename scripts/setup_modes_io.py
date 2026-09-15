@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from setup_modes_data import PRESETS, PROFILES, SETTINGS
+from setup_modes_data import PRESETS, SETTINGS
 
 
 def load_current_config(project_dir: Path) -> dict:
@@ -31,20 +31,15 @@ def build_full_config(settings: dict) -> dict:
     """Build complete gates.json from flat settings dict."""
     return {
         "gate_mode": "legacy",
-        "enforcement": settings.get("enforcement", "block"),
-        "profile": settings.get("profile", "minimal"),
-        "mode": settings.get("mode", "normal"),
+        "mode": settings.get("mode", "default"),
         "eval_threshold": settings.get("eval_threshold", 95),
         "max_session_minutes": settings.get("max_session_minutes", 0),
         "auto": settings.get("auto", False),
         "continue": settings.get("continue", False),
-        "tdd": settings.get("tdd", True),
-        "tdd_mode": settings.get("tdd_mode", "remind"),
         "skill_routing": settings.get("skill_routing", True),
         "model": settings.get("model", "auto"),
         "gate_protect": settings.get("gate_protect", True),
         "report_protect": settings.get("report_protect", True),
-        "profiles": PROFILES,
     }
 
 
@@ -61,8 +56,6 @@ def apply_overrides(overrides: dict, project_dir: Path) -> dict:
     if not current:
         current = build_full_config(PRESETS["balanced"])
     current.update(overrides)
-    if "profiles" not in current:
-        current["profiles"] = PROFILES
     write_config(current, project_dir)
     return current
 
@@ -73,8 +66,6 @@ def format_value(key: str, value) -> str:
         return "on" if value else "off"
     if key == "max_session_minutes":
         return "none" if value == 0 else f"{value}m"
-    if key == "mode":
-        return "on" if value == "strict" else "off"
     return str(value)
 
 

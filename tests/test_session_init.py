@@ -344,27 +344,26 @@ Previous sessions: 6
 class TestLoadSessionConfig:
     def test_reads_mode_from_gates_json(self, project_dir):
         """load_session_config reads the 'mode' field from gates.json."""
-        gates = {"gate_mode": "legacy", "mode": "strict"}
+        gates = {"gate_mode": "legacy", "mode": "safe"}
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
         config = load_session_config(project_dir)
-        assert config["mode"] == "strict"
+        assert config["mode"] == "safe"
 
-    def test_missing_mode_field_returns_normal(self, project_dir):
-        """If gates.json has no 'mode' field, default to 'normal'."""
+    def test_missing_mode_field_returns_default(self, project_dir):
+        """If gates.json has no 'mode' field, default to 'default'."""
         gates = {"gate_mode": "legacy"}
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
         config = load_session_config(project_dir)
-        assert config["mode"] == "normal"
+        assert config["mode"] == "default"
 
     def test_missing_gates_json_returns_defaults(self, project_dir):
         """If gates.json doesn't exist, return defaults."""
         config = load_session_config(project_dir)
-        assert config["mode"] == "normal"
+        assert config["mode"] == "default"
         assert config["compact_at_minutes"] == 70
         assert config["max_session_minutes"] == 200
-        assert config["tdd"] is True
         assert config["skill_routing"] is True
         assert config["model"] == "auto"
         assert config["report_protect"] is True
@@ -386,12 +385,12 @@ class TestLoadSessionConfig:
 
     def test_env_var_overrides_gates_json(self, project_dir):
         """AGENT_TOOLKIT_MODE env var overrides gates.json."""
-        gates = {"mode": "normal"}
+        gates = {"mode": "minimal"}
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
-        with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "strict"}):
+        with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "safe"}):
             config = load_session_config(project_dir)
-        assert config["mode"] == "strict"
+        assert config["mode"] == "safe"
 
     def test_max_session_minutes_from_config(self, project_dir):
         """max_session_minutes is read from gates.json."""
@@ -404,9 +403,8 @@ class TestLoadSessionConfig:
     def test_all_fields_from_config(self, project_dir):
         """All config fields are read from gates.json."""
         gates = {
-            "mode": "strict",
+            "mode": "safe",
             "max_session_minutes": 30,
-            "tdd": False,
             "skill_routing": False,
             "auto": True,
             "continue": True,
@@ -415,9 +413,8 @@ class TestLoadSessionConfig:
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
         config = load_session_config(project_dir)
-        assert config["mode"] == "strict"
+        assert config["mode"] == "safe"
         assert config["max_session_minutes"] == 30
-        assert config["tdd"] is False
         assert config["skill_routing"] is False
         assert config["auto"] is True
         assert config["continue"] is True
@@ -559,62 +556,16 @@ class TestMain:
         data = json.loads(state_file.read_text())
         assert data["exchanges"] == 0
 
-    def test_strict_mode_context_injected(self):
-        """When mode=strict, build_context includes strict mode banner."""
+    def test_mode_shown_in_config_summary(self):
+        """build_context includes mode name in config summary."""
         context = build_context(
             files=["- HANDOFF.md (PRIORITY — read this first)"],
             report_count=0,
             warnings=[],
             continuation=None,
-            mode="strict",
+            session_config={"mode": "safe"},
         )
-        assert "STRICT MODE ACTIVE" in context
-        assert "G-IMPL-7" in context
-        assert "/evaluate required before commit" in context
-
-    def test_normal_mode_no_strict_context(self):
-        """When mode=normal, build_context does NOT include strict mode banner."""
-        context = build_context(
-            files=["- HANDOFF.md (PRIORITY — read this first)"],
-            report_count=0,
-            warnings=[],
-            continuation=None,
-            mode="normal",
-        )
-        assert "STRICT MODE ACTIVE" not in context
-
-    def test_default_mode_no_strict_context(self):
-        """When mode is omitted (None), behaves like normal mode."""
-        context = build_context(
-            files=["- HANDOFF.md (PRIORITY — read this first)"],
-            report_count=0,
-            warnings=[],
-            continuation=None,
-        )
-        assert "STRICT MODE ACTIVE" not in context
-
-    def test_strict_mode_injected_via_main(self, project_dir):
-        """When gates.json has mode=strict, main() injects strict mode context."""
-        gates = {"gate_mode": "legacy", "mode": "strict"}
-        (project_dir / "gates.json").write_text(json.dumps(gates))
-
-        with patch("hooks.session_init.get_project_dir", return_value=project_dir):
-            with patch("sys.stdin") as mock_stdin:
-                mock_stdin.read.return_value = json.dumps({
-                    "hook_event_name": "SessionStart",
-                })
-                with patch("sys.stdout") as mock_stdout:
-                    written = []
-                    mock_stdout.write = lambda s: written.append(s)
-                    mock_stdout.flush = lambda: None
-
-                    with patch("hooks.session_init.get_settings_path", return_value=None):
-                        main()
-
-        output = "".join(written)
-        data = json.loads(output)
-        context = data["hookSpecificOutput"]["additionalContext"]
-        assert "STRICT MODE ACTIVE" in context
+        assert "mode=safe" in context
 
     def test_continuation_context_injected(self, project_dir):
         """When HANDOFF.md exists with a goal, continuation context appears."""

@@ -1,35 +1,13 @@
 {
   "gate_mode": "legacy",
-  "enforcement": "block",
-  "profile": "minimal",
-  "mode": "normal",
+  "mode": "default",
   "eval_threshold": 95,
   "compact_at_minutes": 70,
   "max_session_minutes": 200,
   "auto": false,
   "continue": true,
-  "tdd": true,
-  "tdd_mode": "remind",
   "skill_routing": true,
   "model": "auto",
   "gate_protect": true,
-  "report_protect": true,
-  "profiles": {
-    "minimal": {
-      "commit_requires": ["precommit"],
-      "push_requires": []
-    },
-    "standard": {
-      "commit_requires": ["precommit"],
-      "push_requires": ["evaluate"]
-    },
-    "strict": {
-      "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["evaluate", "reviewer"]
-    },
-    "paranoid": {
-      "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["evaluate", "reviewer", "assess"]
-    }
-  }
+  "report_protect": true
 }

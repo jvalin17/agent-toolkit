@@ -38,16 +38,17 @@ def project_dir(tmp_path):
 class TestStrictModeSessionLifecycle:
     """Simulate a strict mode session from init through drift detection."""
 
-    def test_session_init_creates_strict_state(self, project_dir):
-        """session_init stores mode=strict in state.json when gates.json says strict."""
-        gates = {"gate_mode": "legacy", "mode": "strict"}
+    def test_session_init_creates_state_with_mode(self, project_dir):
+        """session_init stores mode in state.json from gates.json."""
+        gates = {"gate_mode": "legacy", "mode": "safe"}
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
         config = load_session_config(project_dir)
-        assert config["mode"] == "strict"
+        assert config["mode"] == "safe"
 
         session_dir = project_dir / ".session"
-        init_session_state(session_dir, mode=config["mode"])
+        # session_monitor still uses "strict" internally for drift detection
+        init_session_state(session_dir, mode="strict")
 
         state_file = session_dir / "state.json"
         data = json.loads(state_file.read_text())
@@ -202,30 +203,27 @@ class TestStrictModeSessionLifecycle:
         assert state.last_tool_sequence == []
 
 
-class TestStrictModeContextInjection:
-    """Verify session_init injects the right context for strict mode."""
+class TestModeContextInjection:
+    """Verify session_init injects mode name in context."""
 
-    def test_strict_context_includes_all_markers(self):
-        """Strict mode context has all required markers."""
+    def test_mode_shown_in_config_summary(self):
+        """Mode name appears in config summary."""
         context = build_context(
             files=["- HANDOFF.md (PRIORITY — read this first)"],
             report_count=0,
             warnings=[],
             continuation=None,
-            mode="strict",
+            session_config={"mode": "safe"},
         )
-        assert "STRICT MODE ACTIVE" in context
-        assert "G-IMPL-7" in context
-        assert "/evaluate required before commit" in context
-        # Should still have normal content
+        assert "mode=safe" in context
         assert "MANDATORY RULES" in context
         assert "G-SESSION-1" in context
 
-    def test_env_var_activates_strict(self, project_dir):
-        """AGENT_TOOLKIT_MODE=strict works even without gates.json."""
-        with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "strict"}):
+    def test_env_var_activates_mode(self, project_dir):
+        """AGENT_TOOLKIT_MODE env var sets mode."""
+        with patch.dict(os.environ, {"AGENT_TOOLKIT_MODE": "safe"}):
             config = load_session_config(project_dir)
-        assert config["mode"] == "strict"
+        assert config["mode"] == "safe"
 
 
 class TestDriftScoreEdgeCases:

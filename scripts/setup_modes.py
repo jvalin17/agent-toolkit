@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from setup_modes_data import PRESET_DESCRIPTIONS, PRESETS, PROFILES, SETTINGS
+from setup_modes_data import PRESET_DESCRIPTIONS, PRESETS, SETTINGS
 from setup_modes_io import (
     apply_overrides,
     apply_preset,
@@ -33,7 +33,6 @@ from setup_modes_io import (
 # Re-export for tests
 __all__ = [
     "PRESETS",
-    "PROFILES",
     "SETTINGS",
     "apply_preset",
     "apply_overrides",
@@ -61,11 +60,6 @@ def prompt_choice(setting: dict, current_value) -> object:
         if not raw:
             return current_value
         return raw in ("on", "true", "1", "yes")
-    if stype == "strict_toggle":
-        raw = input(f"    on/off [{current_display}]: ").strip().lower()
-        if not raw:
-            return current_value
-        return "strict" if raw in ("on", "true", "1", "yes") else "normal"
     if stype == "choice":
         options = ", ".join(setting["options"])
         raw = input(f"    {options} [{current_display}]: ").strip().lower()
@@ -161,11 +155,8 @@ def parse_args(argv=None):
     presets.add_argument("--guarded", action="store_true", help="Production — eval on push, time-limited")
     presets.add_argument("--lockdown", action="store_true", help="Full review — strict mode, all gates")
 
-    parser.add_argument("--tdd", choices=["on", "off"], default=None, help="TDD enforcement")
+    parser.add_argument("--mode", choices=["minimal", "tdd", "planned", "guarded", "default", "standard", "safe"], default=None, help="Enforcement mode")
     parser.add_argument("--skill-routing", choices=["on", "off"], default=None, help="Auto skill routing")
-    parser.add_argument("--enforcement", choices=["block", "warn"], default=None, help="Commit gate enforcement")
-    parser.add_argument("--profile", choices=["minimal", "standard", "strict", "paranoid"], default=None)
-    parser.add_argument("--strict", choices=["on", "off"], default=None, help="Strict mode")
     parser.add_argument("--auto", choices=["on", "off"], default=None, help="Auto mode (unattended)")
     parser.add_argument("--continue-mode", choices=["on", "off"], default=None, help="Auto-restart sessions")
     parser.add_argument("--time-limit", type=int, default=None, help="Session time limit in minutes (0=none)")
@@ -183,16 +174,10 @@ def parse_args(argv=None):
 def args_to_overrides(args) -> dict:
     """Convert parsed CLI args to override dict."""
     overrides = {}
-    if args.tdd is not None:
-        overrides["tdd"] = args.tdd == "on"
+    if args.mode is not None:
+        overrides["mode"] = args.mode
     if args.skill_routing is not None:
         overrides["skill_routing"] = args.skill_routing == "on"
-    if args.enforcement is not None:
-        overrides["enforcement"] = args.enforcement
-    if args.profile is not None:
-        overrides["profile"] = args.profile
-    if args.strict is not None:
-        overrides["mode"] = "strict" if args.strict == "on" else "normal"
     if args.auto is not None:
         overrides["auto"] = args.auto == "on"
     if args.continue_mode is not None:

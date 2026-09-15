@@ -43,7 +43,7 @@ REQUIRED_HOOKS = [
 
 SETTINGS_CHECKED_HOOKS = ["gate_hook.py", "session_monitor.py", "skill_passed.py"]
 
-DEFAULT_MODE = "normal"
+from mode_resolver import resolve_mode_from_config, DEFAULT_MODE
 
 
 # --- Core functions ---
@@ -52,11 +52,11 @@ DEFAULT_MODE = "normal"
 def load_session_config(project_dir: Path) -> dict:
     """Load all session-relevant settings from gates.json with env overrides."""
     config = load_gate_config(project_dir)
+    mode = resolve_mode_from_config(config)
     return {
-        "mode": get_config_value(config, "mode", "normal"),
+        "mode": mode.name,
         "compact_at_minutes": get_config_value(config, "compact_at_minutes", 70),
         "max_session_minutes": get_config_value(config, "max_session_minutes", 200),
-        "tdd": get_config_value(config, "tdd", True),
         "skill_routing": get_config_value(config, "skill_routing", True),
         "auto": get_config_value(config, "auto", False),
         "continue": get_config_value(config, "continue", False),
@@ -294,7 +294,7 @@ def build_context(
     # Config summary
     if session_config:
         cfg_items = [
-            f"tdd={session_config.get('tdd', True)}",
+            f"mode={session_config.get('mode', DEFAULT_MODE)}",
             f"skill_routing={session_config.get('skill_routing', True)}",
             f"compact_at_minutes={session_config.get('compact_at_minutes', 70)}",
             f"max_session_minutes={session_config.get('max_session_minutes', 200)}",
@@ -308,15 +308,6 @@ def build_context(
     if role_context:
         parts.append("")
         parts.append(role_context)
-
-    # Strict mode banner
-    if mode == "strict":
-        parts.append("")
-        parts.append(
-            "STRICT MODE ACTIVE — G-IMPL-7 enforced, "
-            "periodic integrity checks enabled, "
-            "/evaluate required before commit."
-        )
 
     # Continuation context (prominent, before file list)
     if continuation:

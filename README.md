@@ -82,6 +82,14 @@ agent-toolkit-continue "Build a price comparison feature for utensils in my inve
 # Sessions restart automatically, picking up from HANDOFF.md
 ```
 
+**Easiest way to start** — just tell your agent:
+
+```
+"Use /implementation to build a user auth system"
+```
+
+The skill handles everything: requirements check, execution plan, TDD, review, precommit. You approve the plan, then watch it build slab-by-slab.
+
 Roles activate automatically — no configuration needed. You can also invoke roles directly:
 
 ```
@@ -182,7 +190,7 @@ Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python,
 
 ### Enforcement (hooks — can't be bypassed)
 
-- **Precommit mandatory** — `gate_hook.py` blocks `git commit` without a passing precommit gate, even in `enforcement: "warn"` mode
+- **Precommit mandatory** — `gate_hook.py` blocks `git commit` without a passing precommit gate (in modes that enable it)
 - **Model routing** — `taxonomy_enforce.py` blocks Agent subagent calls missing a `model` parameter or using the wrong tier
 - **Execution plan enforcement** — `/implementation` writes an execution plan (slabs, roles, skills); `/precommit` reads it and blocks if any planned skill was skipped
 - **Reviewer gate** — `/precommit` verifies `/reviewer` was called on code changes; auto-invokes it if skipped
@@ -192,8 +200,8 @@ Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python,
 - **No fabricated history** — G-IMPL-8 blocks claims about prior code behavior without git log/blame evidence
 - **Mechanical verification** — `compliance.py` reads session JSONL to verify server starts, HTTP requests, TDD file ordering, and role agent spawns. Agent self-reports are overridden by machine evidence.
 - **Diff TDD check** — `compliance.py` scans the git diff for new functions without corresponding test functions; `finalize_report.py` blocks the precommit gate
-- **TDD enforcement** — `tdd_enforce.py` blocks/reminds on Edit/Write of source files without a test file; `taxonomy_enforce.py` injects "write failing test FIRST" into implementation-like Agent subagent prompts
-- **Skill enforcement** — `skill_enforce.py` in strict mode blocks code edits without an active skill workflow
+- **TDD enforcement** — `tdd_enforce.py` blocks Edit/Write of source files without a test file (in modes with TDD enabled); `taxonomy_enforce.py` injects "write failing test FIRST" into implementation-like Agent subagent prompts
+- **Skill enforcement** — `skill_enforce.py` blocks code edits without an active skill workflow
 - **Parallel role review** — precommit spawns one reviewer per detected role in parallel (opus); skips if `/reviewer` already ran
 - **Evidence verification** — `compliance.py` requires concrete output (command results, file:line references) — not "it works"
 - **Session audit** — `compliance.py` reads Claude Code's JSONL log to track what the agent actually did (skills invoked, tools used, agents spawned)
@@ -206,12 +214,24 @@ Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python,
 
 ## Configuration
 
-All settings in `gates.json`. Quick presets:
+Single `"mode"` field in `gates.json` controls all enforcement:
+
+| Mode | TDD | Plan | Precommit | Reviewer |
+|------|-----|------|-----------|----------|
+| `minimal` | — | — | — | — |
+| `tdd` | yes | — | — | — |
+| `planned` | — | yes | — | — |
+| `guarded` | — | — | yes | — |
+| **`default`** | **yes** | — | **yes** | — |
+| `standard` | yes | yes | yes | — |
+| `safe` | yes | yes | yes | yes |
+
+Quick presets:
 
 ```bash
-agent-toolkit-setup --balanced     # daily dev (default)
-agent-toolkit-setup --guarded      # production branches
-agent-toolkit-setup --lockdown     # high-risk changes
+agent-toolkit-setup --balanced     # mode: default (TDD + precommit)
+agent-toolkit-setup --guarded      # mode: standard (+ plan ordering)
+agent-toolkit-setup --lockdown     # mode: safe (+ reviewer on push)
 ```
 
 Override roles:
@@ -239,7 +259,7 @@ Override roles:
 | Filter knowledge | `python3 roles/learn.py --filter --role all` |
 | Session audit | `python3 roles/audit.py` — verify what agent actually did |
 | Auto-continuation | `agent-toolkit-continue "Build auth system"` |
-| TDD strict mode | `"tdd_mode": "strict"` in gates.json |
+| Set mode | `"mode": "safe"` in gates.json |
 | Signed gates (CI/CD) | [shared/gate-unlock.md](shared/gate-unlock.md) |
 
 → [Auto-continuation](architecture/auto-continuation.md) · [Strict mode](shared/strict-mode.md) · [Orchestrator](shared/orchestrator.md)

@@ -15,7 +15,8 @@ from typing import Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from gate_hook import get_config_value, load_gate_config
+from gate_hook import load_gate_config
+from mode_resolver import resolve_mode_from_config
 from session_state import load_state, STATE_FILENAME, SESSION_DIR
 
 NON_CODE_EXTENSIONS = {
@@ -109,10 +110,9 @@ def run_tdd_enforce(
     project_dir: Path,
 ) -> Tuple[int, str]:
     config = load_gate_config(project_dir)
-    if not get_config_value(config, "tdd", True):
+    mode = resolve_mode_from_config(config)
+    if not mode.tdd:
         return 0, ""
-
-    tdd_mode = get_config_value(config, "tdd_mode", "remind")
 
     try:
         hook_input = json.loads(stdin_input)
@@ -135,17 +135,10 @@ def run_tdd_enforce(
     if recent_test_edit(project_dir):
         return 0, ""
 
-    if tdd_mode == "strict":
-        message = (
-            f"Write the test for {filename} first — source edits need a test file."
-        )
-        return 0, make_block_response(message)
-
     message = (
-        f"No test file for {filename} — write the test first, then implement. "
-        "Skip if this is a config/setup file."
+        f"Write the test for {filename} first — source edits need a test file."
     )
-    return 0, make_hook_response(message)
+    return 0, make_block_response(message)
 
 
 def main() -> int:

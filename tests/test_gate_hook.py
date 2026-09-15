@@ -1,7 +1,6 @@
 """Tests for hooks/gate_hook.py — commit/push gate enforcement.
 
-Ports gate.sh bash tests to pytest. Covers: command detection, enforcement
-modes, flag validation, profile-based gates, override chain, auto-escalation.
+Covers: command detection, flag validation, mode-based gates, signed mode.
 """
 
 import json
@@ -15,7 +14,6 @@ from hooks.gate_hook import (
     check_gate_flags,
     get_config_value,
     load_gate_config,
-    resolve_enforcement,
     run_gate,
 )
 
@@ -25,9 +23,7 @@ def project_dir(tmp_path):
     """Create a temp project directory with default gates.json."""
     gates = {
         "gate_mode": "legacy",
-        "enforcement": "block",
-        "commit_requires": ["precommit"],
-        "push_requires": ["evaluate"],
+        "mode": "default",
     }
     (tmp_path / "gates.json").write_text(json.dumps(gates))
     os.chdir(tmp_path)
@@ -128,7 +124,6 @@ class TestLoadGateConfig:
     def test_loads_from_project_root(self, project_dir):
         config = load_gate_config(project_dir)
         assert config["gate_mode"] == "legacy"
-        assert config["enforcement"] == "block"
 
     def test_returns_defaults_when_no_config(self, tmp_path):
         config = load_gate_config(tmp_path)
@@ -136,67 +131,74 @@ class TestLoadGateConfig:
         assert config["gate_mode"] == "legacy"
 
 
-# --- Enforcement override chain ---
-
-
-class TestResolveEnforcement:
-    def test_default_from_config(self, project_dir):
-        result = resolve_enforcement("block", project_dir, env_override=None)
-        assert result == "block"
-
-    def test_file_override(self, project_dir, gates_dir):
-        (gates_dir / "enforcement-override").write_text("warn")
-        result = resolve_enforcement("block", project_dir, env_override=None)
-        assert result == "warn"
-
-    def test_env_var_overrides_file(self, project_dir, gates_dir):
-        (gates_dir / "enforcement-override").write_text("warn")
-        result = resolve_enforcement("block", project_dir, env_override="block")
-        assert result == "block"
-
-    def test_env_var_overrides_config(self, project_dir):
-        result = resolve_enforcement("warn", project_dir, env_override="block")
-        assert result == "block"
-
-
-# --- Full gate run ---
+# --- Full gate run (mode-based) ---
 
 
 class TestRunGate:
-    def test_commit_blocked_without_precommit(self, project_dir):
+    def test_commit_blocked_in_default_mode(self, project_dir):
+        """Default mode requires precommit for commit."""
         exit_code, output = run_gate(
             '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
         )
-        assert exit_code == 0  # Blocking via JSON decision, not exit code
-        assert "block" in output
+        assert exit_code == 0
         assert "block" in output
 
-    def test_commit_allowed_with_precommit(self, project_dir, gates_dir):
+    def test_commit_allowed_with_precommit_in_default_mode(self, project_dir, gates_dir):
         (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
         exit_code, output = run_gate(
             '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
         )
         assert exit_code == 0
+        assert output == ""
 
-    def test_push_blocked_without_evaluate(self, project_dir, gates_dir):
-        (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
+    def test_commit_allowed_in_minimal_mode(self, project_dir):
+        """Minimal mode has no gates — commit always allowed."""
+        (project_dir / "gates.json").write_text(json.dumps({
+            "gate_mode": "legacy", "mode": "minimal",
+        }))
         exit_code, output = run_gate(
-            '{"tool_input":{"command":"git push origin main"}}',
+            '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
         )
-        assert exit_code == 0  # Blocking via JSON decision
-        assert "block" in output
+        assert exit_code == 0
+        assert output == ""
 
-    def test_push_allowed_with_all_flags(self, project_dir, gates_dir):
+    def test_push_blocked_in_safe_mode_without_reviewer(self, project_dir, gates_dir):
+        """Safe mode requires reviewer for push."""
+        (project_dir / "gates.json").write_text(json.dumps({
+            "gate_mode": "legacy", "mode": "safe",
+        }))
         (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
-        (gates_dir / "evaluate-passed").write_text("PASSED 96% 2026-05-20")
         exit_code, output = run_gate(
             '{"tool_input":{"command":"git push origin main"}}',
             project_dir,
         )
         assert exit_code == 0
+        assert "block" in output
+
+    def test_push_allowed_in_safe_mode_with_reviewer(self, project_dir, gates_dir):
+        """Safe mode allows push when reviewer passes."""
+        (project_dir / "gates.json").write_text(json.dumps({
+            "gate_mode": "legacy", "mode": "safe",
+        }))
+        (gates_dir / "reviewer-passed").write_text("PASSED 2026-05-20")
+        exit_code, output = run_gate(
+            '{"tool_input":{"command":"git push origin main"}}',
+            project_dir,
+        )
+        assert exit_code == 0
+        assert output == ""
+
+    def test_push_allowed_in_default_mode(self, project_dir):
+        """Default mode has no push requirements."""
+        exit_code, output = run_gate(
+            '{"tool_input":{"command":"git push origin main"}}',
+            project_dir,
+        )
+        assert exit_code == 0
+        assert output == ""
 
     def test_non_git_command_allowed(self, project_dir):
         exit_code, output = run_gate(
@@ -205,93 +207,10 @@ class TestRunGate:
         )
         assert exit_code == 0
 
-    def test_warn_mode_still_blocks_precommit(self, project_dir):
-        """Precommit is always mandatory — even warn mode blocks missing precommit."""
-        gates = json.loads((project_dir / "gates.json").read_text())
-        gates["enforcement"] = "warn"
-        (project_dir / "gates.json").write_text(json.dumps(gates))
-
-        exit_code, output = run_gate(
-            '{"tool_input":{"command":"git commit -m \\"test\\""}}',
-            project_dir,
-        )
-        assert exit_code == 0
-        assert "block" in output
-
-    def test_precommit_always_blocks_even_in_warn(self, project_dir):
-        """Precommit gate always blocks — no escalation needed."""
-        gates = json.loads((project_dir / "gates.json").read_text())
-        gates["enforcement"] = "warn"
-        (project_dir / "gates.json").write_text(json.dumps(gates))
-
-        _, output = run_gate(
-            '{"tool_input":{"command":"git commit -m \\"test\\""}}',
-            project_dir,
-        )
-        assert "block" in output
-
-    def test_second_commit_also_blocked(self, project_dir):
-        """Second commit also blocked without precommit."""
-        gates = json.loads((project_dir / "gates.json").read_text())
-        gates["enforcement"] = "warn"
-        (project_dir / "gates.json").write_text(json.dumps(gates))
-
-        # First violation → escalates
-        run_gate(
-            '{"tool_input":{"command":"git commit -m \\"first\\""}}',
-            project_dir,
-        )
-        # Second attempt → blocked
-        exit_code, output = run_gate(
-            '{"tool_input":{"command":"git commit -m \\"second\\""}}',
-            project_dir,
-        )
-        assert exit_code == 0  # Blocking via JSON decision, not exit code
-        assert "block" in output
-        assert "block" in output
-
-    def test_env_var_enforcement_override(self, project_dir):
-        """AGENT_TOOLKIT_ENFORCEMENT env var overrides gates.json."""
-        gates = json.loads((project_dir / "gates.json").read_text())
-        gates["enforcement"] = "warn"
-        (project_dir / "gates.json").write_text(json.dumps(gates))
-
-        exit_code, output = run_gate(
-            '{"tool_input":{"command":"git commit -m \\"test\\""}}',
-            project_dir,
-            env_enforcement="block",
-        )
-        assert exit_code == 0  # Blocking via JSON decision
-        assert "block" in output
-
-    def test_profile_based_gates(self, project_dir, gates_dir):
-        """Profile-based config resolves correct requirements."""
-        gates = {
-            "gate_mode": "legacy",
-            "enforcement": "block",
-            "profile": "strict",
-            "profiles": {
-                "strict": {
-                    "commit_requires": ["precommit", "evaluate"],
-                    "push_requires": ["evaluate", "reviewer"],
-                }
-            },
-        }
-        (project_dir / "gates.json").write_text(json.dumps(gates))
-        (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
-
-        exit_code, output = run_gate(
-            '{"tool_input":{"command":"git commit -m \\"test\\""}}',
-            project_dir,
-        )
-        assert exit_code == 0  # Blocking via JSON decision
-        assert "block" in output  # Missing evaluate for strict commit
-
     def test_signed_mode_blocks_when_verify_script_missing(self, project_dir):
         gates = {
             "gate_mode": "signed",
-            "enforcement": "block",
-            "profile": "minimal",
+            "mode": "default",
         }
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
@@ -308,8 +227,7 @@ class TestRunGate:
     ):
         gates = {
             "gate_mode": "signed",
-            "enforcement": "block",
-            "profile": "minimal",
+            "mode": "default",
         }
         (project_dir / "gates.json").write_text(json.dumps(gates))
         gate_dir = project_dir / ".agent-toolkit" / "gate" / "scripts"
@@ -328,6 +246,16 @@ class TestRunGate:
         assert exit_code == 0
         assert "block" in output
         assert "verification unavailable" in output
+
+    def test_env_mode_override(self, project_dir, monkeypatch):
+        """AGENT_TOOLKIT_MODE env var overrides gates.json mode."""
+        monkeypatch.setenv("AGENT_TOOLKIT_MODE", "minimal")
+        exit_code, output = run_gate(
+            '{"tool_input":{"command":"git commit -m \\"test\\""}}',
+            project_dir,
+        )
+        assert exit_code == 0
+        assert output == ""
 
 
 class TestGetConfigValue:

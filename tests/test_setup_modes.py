@@ -12,7 +12,6 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
 from setup_modes import (
     PRESETS,
-    PROFILES,
     SETTINGS,
     apply_preset,
     apply_overrides,
@@ -33,23 +32,19 @@ class TestPresets:
     def test_all_presets_exist(self):
         assert set(PRESETS.keys()) == {"quick", "balanced", "guarded", "lockdown"}
 
-    def test_quick_disables_tdd_and_routing(self):
-        assert PRESETS["quick"]["tdd"] is False
+    def test_quick_uses_minimal_mode(self):
+        assert PRESETS["quick"]["mode"] == "minimal"
         assert PRESETS["quick"]["skill_routing"] is False
-        assert PRESETS["quick"]["enforcement"] == "warn"
 
-    def test_balanced_enables_tdd_and_routing(self):
-        assert PRESETS["balanced"]["tdd"] is True
+    def test_balanced_uses_default_mode(self):
+        assert PRESETS["balanced"]["mode"] == "default"
         assert PRESETS["balanced"]["skill_routing"] is True
-        assert PRESETS["balanced"]["enforcement"] == "block"
 
-    def test_guarded_requires_eval_on_push(self):
-        assert PRESETS["guarded"]["profile"] == "standard"
-        assert PRESETS["guarded"]["enforcement"] == "block"
+    def test_guarded_uses_standard_mode(self):
+        assert PRESETS["guarded"]["mode"] == "standard"
 
-    def test_lockdown_is_strict_with_all_reviews(self):
-        assert PRESETS["lockdown"]["mode"] == "strict"
-        assert PRESETS["lockdown"]["profile"] == "paranoid"
+    def test_lockdown_uses_safe_mode(self):
+        assert PRESETS["lockdown"]["mode"] == "safe"
         assert PRESETS["lockdown"]["max_session_minutes"] == 70
 
     def test_all_presets_have_all_settings(self):
@@ -67,21 +62,12 @@ class TestApplyPreset:
         gates_path = project_dir / "gates.json"
         assert gates_path.is_file()
         config = json.loads(gates_path.read_text())
-        assert config["tdd"] is False
-        assert config["skill_routing"] is False
-
-    def test_preserves_profiles(self, project_dir):
-        apply_preset("balanced", project_dir)
-        config = json.loads((project_dir / "gates.json").read_text())
-        assert "profiles" in config
-        assert "minimal" in config["profiles"]
-        assert "paranoid" in config["profiles"]
+        assert config["mode"] == "minimal"
 
     def test_lockdown_preset(self, project_dir):
         apply_preset("lockdown", project_dir)
         config = json.loads((project_dir / "gates.json").read_text())
-        assert config["mode"] == "strict"
-        assert config["profile"] == "paranoid"
+        assert config["mode"] == "safe"
         assert config["max_session_minutes"] == 70
 
 
@@ -90,10 +76,9 @@ class TestApplyOverrides:
 
     def test_overrides_single_setting(self, project_dir):
         apply_preset("balanced", project_dir)
-        apply_overrides({"tdd": False}, project_dir)
+        apply_overrides({"mode": "minimal"}, project_dir)
         config = json.loads((project_dir / "gates.json").read_text())
-        assert config["tdd"] is False
-        # Other settings unchanged
+        assert config["mode"] == "minimal"
         assert config["skill_routing"] is True
 
     def test_overrides_multiple_settings(self, project_dir):
@@ -104,9 +89,9 @@ class TestApplyOverrides:
         assert config["max_session_minutes"] == 30
 
     def test_creates_gates_json_if_missing(self, project_dir):
-        apply_overrides({"tdd": False}, project_dir)
+        apply_overrides({"mode": "safe"}, project_dir)
         config = json.loads((project_dir / "gates.json").read_text())
-        assert config["tdd"] is False
+        assert config["mode"] == "safe"
 
 
 class TestShowStatus:
@@ -116,8 +101,7 @@ class TestShowStatus:
         apply_preset("guarded", project_dir)
         show_status(project_dir)
         output = capsys.readouterr().out
-        assert "guarded" in output.lower() or "standard" in output
-        assert "tdd" in output.lower()
+        assert "standard" in output
 
     def test_no_gates_json(self, project_dir, capsys):
         show_status(project_dir)
@@ -129,18 +113,18 @@ class TestWriteConfig:
     """write_config writes valid JSON."""
 
     def test_writes_valid_json(self, project_dir):
-        config = {"tdd": True, "model": "auto", "profiles": {}}
+        config = {"mode": "default", "model": "auto"}
         write_config(config, project_dir)
         result = json.loads((project_dir / "gates.json").read_text())
         assert result == config
 
     def test_overwrites_existing(self, project_dir):
         (project_dir / "gates.json").write_text('{"old": true}')
-        config = {"tdd": False, "profiles": {}}
+        config = {"mode": "safe"}
         write_config(config, project_dir)
         result = json.loads((project_dir / "gates.json").read_text())
         assert "old" not in result
-        assert result["tdd"] is False
+        assert result["mode"] == "safe"
 
 
 class TestParseArgs:
@@ -150,9 +134,12 @@ class TestParseArgs:
         args = parse_args(["--quick"])
         assert args.quick is True
 
+    def test_mode_setting(self):
+        args = parse_args(["--mode", "safe"])
+        assert args.mode == "safe"
+
     def test_individual_settings(self):
-        args = parse_args(["--tdd", "off", "--model", "sonnet"])
-        assert args.tdd == "off"
+        args = parse_args(["--model", "sonnet"])
         assert args.model == "sonnet"
 
     def test_time_limit(self):
@@ -179,4 +166,4 @@ class TestParseArgs:
         args = parse_args([])
         assert args.status is False
         assert args.quick is False
-        assert args.tdd is None
+        assert args.mode is None

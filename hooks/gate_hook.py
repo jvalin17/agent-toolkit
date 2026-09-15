@@ -96,19 +96,11 @@ def resolve_enforcement(
     project_dir: Path,
     env_override: Optional[str] = None,
 ) -> str:
-    """Resolve enforcement level: env var > file override > config."""
-    enforcement = config_enforcement
+    """Resolve enforcement level. Always 'block' in new mode system.
 
-    override_file = project_dir / ".gates" / "enforcement-override"
-    if override_file.is_file():
-        file_val = override_file.read_text(encoding="utf-8").strip()
-        if file_val:
-            enforcement = file_val
-
-    if env_override:
-        enforcement = env_override
-
-    return enforcement
+    Kept for backward compatibility with signed mode and tests.
+    """
+    return "block"
 
 
 def check_gate_flags(
@@ -184,18 +176,10 @@ def _make_gate_finish(
     enforcement: str,
     project_dir: Path,
 ) -> Callable[[str], tuple]:
-    """Return a callback that emits block or warn based on enforcement level."""
+    """Return a callback that blocks the git action."""
 
     def gate_finish(msg: str) -> tuple:
-        # Precommit is always mandatory — "warn" mode still blocks on
-        # missing precommit. Only other gates (evaluate, reviewer) can warn.
-        # Check for "skills:precommit" (the gate flag marker) not just substring.
-        if enforcement == "block" or "skills:precommit" in msg.lower():
-            return 0, make_block_response(msg)
-        gates_dir = project_dir / ".gates"
-        gates_dir.mkdir(exist_ok=True)
-        (gates_dir / "enforcement-override").write_text("block\n")
-        return 0, make_hook_response(f"GATE WARNING: {msg}")
+        return 0, make_block_response(msg)
 
     return gate_finish
 
@@ -255,33 +239,17 @@ def _verify_signed_gate(project_dir: Path, action: str) -> Optional[str]:
 
 
 def _required_skills_for_action(config: dict, action: str) -> list:
-    """Resolve required skills for commit or push from profile or flat config."""
-    profile = config.get("profile")
-    if profile and "profiles" in config:
-        profile_config = config["profiles"].get(profile, {})
-        required = list(profile_config.get(f"{action}_requires", []))
-    else:
-        required = list(config.get(f"{action}_requires", []))
+    """Resolve required skills for commit or push from mode."""
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from mode_resolver import resolve_mode_from_config
 
-    if config.get("mode", "normal") == "strict" and "evaluate" not in required:
-        required.append("evaluate")
-
-    return required
-
-
-def _check_legacy_fallback_commit(
-    project_dir: Path,
-    gate_finish: Callable[[str], tuple],
-) -> Optional[tuple]:
-    """When no gate config exists, still require precommit for commit."""
-    precommit_flag = project_dir / ".gates" / "precommit-passed"
-    if precommit_flag.is_file() and "READY" in precommit_flag.read_text(
-        encoding="utf-8"
-    ):
-        return None
-    return gate_finish(
-        "git commit requires precommit skill. Run install.sh in project root."
-    )
+    mode = resolve_mode_from_config(config)
+    if action == "commit":
+        return list(mode.commit_requires)
+    if action == "push":
+        return list(mode.push_requires)
+    return []
 
 
 def _run_legacy_gate(
@@ -294,10 +262,6 @@ def _run_legacy_gate(
     required = _required_skills_for_action(config, action)
 
     if not required:
-        if action == "commit":
-            blocked = _check_legacy_fallback_commit(project_dir, gate_finish)
-            if blocked is not None:
-                return blocked
         return 0, ""
 
     eval_threshold = config.get("eval_threshold", 95)
@@ -330,12 +294,7 @@ def run_gate(
     if config.get("_no_config"):
         return 0, ""  # No gates.json — not a toolkit-managed project
     gate_mode = config.get("gate_mode", "legacy")
-    enforcement = resolve_enforcement(
-        config.get("enforcement", "block"),
-        project_dir,
-        env_enforcement,
-    )
-    gate_finish = _make_gate_finish(enforcement, project_dir)
+    gate_finish = _make_gate_finish("block", project_dir)
 
     if gate_mode == "signed":
         verify_error = _verify_signed_gate(project_dir, action)
