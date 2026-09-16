@@ -210,8 +210,8 @@ class TestDecideGate:
         )
         assert ready is True
 
-    def test_blocks_when_tdd_order_violated_strict_mode(self, valid_findings):
-        """TDD ordering only blocks in strict mode, not remind mode."""
+    def test_blocks_when_tdd_order_violated_in_tdd_mode(self, valid_findings):
+        """TDD ordering blocks when mode has tdd enabled, skips when not."""
         audit = {
             "available": True,
             "server_started": True,
@@ -219,18 +219,18 @@ class TestDecideGate:
             "role_agents_spawned": 2,
             "tdd_order_respected": False,
         }
-        # Strict mode → blocks
+        # Mode with TDD (default) → blocks
         ready, reasons = fr._decide_precommit(
             valid_findings, CheckResult("tests", True), CheckResult("lint", True),
-            session_audit=audit, config={"tdd_mode": "strict"},
+            session_audit=audit, config={"mode": "default"},
         )
         assert ready is False
         assert any("tdd" in r.lower() for r in reasons)
 
-        # Remind mode (default) → does not block
+        # Mode without TDD (minimal) → does not block
         ready2, reasons2 = fr._decide_precommit(
             valid_findings, CheckResult("tests", True), CheckResult("lint", True),
-            session_audit=audit, config={"tdd_mode": "remind"},
+            session_audit=audit, config={"mode": "minimal"},
         )
         assert ready2 is True
         assert not any("tdd" in r.lower() for r in reasons2)

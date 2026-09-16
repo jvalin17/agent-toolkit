@@ -361,3 +361,142 @@ class TestLoadRoleContext:
         # Should be compact reference, not 5000 chars of content
         assert len(context) < 1000
         assert "knowledge.json" in context
+
+
+class TestAllRolesDiscoverable:
+    """Every role in ROLE_SIGNALS must be discoverable by detect_roles."""
+
+    def test_detects_production_from_multiple_signals(self, tmp_path):
+        from detect_role import detect_roles
+
+        # production requires min_signals=2
+        (tmp_path / "package.json").write_text('{"dependencies":{}}')
+        (tmp_path / "src").mkdir()
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "production" in role_names
+
+    def test_detects_data_engineer_from_dags(self, tmp_path):
+        from detect_role import detect_roles
+
+        dags = tmp_path / "dags"
+        dags.mkdir()
+        (dags / "etl_pipeline.py").write_text("from airflow import DAG\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "data-engineer" in role_names
+
+    def test_detects_data_engineer_from_deps(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "requirements.txt").write_text("apache-airflow==2.8.0\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "data-engineer" in role_names
+
+    def test_detects_data_scientist_from_notebook(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "analysis.ipynb").write_text('{"cells":[]}')
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "data-scientist" in role_names
+
+    def test_detects_data_scientist_from_deps(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "requirements.txt").write_text("pandas==2.0.0\nnumpy\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "data-scientist" in role_names
+
+    def test_detects_ai_ml_from_deps(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "requirements.txt").write_text("torch==2.0.0\ntransformers\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "ai-ml" in role_names
+
+    def test_detects_ai_ml_from_model_files(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "model.safetensors").write_text("")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "ai-ml" in role_names
+
+    def test_detects_qa_from_pytest_ini(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "pytest.ini").write_text("[pytest]\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "qa" in role_names
+
+    def test_detects_qa_from_playwright_config(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "playwright.config.ts").write_text("export default {}\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "qa" in role_names
+
+    def test_detects_architect_from_architecture_dir(self, tmp_path):
+        from detect_role import detect_roles
+
+        arch = tmp_path / "architecture"
+        arch.mkdir()
+        (arch / "system.md").write_text("# Architecture\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "architect" in role_names
+
+    def test_detects_code_health_from_multiple_signals(self, tmp_path):
+        from detect_role import detect_roles
+
+        # code-health requires min_signals=2
+        (tmp_path / ".eslintrc.json").write_text("{}")
+        pkg = {"devDependencies": {"eslint": "^8.0.0"}}
+        (tmp_path / "package.json").write_text(json.dumps(pkg))
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "code-health" in role_names
+
+    def test_detects_game_dev_from_godot(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "project.godot").write_text("[gd_scene]\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "game-dev" in role_names
+
+    def test_detects_embedded_from_platformio(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "platformio.ini").write_text("[env:esp32]\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "embedded" in role_names
+
+    def test_detects_legal_from_license(self, tmp_path):
+        from detect_role import detect_roles
+
+        (tmp_path / "LICENSE").write_text("MIT License\n")
+
+        result = detect_roles(tmp_path, max_roles=20)
+        role_names = [r["name"] for r in result]
+        assert "legal" in role_names
