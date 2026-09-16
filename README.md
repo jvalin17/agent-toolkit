@@ -226,8 +226,24 @@ Single `"mode"` field in `gates.json` controls all enforcement:
 | `standard` | yes | yes | yes | — |
 | `safe` | yes | yes | yes | yes |
 
-Quick presets:
+### How to set a mode
 
+**Mid-session** — type as your first message (or anytime):
+```
+/agent-toolkit-mode safe
+```
+
+**Permanent** — set once in `gates.json` (persists across sessions):
+```json
+{ "mode": "safe" }
+```
+
+**One session only** — env var:
+```bash
+AGENT_TOOLKIT_MODE=safe claude "Build the auth system"
+```
+
+**Quick presets** — CLI setup:
 ```bash
 agent-toolkit-setup --balanced     # mode: default (TDD + precommit)
 agent-toolkit-setup --guarded      # mode: standard (+ plan ordering)
