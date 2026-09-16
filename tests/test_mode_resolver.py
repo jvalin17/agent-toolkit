@@ -129,3 +129,44 @@ class TestRequiredSkills:
         assert resolve_mode("planned").plan is True
         assert resolve_mode("standard").plan is True
         assert resolve_mode("safe").plan is True
+
+
+class TestSetMode:
+    def test_set_mode_updates_gates_json(self, tmp_path):
+        import json
+        from mode_resolver import set_mode
+        (tmp_path / "gates.json").write_text(json.dumps({"mode": "minimal"}))
+        result = set_mode("safe", tmp_path)
+        assert result.name == "safe"
+        config = json.loads((tmp_path / "gates.json").read_text())
+        assert config["mode"] == "safe"
+
+    def test_set_mode_rejects_invalid(self, tmp_path):
+        import json
+        from mode_resolver import set_mode
+        (tmp_path / "gates.json").write_text(json.dumps({"mode": "default"}))
+        result = set_mode("nonexistent", tmp_path)
+        assert result is None
+        config = json.loads((tmp_path / "gates.json").read_text())
+        assert config["mode"] == "default"
+
+    def test_set_mode_preserves_other_fields(self, tmp_path):
+        import json
+        from mode_resolver import set_mode
+        (tmp_path / "gates.json").write_text(json.dumps({
+            "mode": "minimal", "model": "opus", "auto": True, "gate_mode": "legacy"
+        }))
+        set_mode("safe", tmp_path)
+        config = json.loads((tmp_path / "gates.json").read_text())
+        assert config["mode"] == "safe"
+        assert config["model"] == "opus"
+        assert config["auto"] is True
+        assert config["gate_mode"] == "legacy"
+
+    def test_set_mode_creates_gates_json(self, tmp_path):
+        import json
+        from mode_resolver import set_mode
+        result = set_mode("standard", tmp_path)
+        assert result.name == "standard"
+        config = json.loads((tmp_path / "gates.json").read_text())
+        assert config["mode"] == "standard"

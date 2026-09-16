@@ -23,9 +23,11 @@ Usage:
     mode.push_requires    # []
 """
 
+import json
 import os
 from dataclasses import dataclass
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 
 @dataclass(frozen=True)
@@ -76,3 +78,24 @@ def resolve_mode_from_config(config: dict) -> Mode:
     if env_mode:
         return resolve_mode(env_mode)
     return resolve_mode(config.get("mode", DEFAULT_MODE))
+
+
+def set_mode(name: str, project_dir: Path) -> Optional[Mode]:
+    """Set the mode in gates.json. Returns the Mode or None if invalid.
+
+    Preserves all other fields in gates.json. Creates the file if missing.
+    """
+    if name not in MODES:
+        return None
+
+    gates_path = project_dir / "gates.json"
+    config = {}
+    if gates_path.is_file():
+        try:
+            config = json.loads(gates_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    config["mode"] = name
+    gates_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+    return MODES[name]
