@@ -356,3 +356,70 @@ class TestPlanSummary:
         assert "haiku" in text
         assert "sonnet" in text
         assert "opus" in text
+
+
+class TestRecommendReviewers:
+    """recommend_reviewers assigns appropriate reviewers per slab."""
+
+    def test_recommend_reviewers_always_includes_qa(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("frontend", "room-picker-ui", ["frontend", "qa"])
+        assert "qa" in result
+
+    def test_excludes_build_role(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("frontend", "room-picker-ui", ["frontend", "backend", "qa"])
+        assert "frontend" not in result
+
+    def test_includes_counterpart_backend_for_frontend(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("frontend", "room-picker-ui", ["frontend", "backend", "qa"])
+        assert "backend" in result
+
+    def test_includes_counterpart_frontend_for_backend(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("backend", "api-endpoint", ["frontend", "backend", "qa"])
+        assert "frontend" in result
+
+    def test_includes_security_for_auth_slab(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("backend", "auth-middleware", ["backend", "security", "qa"])
+        assert "security" in result
+
+    def test_includes_security_for_api_slab(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("backend", "import-endpoint", ["backend", "security", "qa"])
+        assert "security" in result
+
+    def test_includes_dba_for_store_slab(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("frontend", "store-v2-rooms", ["frontend", "dba", "qa"])
+        assert "dba" in result
+
+    def test_includes_architect_for_new_module(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("backend", "new-payment-service", ["backend", "architect", "qa"])
+        assert "architect" in result
+
+    def test_includes_architect_for_schema_slab(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("backend", "schema-redesign", ["backend", "architect", "qa"])
+        assert "architect" in result
+
+    def test_no_duplicates(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("backend", "auth-api-endpoint", ["backend", "security", "qa", "architect"])
+        assert len(result) == len(set(result))
+
+    def test_only_active_roles_included(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("frontend", "auth-screen", ["frontend", "qa"])
+        # security not in active_roles, so shouldn't appear
+        assert "security" not in result
+
+    def test_minimal_slab_gets_qa_and_counterpart(self):
+        from orchestrator import recommend_reviewers
+        result = recommend_reviewers("frontend", "badge-sw-cache", ["frontend", "backend", "qa"])
+        assert "qa" in result
+        assert "backend" in result
+        assert len(result) == 2

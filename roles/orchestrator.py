@@ -167,6 +167,70 @@ def get_model_tier(
     return "mid"  # default
 
 
+# Counterpart roles — if one builds, the other should review
+COUNTERPARTS = {
+    "frontend": "backend",
+    "backend": "frontend",
+    "ios": "backend",
+    "android": "backend",
+}
+
+# Slab name keywords that trigger specific reviewer roles
+SECURITY_KEYWORDS = ["auth", "login", "token", "secret", "credential", "api", "endpoint", "import", "password", "session", "permission", "oauth"]
+DBA_KEYWORDS = ["store", "database", "schema", "migration", "query", "model", "table", "db", "cache"]
+ARCHITECT_KEYWORDS = ["new-", "architecture", "design", "schema", "redesign", "service", "module", "system"]
+
+
+def recommend_reviewers(
+    build_role: str,
+    slab_name: str,
+    active_roles: List[str],
+) -> List[str]:
+    """Recommend reviewer roles for a slab based on build role and slab name.
+
+    Rules:
+    - Always include QA (if active)
+    - Include counterpart role (frontend→backend, backend→frontend)
+    - Include security if slab touches auth/API/data
+    - Include DBA if slab touches storage/schema
+    - Include architect if slab involves new modules/patterns
+    - Never include the build role itself
+    """
+    active_set = set(active_roles)
+    reviewers = []
+
+    # Always QA
+    if "qa" in active_set:
+        reviewers.append("qa")
+
+    # Counterpart role
+    counterpart = COUNTERPARTS.get(build_role)
+    if counterpart and counterpart in active_set:
+        reviewers.append(counterpart)
+
+    # Keyword-based reviewers
+    slab_lower = slab_name.lower()
+
+    if "security" in active_set and any(kw in slab_lower for kw in SECURITY_KEYWORDS):
+        reviewers.append("security")
+
+    if "dba" in active_set and any(kw in slab_lower for kw in DBA_KEYWORDS):
+        reviewers.append("dba")
+
+    if "architect" in active_set and any(kw in slab_lower for kw in ARCHITECT_KEYWORDS):
+        reviewers.append("architect")
+
+    # Remove build role if it ended up in the list, deduplicate
+    seen = set()
+    result = []
+    for role in reviewers:
+        if role != build_role and role not in seen:
+            seen.add(role)
+            result.append(role)
+
+    return result
+
+
 def _extract_role_checklist(
     role_name: str,
     roles_dir: Optional[Path] = None,
