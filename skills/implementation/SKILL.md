@@ -97,7 +97,25 @@ Present a full execution plan to the user. This is not optional. The user must s
 3. Do NOT invent requirements or architecture. Do NOT assume. Ask.
 
 **0b. Slab breakdown:**
-Derive slabs from architecture + requirements. For EACH slab, show:
+Derive slabs from architecture + requirements. For EACH slab, assign a **build role** based on what files the slab will actually modify:
+
+| Slab modifies... | Build role |
+|-----------------|-----------|
+| `.tsx`, `.jsx`, `.vue`, `.svelte`, CSS, components, pages, UI state | `frontend` |
+| Routes, controllers, API handlers, server config, middleware | `backend` |
+| SQL, migrations, schema files, ORM models | `dba` |
+| Dockerfile, CI/CD, Terraform, k8s configs | `infrastructure` |
+| `.swift`, `.xib`, Xcode project files | `ios` |
+| Kotlin/Java Android files, Gradle configs | `android` |
+| DAGs, ETL pipelines, data transforms | `data-engineer` |
+| Notebooks, analysis scripts | `data-scientist` |
+| Model training, inference, embeddings | `ai-ml` |
+
+**Do NOT default everything to one role.** If a slab creates an API endpoint, the build role is `backend` even if the feature is "frontend-driven." If a slab adds a migration, the build role is `dba`. Look at what files will be created or modified, not what the feature is about.
+
+**Reviewers** = all other active roles that aren't the builder. The build role builds, everyone else reviews from their perspective.
+
+For EACH slab, show:
 
 ```
 EXECUTION PLAN: <feature name>
@@ -120,7 +138,15 @@ Final quality:
 Pipeline per slab: build → reviewer → evaluate → precommit → commit
 ```
 
-**0c. Save the plan:** Write the execution plan to `.scratch/execution-plan.json`:
+**0c. Assign reviewers per slab:** Use `recommend_reviewers()` from `roles/orchestrator.py` to determine who reviews each slab. Do NOT just assign QA to everything — the function considers the build role, slab name, and active roles to pick appropriate reviewers (counterpart roles, security for auth slabs, DBA for storage slabs, architect for new modules).
+
+```python
+from orchestrator import recommend_reviewers
+reviewers = recommend_reviewers(build_role="frontend", slab_name="auth-screen", active_roles=["frontend", "backend", "security", "qa"])
+# → ["qa", "backend", "security"]
+```
+
+**0d. Save the plan:** Write the execution plan to `.scratch/execution-plan.json`:
 ```json
 {"feature": "<slug>", "slabs": [
   {"name": "<slab name>", "build_role": "<role>",

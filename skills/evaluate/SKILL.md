@@ -129,7 +129,51 @@ Overall = (Completeness * 0.30) + (Code Quality * 0.25) + (Security * 0.20)
         + (Test Quality * 0.15) + (Efficiency * 0.10)
 ```
 
-## Step 8: Submit Findings (do NOT write the report yourself)
+## Step 8: Fix Plan (when score < threshold)
+
+If the overall score is below the eval_threshold (default 95%), generate an **actionable fix plan** — specific instructions the agent can follow without guessing.
+
+For each dimension that scored below 100%, list concrete fixes:
+
+```
+FIX PLAN (current: 72%, target: 95%)
+
+Priority order (highest impact first):
+
+1. [Test Quality → +8%] Add edge case test for empty email
+   → tests/test_auth.py: add test_login_empty_email
+   → Assert: returns 400, not 500
+
+2. [Security → +6%] Add input validation on /api/import
+   → src/routes/import.ts:handle_import (line 42)
+   → Validate: file size, mime type, max records
+
+3. [Completeness → +4%] PIN verification not wired to game start
+   → src/components/RoomPicker.tsx: add PIN check before joinRoom()
+   → Test: test_join_room_requires_valid_pin
+
+4. [Code Quality → +3%] Extract duplicate room-filter logic
+   → src/hooks/useRooms.ts lines 15-28 and src/components/Lobby.tsx lines 44-57
+   → Extract to: src/utils/filterRooms.ts
+```
+
+Each fix must have:
+- **What** to fix (specific file:line or function)
+- **How** to fix it (concrete action, not "improve this")
+- **Impact** (which dimension it improves and by roughly how much)
+
+Include the fix plan in the findings.json under a `"fix_plan"` key:
+
+```json
+"fix_plan": [
+  {"dimension": "test_quality", "impact": "+8%", "action": "Add test_login_empty_email to tests/test_auth.py", "file": "tests/test_auth.py"},
+  {"dimension": "security", "impact": "+6%", "action": "Add input validation on handle_import", "file": "src/routes/import.ts:42"}
+]
+```
+
+The agent receiving this fix plan should follow it as a checklist — not re-analyze, not guess alternatives, just execute each item in order and re-run /evaluate.
+
+## Step 9: Submit Findings (do NOT write the report yourself)
 
 Reports/ is owned by hooks (G-REPORT-1). Do not write to `reports/` directly —
 Write, Edit, and shell redirection to that path are blocked when
