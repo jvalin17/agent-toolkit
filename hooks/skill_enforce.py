@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""skill_enforce.py — Block code edits without an active skill workflow.
+"""skill_enforce.py — Enforce skill workflows during code edits.
 
-PreToolUse hook on Edit and Write tools. Ensures the agent is following
-a skill (/implementation, /debug_tool, /architecture, /requirements) before
-making code changes. Prevents the LLM from skipping skill workflows.
+PreToolUse hook on Edit and Write tools. Two behaviors:
 
-Modes:
-  remind (default): injects warning context
-  block: denies the tool call
+1. REMIND (all modes except minimal): Injects workflow reminder on every
+   source code edit — even when a skill IS active. Prevents agents from
+   "slipping out" of /implementation mid-task.
+
+2. BLOCK (default, standard, safe): Denies source code edits when NO
+   skill workflow is active. Forces agents to invoke a skill first.
 
 Exempt: non-code files (.md, .json, .yml, config), hooks/, scripts/, test files
 """
@@ -21,6 +22,10 @@ from typing import Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from gate_hook import get_config_value, load_gate_config
+from mode_resolver import resolve_mode_from_config
+
+# Modes where no-skill edits are blocked (not just reminded)
+BLOCK_MODES = {"default", "standard", "safe"}
 
 NON_CODE_EXTENSIONS = {
     ".md", ".json", ".yml", ".yaml", ".toml", ".cfg", ".ini",
@@ -37,8 +42,9 @@ TEST_PATTERNS = re.compile(
 )
 
 # Skills that authorize code changes
+# "build" is the intent key written by route_to_skill.py for /implementation
 CODE_CHANGE_SKILLS = {
-    "implementation", "debug_tool", "fix", "refactor",
+    "implementation", "build", "debug_tool", "fix", "refactor",
     "setup", "explore",  # explore is read-only but setup writes configs
 }
 
@@ -86,18 +92,45 @@ def _check_skill_active(project_dir: Path) -> Tuple[bool, str]:
         except (json.JSONDecodeError, OSError):
             pass
 
-    # Check .scratch for recent precommit/skill findings
-    scratch = project_dir / ".scratch"
-    if scratch.is_dir():
-        try:
-            if any(scratch.iterdir()):
-                return True, "scratch-active"
-        except OSError:
-            pass
+    # No skill detected
+    return False, "none"
 
-    # No skill detected — but don't block if we can't determine
-    # (fail open to avoid breaking workflows)
-    return True, "unknown"
+
+SKILL_REMINDER = (
+    "IMPLEMENTATION REMINDER: You are in a skill workflow. Stay on track:\n"
+    "- Follow the slab structure (test first → implement → verify)\n"
+    "- Do NOT skip steps or write code without a failing test\n"
+    "- When done with this slab, update project-state.md"
+)
+
+NO_SKILL_MESSAGE = (
+    "SKILL REQUIRED: You are editing code without following a skill workflow. "
+    "Before making code changes:\n"
+    "- New feature → run /requirements then /implementation\n"
+    "- Bug fix → run /debug_tool\n"
+    "- Refactor → run /implementation in refactor mode\n"
+    "- Architecture change → run /architecture first\n"
+    "Do NOT edit code directly. Follow the skill workflow."
+)
+
+
+def _make_remind(message: str) -> str:
+    return json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": message,
+        }
+    })
+
+
+def _make_block(message: str) -> str:
+    return json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "reason": message,
+        }
+    })
 
 
 def run_skill_enforce(
@@ -107,14 +140,16 @@ def run_skill_enforce(
     """Check if code edit is authorized by an active skill."""
     config = load_gate_config(project_dir)
 
-    # Enforcement level determined by:
-    # 1. Explicit: "skill_enforce": "block" / "remind" / "off"
-    # 2. Mode-based: "strict" mode → block, "normal" → remind
-    skill_enforce_mode = get_config_value(config, "skill_enforce", None)
-    if skill_enforce_mode is None:
-        mode = get_config_value(config, "mode", "normal")
-        skill_enforce_mode = "block" if mode == "strict" else "remind"
-    if skill_enforce_mode == "off":
+    # Explicit "off" override always wins
+    explicit = get_config_value(config, "skill_enforce", None)
+    if explicit == "off":
+        return 0, ""
+
+    # Resolve mode
+    mode = resolve_mode_from_config(config)
+
+    # Minimal mode: no enforcement
+    if mode.name == "minimal":
         return 0, ""
 
     try:
@@ -135,38 +170,23 @@ def run_skill_enforce(
     # Check if a skill is active
     skill_active, skill_name = _check_skill_active(project_dir)
 
+    # Determine block vs remind for no-skill case
+    # Explicit override takes precedence, then mode-based
+    should_block = mode.name in BLOCK_MODES
+    if explicit == "block":
+        should_block = True
+    elif explicit == "remind":
+        should_block = False
+
     if skill_active:
-        return 0, ""
+        # Skill is active — inject anti-drift reminder (never block)
+        return 0, _make_remind(SKILL_REMINDER)
 
-    # Skill not active — warn or block
-    message = (
-        "SKILL REQUIRED: You are editing code without following a skill workflow. "
-        "Before making code changes:\n"
-        "- New feature → run /requirements then /implementation\n"
-        "- Bug fix → run /debug_tool\n"
-        "- Refactor → run /implementation in refactor mode\n"
-        "- Architecture change → run /architecture first\n"
-        "Do NOT edit code directly. Follow the skill workflow."
-    )
+    # No skill active — block or remind
+    if should_block:
+        return 0, _make_block(NO_SKILL_MESSAGE)
 
-    if skill_enforce_mode == "block":
-        output = json.dumps({
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "reason": message,
-            }
-        })
-        return 0, output
-
-    # Default: remind
-    output = json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "additionalContext": message,
-        }
-    })
-    return 0, output
+    return 0, _make_remind(NO_SKILL_MESSAGE)
 
 
 def main() -> int:

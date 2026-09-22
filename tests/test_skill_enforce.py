@@ -88,7 +88,8 @@ class TestSkillEnforce:
             data = json.loads(output)
             assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
 
-    def test_allows_code_when_skill_active(self, tmp_path):
+    def test_reminds_when_skill_active(self, tmp_path):
+        """Active skill gets a reminder (anti-drift), not a block."""
         from skill_enforce import run_skill_enforce
         # Simulate skill being active
         scratch_dir = tmp_path / ".scratch"
@@ -101,7 +102,12 @@ class TestSkillEnforce:
         exit_code, output = run_skill_enforce(
             make_event("src/app.py"), tmp_path
         )
-        assert output == ""
+        assert output != ""
+        data = json.loads(output)
+        hook = data["hookSpecificOutput"]
+        # Should remind, never block when skill is active
+        assert "additionalContext" in hook
+        assert hook.get("permissionDecision") != "deny"
 
     def test_disabled_when_off(self, tmp_path):
         from skill_enforce import run_skill_enforce
@@ -158,4 +164,137 @@ class TestSkillEnforce:
         exit_code, output = run_skill_enforce(
             make_event("src/app.py"), tmp_path
         )
-        assert output == "", "implementation skill should authorize code edits"
+        # With active skill, should get a reminder (not a block or empty)
+        if output:
+            data = json.loads(output)
+            hook = data.get("hookSpecificOutput", {})
+            assert "additionalContext" in hook, "active skill should get reminder, not block"
+            assert hook.get("permissionDecision") != "deny"
+
+
+class TestSkillEnforceModes:
+    """Test mode-based skill enforcement: remind in all modes, block in default/standard/safe."""
+
+    def test_remind_even_when_skill_active_default(self, tmp_path):
+        """Anti-drift: default mode injects reminder even with active skill."""
+        from skill_enforce import run_skill_enforce
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+        (scratch / "skill_state.json").write_text(
+            json.dumps({"last_skill_routed": "build"})
+        )
+        (tmp_path / "gates.json").write_text('{"mode": "default"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output != "", "should inject reminder even with active skill"
+        data = json.loads(output)
+        hook = data["hookSpecificOutput"]
+        assert "additionalContext" in hook
+        assert "IMPLEMENTATION" in hook["additionalContext"].upper() or \
+               "SKILL" in hook["additionalContext"].upper()
+
+    def test_no_output_in_minimal_mode(self, tmp_path):
+        """Minimal mode skips all enforcement."""
+        from skill_enforce import run_skill_enforce
+        (tmp_path / "gates.json").write_text('{"mode": "minimal"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output == ""
+
+    def test_blocks_without_skill_in_default_mode(self, tmp_path):
+        """Default mode blocks source edits when no skill is active."""
+        from skill_enforce import run_skill_enforce
+        (tmp_path / "gates.json").write_text('{"mode": "default"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output != ""
+        data = json.loads(output)
+        assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+
+    def test_blocks_without_skill_in_safe_mode(self, tmp_path):
+        """Safe mode blocks source edits when no skill is active."""
+        from skill_enforce import run_skill_enforce
+        (tmp_path / "gates.json").write_text('{"mode": "safe"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output != ""
+        data = json.loads(output)
+        assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+
+    def test_blocks_without_skill_in_standard_mode(self, tmp_path):
+        """Standard mode blocks source edits when no skill is active."""
+        from skill_enforce import run_skill_enforce
+        (tmp_path / "gates.json").write_text('{"mode": "standard"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output != ""
+        data = json.loads(output)
+        assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+
+    def test_reminds_without_skill_in_tdd_mode(self, tmp_path):
+        """TDD mode only reminds, does not block."""
+        from skill_enforce import run_skill_enforce
+        (tmp_path / "gates.json").write_text('{"mode": "tdd"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output != "", "tdd mode should remind"
+        data = json.loads(output)
+        hook = data["hookSpecificOutput"]
+        assert "additionalContext" in hook
+        assert hook.get("permissionDecision") != "deny"
+
+    def test_remind_with_active_skill_in_planned_mode(self, tmp_path):
+        """Planned mode still injects reminder when skill is active."""
+        from skill_enforce import run_skill_enforce
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+        (scratch / "skill_state.json").write_text(
+            json.dumps({"last_skill_routed": "debug_tool"})
+        )
+        (tmp_path / "gates.json").write_text('{"mode": "planned"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output != "", "should remind even with active skill"
+        data = json.loads(output)
+        assert "additionalContext" in data["hookSpecificOutput"]
+
+    def test_explicit_off_overrides_mode(self, tmp_path):
+        """skill_enforce: off overrides any mode."""
+        from skill_enforce import run_skill_enforce
+        (tmp_path / "gates.json").write_text(
+            '{"mode": "safe", "skill_enforce": "off"}'
+        )
+
+        exit_code, output = run_skill_enforce(
+            make_event("src/app.py"), tmp_path
+        )
+        assert output == ""
+
+    def test_no_remind_for_non_code_files(self, tmp_path):
+        """Reminders only for source code, not config/docs."""
+        from skill_enforce import run_skill_enforce
+        scratch = tmp_path / ".scratch"
+        scratch.mkdir()
+        (scratch / "skill_state.json").write_text(
+            json.dumps({"last_skill_routed": "build"})
+        )
+        (tmp_path / "gates.json").write_text('{"mode": "default"}')
+
+        exit_code, output = run_skill_enforce(
+            make_event("config.json"), tmp_path
+        )
+        assert output == ""

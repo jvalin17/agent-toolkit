@@ -83,11 +83,11 @@ bash tests/test-hooks.sh            # 33 passed
 ```
 
 
-## Session Summary (2026-09-16)
+## Session Summary (2026-09-22)
 
-**Skills used:** /explore, /implementation, /precommit
-**Files changed:** README.md, SKILL.md, finalize_report.py, findings.json, gate_hook.py, gates.json, mode_resolver.py, session_init.py, setup_modes.py, setup_modes_data.py, setup_modes_io.py, tdd_enforce.py, test-hooks....
-**Tests:** 910 passed, 0 failed
+**Skills used:** /precommit
+**Files changed:** findings.json, skill_enforce.py, test_skill_enforce.py
+**Tests:** 925 passed
 
 ## Test Plans
 
