@@ -46,7 +46,7 @@ Detect mode from the user's words, the project state, and CLAUDE.md. Don't ask "
 | Signal | Mode |
 |--------|------|
 | User says "fix/debug/broken" | **Fix** → failing test → fix → verify |
-| User says "refactor/clean up/restructure" | **Refactor** → tests pass → refactor → tests still pass |
+| User says "refactor/clean up/restructure" | **Refactor** → impact analysis → tests pass → refactor → tests still pass |
 | User says "demo/simulate/mock data" | **Demo** → simulated data, validate UX |
 | Existing codebase (CLAUDE.md exists, git history, Codebase Index) | **Feature** → skip skeleton, go to slab |
 | No existing code, greenfield | **Build** → skeleton → slabs |
@@ -207,6 +207,17 @@ Derive from architecture + requirements priorities. Dependencies first, must bef
 **Lock requirements before building.** If requirements keep changing mid-slab (theme, data format, field names), stop and re-run /requirements. 10 more minutes on requirements saves 2 hours of rebuilding.
 
 **Screenshots > descriptions.** When the user reports a visual problem, ask for a screenshot. "Text is not visible" could mean 10 different things — a screenshot makes it one thing.
+
+## Refactor Mode
+
+When mode is **Refactor**, follow this sequence before touching any code:
+
+1. **Impact Analysis** — Read `shared/impact-analysis.md` and follow it. Identify all change terms, grep the codebase, classify references, present the impact report. Do NOT skip this step.
+2. **Verify tests pass** — Run the full test suite. All tests must pass before refactoring begins.
+3. **Refactor** — Make changes. Update all references found in the impact analysis.
+4. **Verify tests still pass** — Run the full test suite again. If anything breaks, fix or revert.
+
+For large refactors (> 15 references), follow the safe refactoring sequence in `/assess` (CHARACTERIZE → ABSTRACT → BUILD NEW → SWITCH → VERIFY → REMOVE OLD).
 
 ## Sub-Modes
 

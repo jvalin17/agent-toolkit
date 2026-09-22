@@ -76,6 +76,48 @@ class TestGatedSkillNotPassed:
         assert "did NOT pass" in context
 
 
+class TestSkillStateTracking:
+    """skill_passed.py must write skill_state.json so skill_enforce.py
+    can authorize edits when skills are invoked via slash commands."""
+
+    def test_implementation_writes_skill_state(self, project):
+        """Invoking /implementation via Skill tool must update skill_state.json."""
+        run_skill_passed(make_input("implementation"), project)
+        state_file = project / ".scratch" / "skill_state.json"
+        assert state_file.is_file(), "skill_state.json not written"
+        state = json.loads(state_file.read_text())
+        assert state["last_skill_routed"] == "implementation"
+
+    def test_debug_tool_writes_skill_state(self, project):
+        """Invoking /debug_tool via Skill tool must update skill_state.json."""
+        run_skill_passed(make_input("debug_tool"), project)
+        state_file = project / ".scratch" / "skill_state.json"
+        assert state_file.is_file(), "skill_state.json not written"
+        state = json.loads(state_file.read_text())
+        assert state["last_skill_routed"] == "debug_tool"
+
+    def test_explore_writes_skill_state(self, project):
+        run_skill_passed(make_input("explore"), project)
+        state_file = project / ".scratch" / "skill_state.json"
+        assert state_file.is_file()
+        state = json.loads(state_file.read_text())
+        assert state["last_skill_routed"] == "explore"
+
+    def test_precommit_does_not_overwrite_skill_state(self, project):
+        """Gated skills (precommit, evaluate) should NOT overwrite skill_state —
+        they don't authorize code edits."""
+        scratch = project / ".scratch"
+        scratch.mkdir(exist_ok=True)
+        (scratch / "skill_state.json").write_text(
+            json.dumps({"last_skill_routed": "implementation"})
+        )
+        (project / ".gates" / "precommit-passed").write_text("READY")
+        run_skill_passed(make_input("precommit"), project)
+        state = json.loads((scratch / "skill_state.json").read_text())
+        assert state["last_skill_routed"] == "implementation", \
+            "precommit should not overwrite active skill state"
+
+
 class TestNonGatedSkills:
     def test_implementation_returns_demo_prompt(self, project):
         """F3.2: /implementation now returns demo prompt, not empty."""

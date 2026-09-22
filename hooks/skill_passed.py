@@ -16,6 +16,12 @@ from typing import Tuple
 
 GATED_SKILLS = ("precommit", "evaluate", "reviewer", "assess")
 
+# Skills that authorize code changes — mirrors skill_enforce.py CODE_CHANGE_SKILLS
+CODE_CHANGE_SKILLS = {
+    "implementation", "build", "debug_tool", "fix", "refactor",
+    "setup", "explore",
+}
+
 
 def make_hook_response(message: str) -> str:
     """Build Claude Code PostToolUse hook JSON response."""
@@ -27,6 +33,22 @@ def make_hook_response(message: str) -> str:
             }
         }
     )
+
+
+def _track_skill_state(project_dir: Path, skill: str) -> None:
+    """Write skill_state.json so skill_enforce.py can authorize edits.
+
+    Called for code-change skills invoked via slash commands.
+    Gated skills (precommit, evaluate, etc.) do NOT overwrite — they
+    don't authorize code edits.
+    """
+    try:
+        scratch_dir = project_dir / ".scratch"
+        scratch_dir.mkdir(exist_ok=True)
+        state_file = scratch_dir / "skill_state.json"
+        state_file.write_text(json.dumps({"last_skill_routed": skill}))
+    except OSError:
+        pass
 
 
 def run_skill_passed(
@@ -42,6 +64,11 @@ def run_skill_passed(
 
     if not skill:
         return 0, ""
+
+    # Track code-change skills so skill_enforce.py can authorize edits.
+    # This covers slash-command invocations that route_to_skill.py misses.
+    if skill in CODE_CHANGE_SKILLS:
+        _track_skill_state(project_dir, skill)
 
     # F3.2: After /implementation, inject demo prompt (new features only)
     if skill == "implementation":

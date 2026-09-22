@@ -131,6 +131,10 @@ Present findings. Ask: "Want to refactor any of these?"
 For each approved change, follow this sequence:
 
 ```
+0. IMPACT ANALYSIS — Read shared/impact-analysis.md. Before touching anything,
+   trace all references for affected terms (function names, parameters, domain words).
+   Present the impact report. Proceed only after reviewing all references.
+
 1. CHARACTERIZE — Write tests capturing current behavior of the code you'll change.
    These are your safety net. Run them. They must pass.
 
