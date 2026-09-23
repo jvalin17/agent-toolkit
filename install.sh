@@ -140,12 +140,65 @@ if [ -L "$OLD_COMMANDS_DEST/requirements.md" ]; then
     fi
 fi
 
+# --- Detect AI coding tool ---
+echo ""
+echo "Detecting AI coding tool..."
+
+DETECTED_AGENT=""
+if command -v python3 &> /dev/null; then
+    DETECTED_AGENT=$(python3 -c "
+import sys; sys.path.insert(0, '$SCRIPT_DIR/hooks')
+from agent_detect import detect_agent
+print(detect_agent())
+" 2>/dev/null || echo "")
+fi
+
+# Default to claude-code if detection fails or returns unknown
+if [ -z "$DETECTED_AGENT" ] || [ "$DETECTED_AGENT" = "unknown" ]; then
+    DETECTED_AGENT="claude-code"
+fi
+echo "  Detected: $DETECTED_AGENT"
+
+# Set config file path based on detected tool
+case "$DETECTED_AGENT" in
+    claude-code)
+        SETTINGS_FILE="$HOME/.claude/settings.json"
+        ;;
+    cursor)
+        SETTINGS_FILE=".cursor/hooks.json"
+        ;;
+    codex-cli)
+        SETTINGS_FILE=".codex/config.toml"
+        ;;
+    grok-build)
+        SETTINGS_FILE=".grok/hooks.json"
+        ;;
+    windsurf)
+        SETTINGS_FILE=".windsurf/hooks.json"
+        ;;
+esac
+
 # --- Install hooks ---
 echo ""
 echo "Setting up hooks..."
 
-SETTINGS_FILE="$HOME/.claude/settings.json"
 HOOKS_SRC="$SCRIPT_DIR/hooks"
+
+# For non-Claude tools, use config_generator.py
+install_non_claude_hooks() {
+    local tool="$1"
+    local dest="$2"
+    local dest_dir
+    dest_dir="$(dirname "$dest")"
+    mkdir -p "$dest_dir"
+
+    python3 "$SCRIPT_DIR/scripts/config_generator.py" --tool "$tool" --output "$dest_dir" 2>/dev/null
+    if [ $? -eq 0 ]; then
+        echo "  [installed] hooks for $tool → $dest"
+    else
+        echo "  [error] failed to generate hooks for $tool"
+    fi
+}
 
 install_hooks() {
     local toolkit_path="$SCRIPT_DIR"
@@ -480,6 +533,9 @@ HOOKEOF
         elif cmd | contains("tdd_enforce.py") then "python3 " + $tp + "/hooks/tdd_enforce.py"
         elif cmd | contains("session_monitor.py") then "python3 " + $tp + "/hooks/session_monitor.py"
         elif cmd | contains("check_doc_write") then "bash " + $tp + "/hooks/check_doc_write.sh"
+        elif cmd | contains("skill_enforce.py") then "python3 " + $tp + "/hooks/skill_enforce.py"
+        elif cmd | contains("taxonomy_enforce.py") then "python3 " + $tp + "/hooks/taxonomy_enforce.py"
+        elif cmd | contains("deferral_detect.py") then "python3 " + $tp + "/hooks/deferral_detect.py"
         else cmd end;
       walk(
         if type == "object" and has("command") and (.command | type == "string") then
@@ -522,8 +578,16 @@ HOOKEOF
     fi
 }
 
-# Only install if jq is available (needed for safe JSON merging)
-if command -v jq &> /dev/null; then
+# Install hooks based on detected tool
+if [ "$DETECTED_AGENT" != "claude-code" ]; then
+    # Non-Claude tools: generate config with config_generator.py
+    if command -v python3 &> /dev/null; then
+        install_non_claude_hooks "$DETECTED_AGENT" "$SETTINGS_FILE"
+    else
+        echo "  [skip] hooks (python3 required for non-Claude tool config generation)"
+    fi
+elif command -v jq &> /dev/null; then
+    # Claude Code: use the existing incremental jq-based installer
     install_hooks
 else
     echo "  [skip] hooks (jq not installed — install jq for hook enforcement)"

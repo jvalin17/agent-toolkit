@@ -311,10 +311,10 @@ def generate_all(hooks: List[ToolkitHook], toolkit_path: Path) -> Dict[str, str]
 
 TOOL_FILENAMES = {
     "claude-code": "settings.json",
-    "cursor": ".cursor-hooks.json",
-    "codex-cli": "codex-config.toml",
-    "grok-build": ".grok-hooks.json",
-    "windsurf": "windsurf-hooks.json",
+    "cursor": "hooks.json",
+    "codex-cli": "config.toml",
+    "grok-build": "hooks.json",
+    "windsurf": "hooks.json",
 }
 
 
