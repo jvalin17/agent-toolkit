@@ -151,6 +151,15 @@ def _decide_precommit(
                 "write .scratch/test-plan_<slug>.json BEFORE implementing"
             )
 
+        # Skill adherence: hollow invocations (skill launched but not followed)
+        adherence = session_audit.get("skill_adherence", {})
+        hollow = adherence.get("hollow", [])
+        if hollow:
+            reasons.append(
+                f"hollow skill invocation: {', '.join(hollow)} — "
+                f"skill was launched but SKILL.md was never read"
+            )
+
     # Git diff TDD: new functions without tests
     if untested_functions:
         reasons.append(
