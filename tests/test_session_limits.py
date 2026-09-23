@@ -89,7 +89,7 @@ class TestApplySessionLimits:
              patch("session_limits.check_compact_threshold", return_value=(True, "70 min")), \
              patch("session_limits._write_breadcrumb_handoff"):
             new_state, msg = apply_session_limits(state)
-            assert "CHECKPOINT" in msg
+            assert "HANDOFF.md updated" in msg
             assert new_state.warned is True
 
     def test_compact_only_fires_once(self, tmp_cwd, state):

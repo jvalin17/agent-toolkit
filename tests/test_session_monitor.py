@@ -1630,7 +1630,7 @@ class TestCompactAtLayer1:
         )
         assert state.stopped == 0
         assert blocked is False
-        assert "checkpoint" in response.lower()
+        assert "handoff.md updated" in response.lower()
         assert (tmp_path / "HANDOFF.md").exists()
 
     def test_compact_at_warns_once(self, tmp_path, monkeypatch):

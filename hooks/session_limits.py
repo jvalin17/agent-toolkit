@@ -109,10 +109,8 @@ def apply_session_limits(state: SessionState) -> tuple:
         state.warned = True
         _write_breadcrumb_handoff(state, compact_reason)
         return state, (
-            f"SESSION CHECKPOINT ({compact_reason}): "
-            f"HANDOFF.md updated as a breadcrumb in case of crash/compaction. "
-            f"Session continues — no restart needed. "
-            f"After compaction, re-read HANDOFF.md to re-orient."
+            "HANDOFF.md updated as a breadcrumb. "
+            "After compaction, re-read HANDOFF.md to re-orient."
         )
 
     # --- Warning (approaching limits) ---
