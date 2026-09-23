@@ -220,23 +220,20 @@ def audit_session_actions(log_path: Path) -> Dict[str, Any]:
                 tool_index += 1
 
                 # Skill adherence: track Skill invocations and Read of SKILL.md
-                # Skills that are self-contained (expanded inline, no SKILL.md read needed)
-                _SELF_CONTAINED_SKILLS = {
-                    "precommit", "agent-toolkit-mode", "agent-toolkit:precommit",
-                    "simplify", "loop", "schedule", "claude-api",
-                    "keybindings-help", "update-config",
-                }
+                # When invoked via the Skill tool, all skills are expanded inline
+                # (the full SKILL.md content is injected into the conversation).
+                # So Skill tool invocations are always "followed" — the model
+                # gets the instructions without needing a separate Read call.
+                # Only track as "hollow" if a skill was referenced in text but
+                # never invoked via the Skill tool or Read.
                 if name == "Skill":
                     skill_name = inp.get("skill", "?")
                     # Finalize previous skill if any
                     if current_skill is not None:
                         skill_invocations.append({"skill": current_skill, "followed": False})
-                    # Self-contained skills are always "followed"
-                    if skill_name in _SELF_CONTAINED_SKILLS:
-                        skill_invocations.append({"skill": skill_name, "followed": True})
-                        current_skill = None
-                    else:
-                        current_skill = skill_name
+                    # Skill tool expands the skill inline — always followed
+                    skill_invocations.append({"skill": skill_name, "followed": True})
+                    current_skill = None
                 elif name == "Read" and current_skill:
                     file_path_read = inp.get("file_path", "")
                     # Check if this reads the SKILL.md for the current skill

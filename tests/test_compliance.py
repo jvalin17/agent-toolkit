@@ -1052,7 +1052,8 @@ class TestSkillAdherence:
         assert adh["followed"] == 1
         assert adh["hollow"] == []
 
-    def test_skill_hollow_when_no_read(self, tmp_path):
+    def test_skill_tool_invocation_always_followed(self, tmp_path):
+        """Skill tool expands content inline — always counts as followed."""
         from compliance_session import audit_session_actions
 
         log = _make_jsonl(tmp_path, [
@@ -1062,32 +1063,17 @@ class TestSkillAdherence:
         result = audit_session_actions(log)
         adh = result["skill_adherence"]
         assert adh["invoked"] == 1
-        assert adh["followed"] == 0
-        assert "reviewer" in adh["hollow"]
+        assert adh["followed"] == 1
+        assert adh["hollow"] == []
 
-    def test_multiple_skills_mixed(self, tmp_path):
+    def test_multiple_skills_all_followed(self, tmp_path):
         from compliance_session import audit_session_actions
 
         log = _make_jsonl(tmp_path, [
             _tool_use_entry("Skill", {"skill": "implementation"}),
             _tool_use_entry("Read", {"file_path": "skills/implementation/SKILL.md"}),
             _tool_use_entry("Skill", {"skill": "reviewer"}),
-            # No Read of reviewer SKILL.md
             _tool_use_entry("Bash", {"command": "pytest"}),
-        ])
-        result = audit_session_actions(log)
-        adh = result["skill_adherence"]
-        assert adh["invoked"] == 2
-        assert adh["followed"] == 1
-        assert "reviewer" in adh["hollow"]
-        assert "implementation" not in adh["hollow"]
-
-    def test_self_contained_skills_always_followed(self, tmp_path):
-        from compliance_session import audit_session_actions
-
-        log = _make_jsonl(tmp_path, [
-            _tool_use_entry("Skill", {"skill": "precommit"}),
-            _tool_use_entry("Skill", {"skill": "agent-toolkit-mode"}),
         ])
         result = audit_session_actions(log)
         adh = result["skill_adherence"]
