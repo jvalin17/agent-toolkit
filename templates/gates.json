@@ -10,5 +10,5 @@
   "model": "auto",
   "gate_protect": true,
   "report_protect": true,
-  "canary": ""
+  "canary": "Hey"
 }

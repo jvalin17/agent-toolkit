@@ -63,7 +63,7 @@ def load_session_config(project_dir: Path) -> dict:
         "model": get_config_value(config, "model", "auto"),
         "gate_protect": get_config_value(config, "gate_protect", True),
         "report_protect": get_config_value(config, "report_protect", True),
-        "canary": get_config_value(config, "canary", ""),
+        "canary": get_config_value(config, "canary", "Hey"),
     }
 
 

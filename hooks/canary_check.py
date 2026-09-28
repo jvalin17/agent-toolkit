@@ -89,7 +89,7 @@ def run_canary_check(stdin_input: str) -> Tuple[int, str]:
         return 0, ""
 
     config = load_gate_config(Path.cwd())
-    canary = get_config_value(config, "canary", "")
+    canary = get_config_value(config, "canary", "Hey")
     if not canary:
         return 0, ""
 

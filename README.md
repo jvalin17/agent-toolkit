@@ -195,6 +195,7 @@ Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python,
 - **Execution plan enforcement** — `/implementation` writes an execution plan (slabs, roles, skills); `/precommit` reads it and blocks if any planned skill was skipped
 - **Reviewer gate** — `/precommit` verifies `/reviewer` was called on code changes; auto-invokes it if skipped
 - **UI regression detection** — hooks detect UI file changes and inject reviewer checks (overflow, empty states, a11y); offer to generate Playwright E2E tests
+- **Canary context-loss detection** — `canary_check.py` verifies the agent starts every response with a greeting word (default: "Hey"). When the agent forgets, the hook injects a suggestion to start a new session. Hook-verified — the agent cannot fake compliance. Configure via `"canary"` in `gates.json` (set to `""` to disable)
 - **Retry loop detection** — `session_monitor.py` blocks after 3 identical errors; clears on success (G-IMPL-9)
 - **Damage radius limit** — warns after 5 unique files edited, blocks after 15 (G-IMPL-10)
 - **No fabricated history** — G-IMPL-8 blocks claims about prior code behavior without git log/blame evidence
@@ -249,6 +250,16 @@ agent-toolkit-setup --balanced     # mode: default (TDD + precommit)
 agent-toolkit-setup --guarded      # mode: standard (+ plan ordering)
 agent-toolkit-setup --lockdown     # mode: safe (+ reviewer on push)
 ```
+
+Context-loss detection (on by default):
+
+```json
+{
+  "canary": "Hey"
+}
+```
+
+Every response starts with "Hey". When the agent forgets, a hook catches it and suggests a new session. Set your name (`"canary": "Jean"`) or disable (`"canary": ""`).
 
 Override roles:
 

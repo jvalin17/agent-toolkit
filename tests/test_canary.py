@@ -56,12 +56,12 @@ class TestCanaryInjection:
         config = load_session_config(tmp_path)
         assert config["canary"] == "Boss"
 
-    def test_load_session_config_default_canary_empty(self, tmp_path):
-        """load_session_config returns empty canary when not set."""
+    def test_load_session_config_default_canary_hey(self, tmp_path):
+        """load_session_config returns 'Hey' as default canary when not set."""
         gates = {"mode": "default"}
         (tmp_path / "gates.json").write_text(json.dumps(gates))
         config = load_session_config(tmp_path)
-        assert config["canary"] == ""
+        assert config["canary"] == "Hey"
 
 
 # --- canary_check: detection logic ---
