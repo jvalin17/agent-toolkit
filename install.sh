@@ -214,6 +214,7 @@ install_hooks() {
     local monitor_cmd="python3 $toolkit_path/hooks/session_monitor.py"
     local doc_guard_cmd="bash $toolkit_path/hooks/check_doc_write.sh"
     local deferral_cmd="python3 $toolkit_path/hooks/deferral_detect.py"
+    local canary_cmd="python3 $toolkit_path/hooks/canary_check.py"
 
     if [ ! -f "$SETTINGS_FILE" ]; then
         cat > "$SETTINGS_FILE" << HOOKEOF
@@ -328,8 +329,8 @@ HOOKEOF
 
         # Add UserPromptSubmit and SessionStart hooks
         local tmp_file_fresh=$(mktemp)
-        jq --arg route "$route_cmd" --arg init "$session_init_cmd" --arg monitor "$monitor_cmd" --arg deferral "$deferral_cmd" '
-            .hooks.UserPromptSubmit = [{"matcher": "", "hooks": [{"type": "command", "command": $route, "timeout": 5}, {"type": "command", "command": $monitor, "timeout": 5}, {"type": "command", "command": $deferral, "timeout": 5}]}] |
+        jq --arg route "$route_cmd" --arg init "$session_init_cmd" --arg monitor "$monitor_cmd" --arg deferral "$deferral_cmd" --arg canary "$canary_cmd" '
+            .hooks.UserPromptSubmit = [{"matcher": "", "hooks": [{"type": "command", "command": $route, "timeout": 5}, {"type": "command", "command": $monitor, "timeout": 5}, {"type": "command", "command": $deferral, "timeout": 5}, {"type": "command", "command": $canary, "timeout": 5}]}] |
             .hooks.SessionStart = [{"matcher": "startup", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}, {"matcher": "compact", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}]
         ' "$SETTINGS_FILE" > "$tmp_file_fresh" && mv "$tmp_file_fresh" "$SETTINGS_FILE"
         echo "  [installed] skill routing + session init + session monitor hooks"
@@ -461,6 +462,17 @@ HOOKEOF
         echo "  [skip] skill routing hook (already installed)"
     fi
 
+    # Add canary hook (UserPromptSubmit — context-loss detection via canary word)
+    if ! jq -e '.hooks.UserPromptSubmit[]? | select(.hooks[]? | .command | contains("canary_check"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq --arg cmd "$canary_cmd" '
+            .hooks //= {} | .hooks.UserPromptSubmit //= [] |
+            .hooks.UserPromptSubmit = [.hooks.UserPromptSubmit[]? | .hooks += [{"type": "command", "command": $cmd, "timeout": 5}]]
+        ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [installed] canary hook (context-loss detection via greeting word)"
+    else
+        echo "  [skip] canary hook (already installed)"
+    fi
+
     # Add anti-deferral hook (UserPromptSubmit — detects lazy deferral patterns)
     if ! jq -e '.hooks.UserPromptSubmit[]? | select(.hooks[]? | .command | contains("deferral_detect"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$deferral_cmd" '
@@ -536,6 +548,7 @@ HOOKEOF
         elif cmd | contains("skill_enforce.py") then "python3 " + $tp + "/hooks/skill_enforce.py"
         elif cmd | contains("taxonomy_enforce.py") then "python3 " + $tp + "/hooks/taxonomy_enforce.py"
         elif cmd | contains("deferral_detect.py") then "python3 " + $tp + "/hooks/deferral_detect.py"
+        elif cmd | contains("canary_check.py") then "python3 " + $tp + "/hooks/canary_check.py"
         else cmd end;
       walk(
         if type == "object" and has("command") and (.command | type == "string") then

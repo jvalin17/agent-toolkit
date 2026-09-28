@@ -63,6 +63,7 @@ def load_session_config(project_dir: Path) -> dict:
         "model": get_config_value(config, "model", "auto"),
         "gate_protect": get_config_value(config, "gate_protect", True),
         "report_protect": get_config_value(config, "report_protect", True),
+        "canary": get_config_value(config, "canary", ""),
     }
 
 
@@ -277,6 +278,7 @@ def build_context(
     mode: Optional[str] = None,
     session_config: Optional[Dict[str, object]] = None,
     role_context: Optional[str] = None,
+    canary: Optional[str] = None,
 ) -> str:
     """Build the full context string for SessionStart.
 
@@ -303,6 +305,15 @@ def build_context(
             f"report_protect={session_config.get('report_protect', True)}",
         ]
         parts.append(f"Config: {', '.join(cfg_items)}")
+
+    # Canary context-loss detection
+    if canary:
+        parts.append("")
+        parts.append(
+            f"CANARY: Start every response with \"{canary}\". "
+            f"This is a context-loss detector — a hook verifies compliance. "
+            f"If you forget, the hook will suggest starting a new session."
+        )
 
     # Role context (from detect_role.py)
     if role_context:
@@ -506,10 +517,12 @@ def main() -> int:
         sys.stderr.write(f"Role detection skipped: {exc}\n")
 
     # 8. Build context
+    canary = session_config.get("canary", "")
     context = build_context(
         files, report_count, all_warnings, continuation,
         mode=mode, session_config=session_config,
         role_context=role_context,
+        canary=canary,
     )
 
     # 8. Output JSON

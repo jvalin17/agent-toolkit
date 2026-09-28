@@ -30,6 +30,11 @@ For each file in the target, check:
 - **KISS:** Flag over-engineered solutions. A 200-line abstraction for something used once is a finding.
 - **YAGNI:** Flag unused code, dead branches, features half-built with no tests or consumers.
 
+### Code Smell Patterns (check every review)
+- **Return None/null as error signal:** Flag functions that return `None`/`null`/`nil`/`-1` to indicate failure. Prefer exceptions, Result types, or typed errors. `None` for absent domain values is fine (e.g., optional field).
+- **If/elif/else dispatch chains:** Flag `if/elif/else` or `switch/case` with 3+ branches dispatching on a type or string key. Suggest registry/dict dispatch or strategy pattern. Two branches and guard clauses are fine.
+- **Over-modularization:** Flag functions split into tiny helpers that are only called once and only make sense in sequence. Readability > modularity. A 50-line linear function beats five 10-line helpers used once.
+
 ## Step 3: Naming and Readability
 
 - Function names describe what they do (verb + noun): `calculateTotal`, not `process`.

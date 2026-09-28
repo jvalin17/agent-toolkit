@@ -214,6 +214,38 @@
 
 ---
 
+### 21. Returning None/null as Control Flow
+
+**Rule:** Do not return `None`, `null`, `nil`, or `-1` as a signal for "not found" or "failed" in functions that can fail for multiple reasons.
+
+**Why:** Callers must remember to check for null. One missed check = `NullPointerException` / `TypeError: 'NoneType'` in production. The null return hides *why* it failed.
+
+**Instead:** Raise/throw a specific exception, return a typed Result/Optional, or use the language's error channel (Go: `(value, error)`, Rust: `Result<T, E>`). If `None` is a valid domain value (e.g., "user has no middle name"), that's fine — the test is whether `None` means "absent data" vs "something went wrong."
+
+---
+
+### 22. If/Elif/Else Chains for Dispatch
+
+**Rule:** Do not use `if/elif/else` or `switch/case` chains that grow when new variants are added. Three or more branches dispatching on a type or string key is the threshold.
+
+**Why:** Every new variant requires modifying the function. Violates Open/Closed. Easy to miss a branch. Hard to test exhaustively.
+
+**Instead:** Use a registry/dictionary dispatch, strategy pattern, or polymorphism. The mapping (key → handler) should be data, not branching logic.
+
+**Exception:** Two branches (`if/else`) is fine. Guard clauses (early returns for invalid input) are fine regardless of count.
+
+---
+
+### 23. Over-Modularization
+
+**Rule:** Do not split a function or file into smaller pieces unless the pieces are independently reused or independently tested.
+
+**Why:** Splitting a 30-line function into five 6-line functions that are only ever called in sequence makes the code *harder* to read — the reader must jump between five locations instead of reading one linear flow. Modularity serves reuse and testability, not line-count metrics.
+
+**Instead:** Keep related logic together. A 50-line function that reads top-to-bottom is better than five helpers used once. Split when: (a) a piece is reused elsewhere, (b) a piece needs independent testing, or (c) the function exceeds ~100 lines and has distinct phases.
+
+---
+
 ## How to Enforce
 
 | Layer | What it catches | Tool |
