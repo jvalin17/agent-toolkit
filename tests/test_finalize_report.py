@@ -278,6 +278,46 @@ class TestDecideGate:
         )
         assert ready is True
 
+    def test_blocks_when_precommit_not_in_session_skills(self, valid_findings):
+        """Hand-written findings without /precommit Skill invocation → block."""
+        audit = {
+            "available": True,
+            "skills_invoked": ["implementation"],
+            "skill_count": 1,
+            "agents_without_model": 0,
+            "warnings": [],
+        }
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit_skills=audit,
+        )
+        assert ready is False
+        assert any("precommit" in r.lower() and "skill" in r.lower() for r in reasons)
+
+    def test_passes_when_precommit_in_session_skills(self, valid_findings):
+        """Findings with /precommit in JSONL → passes."""
+        audit = {
+            "available": True,
+            "skills_invoked": ["implementation", "precommit"],
+            "skill_count": 2,
+            "agents_without_model": 0,
+            "warnings": [],
+        }
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit_skills=audit,
+        )
+        assert ready is True
+
+    def test_passes_when_skill_audit_unavailable(self, valid_findings):
+        """When session log can't be read, don't block (graceful degradation)."""
+        audit = {"available": False}
+        ready, reasons = fr._decide_precommit(
+            valid_findings, CheckResult("tests", True), CheckResult("lint", True),
+            session_audit_skills=audit,
+        )
+        assert ready is True
+
     def test_blocks_on_noqa_in_test_files(self, valid_findings):
         """noqa additions in test files → block."""
         noqa_warnings = ["tests/test_foo.py: added '# noqa' suppression in test file"]

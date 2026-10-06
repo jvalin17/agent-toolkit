@@ -96,6 +96,7 @@ def _decide_precommit(
     untested_functions: list[str] | None = None,
     noqa_in_tests: list[str] | None = None,
     config: dict | None = None,
+    session_audit_skills: dict | None = None,
 ) -> tuple[bool, list[str]]:
     reasons: list[str] = []
 
@@ -158,6 +159,15 @@ def _decide_precommit(
             reasons.append(
                 f"hollow skill invocation: {', '.join(hollow)} — "
                 f"skill was launched but SKILL.md was never read"
+            )
+
+    # Skill invocation check: /precommit must appear in session JSONL
+    if session_audit_skills and session_audit_skills.get("available"):
+        skills_invoked = session_audit_skills.get("skills_invoked", [])
+        if "precommit" not in skills_invoked:
+            reasons.append(
+                "precommit skill not invoked — findings.json was hand-written "
+                "without running /precommit via the Skill tool"
             )
 
     # Git diff TDD: new functions without tests
@@ -589,10 +599,14 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
         noqa_in_tests = []
         ui_without_e2e = []
 
+    # Skill invocation audit — did /precommit actually run via Skill tool?
+    skill_audit = _check_session_audit()
+
     ready, reasons = _decide_precommit(
         findings, test, lint, session_audit=action_audit,
         untested_functions=untested, noqa_in_tests=noqa_in_tests,
         config=config,
+        session_audit_skills=skill_audit,
     )
 
     # UI regression check — warn (not block) when UI files change without E2E tests
