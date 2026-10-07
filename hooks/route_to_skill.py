@@ -23,7 +23,21 @@ from gate_hook import get_config_value, load_gate_config
 # Each entry: (compiled_regex, skill_context_builder)
 
 INTENT_PATTERNS = [
-    # Bug fix / something broken — scoped to avoid "fix the design"
+    # Quick fix — trivial 1-2 line fixes (typo, import, syntax, small code error)
+    # NOT for: DB, security, CSS, missing tests, architecture, design issues
+    (
+        re.compile(
+            r"quick\s*fix"
+            r"|fix\s+(this\s+)?(typo|import|syntax|indent|spacing|naming|return|variable|param|arg)"
+            r"|just\s+fix\s+(this|that|it)\b"
+            r"|one.line\s+fix"
+            r"|small\s+fix"
+            r"|trivial\s+fix",
+            re.IGNORECASE,
+        ),
+        "quick_fix",
+    ),
+    # Full debug — vague symptoms, unknown cause
     (
         re.compile(
             r"fix.*(bug|error|crash|issue|problem|fail|broken)"
@@ -119,6 +133,16 @@ INTENT_PATTERNS = [
 ]
 
 SKILL_CONTEXTS = {
+    "quick_fix": (
+        "SKILL ROUTING: Quick fix mode. Follow /debug_tool Quick Fix (QF-1 to QF-4).\n"
+        "1. Read skills/debug_tool/SKILL.md — use Quick Fix Mode (not Full Debug)\n"
+        "2. QF-1: Write a FAILING test that reproduces the bug\n"
+        "3. QF-2: Fix with minimal change (1-5 lines ideal)\n"
+        "4. QF-3: Verify — failing test now passes, full suite green\n"
+        "5. QF-4: Show the user: bug, test, fix (git diff)\n"
+        "6. Run /precommit before committing\n"
+        "Do NOT hypothesize or investigate layers. The cause is known — just test, fix, show."
+    ),
     "debug_tool": (
         "SKILL ROUTING: This looks like a bug fix. Follow the /debug_tool workflow.\n"
         "1. Read skills/debug_tool/SKILL.md with the Read tool — follow it strictly\n"
@@ -240,6 +264,7 @@ def make_hook_response(message: str) -> str:
 _INTENT_TO_TASK_TYPE = {
     "build": "new_feature",
     "debug_tool": "bug_fix",
+    "quick_fix": "bug_fix",
     "refactor": "refactor",
 }
 
