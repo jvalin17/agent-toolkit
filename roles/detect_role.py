@@ -357,6 +357,10 @@ def load_role_context(
         role_names: List of role names to load
         roles_dir: Path to roles/ directory
         max_roles: Maximum roles to include in context
+        depth (kwarg): "compact" (default) = role.md + knowledge pointers,
+                       "full" = role.md + knowledge content inlined.
+                       Use "full" for tools without on-demand file reading
+                       (Cursor, Gemini, GPT, Grok, Codex).
 
     Returns:
         Combined context string with role advisories + manager principles
@@ -369,6 +373,9 @@ def load_role_context(
 
     # Cap roles
     active_roles = role_names[:max_roles]
+
+    # depth: "compact" = pointers to knowledge, "full" = inline knowledge content
+    depth = kwargs.get("depth", "compact")
 
     # Load knowledge indexes (two layers: repos + books)
     knowledge_index = _load_knowledge_index(roles_dir)
@@ -408,20 +415,35 @@ def load_role_context(
                 parts.append("")
                 parts.append(body)
 
-        # Knowledge references (compact — full text loaded on demand)
+        # Knowledge: compact = pointers, full = inline content
         has_books = role_name in books_index
         has_practical = role_name in knowledge_index
         if has_books or has_practical:
-            refs = []
-            if has_books:
-                refs.append("books-knowledge.json (foundational principles)")
-            if has_practical:
-                refs.append("knowledge.json (practical patterns)")
-            parts.append("")
-            parts.append(
-                f"## {role_name.upper()} — Knowledge (read on demand)\n"
-                f"For architecture decisions, security audits, or deep design work, "
-                f"read the full knowledge from: {', '.join(refs)} in the roles/ directory."
-            )
+            if depth == "full":
+                # Inline knowledge for tools that can't read files on demand
+                if has_books:
+                    parts.append("")
+                    parts.append(
+                        f"## {role_name.upper()} — Foundational Principles\n\n"
+                        f"{books_index[role_name]}"
+                    )
+                if has_practical:
+                    parts.append("")
+                    parts.append(
+                        f"## {role_name.upper()} — Practical Patterns (from production repos)\n\n"
+                        f"{knowledge_index[role_name]}"
+                    )
+            else:
+                refs = []
+                if has_books:
+                    refs.append("books-knowledge.json (foundational principles)")
+                if has_practical:
+                    refs.append("knowledge.json (practical patterns)")
+                parts.append("")
+                parts.append(
+                    f"## {role_name.upper()} — Knowledge (read on demand)\n"
+                    f"For architecture decisions, security audits, or deep design work, "
+                    f"read the full knowledge from: {', '.join(refs)} in the roles/ directory."
+                )
 
     return "\n".join(parts)
