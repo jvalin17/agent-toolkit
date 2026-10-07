@@ -73,14 +73,82 @@ You are working on a frontend project. Apply these principles:
 
 ## UX Laws (mandatory for every visual component)
 
-Read `skills/reviewer/references/ux-laws.md` when building or reviewing any visual component. These laws produce measurable, testable requirements — not subjective opinions.
+These laws produce measurable, testable requirements — not subjective opinions. For deep-dive examples and Playwright snippets, see `skills/reviewer/references/ux-laws.md`.
 
-| Law | Core rule | Verify with |
-|-----|-----------|-------------|
-| Fitts's | Targets >= 44x44px, primary CTA largest | Playwright `boundingBox()` |
-| Hick's | Max 7 nav items, search on 10+ dropdown items | Playwright option count |
-| Jakob's | Standard patterns (Escape closes modal, logo → home) | Playwright keyboard/click |
-| Proximity | Related items grouped (< 12px), groups separated (24px+) | Playwright `boundingBox()` gap |
+### Fitts's Law — target size and distance
+
+- Buttons and CTAs: min 44x44px touch target, 48x48px on mobile
+- Primary action: largest clickable element in its section
+- Destructive actions (Delete, Remove): smaller than primary, positioned away from it
+- Icon-only buttons: min 40x40px including padding
+- Dropdown items: min 36px row height
+- Navigation links: generous padding (min 8px vertical, 16px horizontal)
+
+### Hick's Law — reduce choices
+
+- Navigation: max 7 top-level items, group the rest
+- Dropdowns: search/filter if > 10 items, searchable combobox if > 25
+- Forms: max 6 visible fields, progressive disclosure for the rest
+- Modals: max 2 actions (primary + cancel), 3 only if third is clearly secondary
+- Settings: group into categories, max 7 visible per group
+
+### Jakob's Law — use familiar patterns
+
+- Logo: top-left, links to home
+- Search: top area, magnifying glass icon, Enter to submit
+- Modals: close with X (top-right), Escape key, and overlay click
+- Forms: labels above inputs, submit at bottom, errors near the field (red)
+- Links: visually distinct from body text
+- Loading: skeleton screens in place of content, not a separate page
+- Tables: sortable headers, row hover, pagination at bottom
+- Toasts: top-right or bottom-right, auto-dismiss 3-5s for success, persist for errors
+
+### Law of Proximity — spacing is information
+
+- Related form fields: 8-12px gap, shared group label
+- Between groups: 24-32px gap (2-3x the within-group gap)
+- Labels to inputs: max 4-8px gap, directly above or beside
+- Button groups: 8px between related actions (Save + Cancel)
+- Card internal padding: 16-24px consistent
+- Card-to-card gap: 16-24px
+- Help text: immediately below its element, 4px gap
+
+## Design Guidelines (apply to all visual components)
+
+For full reference, see `skills/reviewer/references/design-guidelines.md`.
+
+### Spacing scale (base 4px)
+
+`4 | 8 | 16 | 24 | 32 | 48 | 64` — never use arbitrary values (13px, 17px, 23px)
+
+### Typography
+
+- Body text: min 14px (16px preferred), line-height 1.4-1.6
+- Max 4 visually distinct text levels per screen
+- Line length: 45-75 characters (`max-width: 65ch`)
+- Max 2 font families, use weight contrast (400 vs 700) for emphasis
+- Truncate all dynamic text: `overflow: hidden; text-overflow: ellipsis`
+
+### Color
+
+- 1 brand color + neutral gray scale (min 5 shades) + semantic (red/green/yellow/blue)
+- Max 3 colors per component (background, text, accent)
+- Never use color alone to communicate (add icons/text for colorblind users)
+- Use theme tokens, not hardcoded hex values
+- Hover/focus: darken 10-15% or add border/shadow
+
+### Visual hierarchy
+
+- One primary action per view — visually dominant (size, color, position)
+- Visual weight: filled button > outlined > text button > link
+- Cards: border OR shadow, not both
+- All icons same style (outlined OR filled, not mixed)
+
+### Layout
+
+- Max content width: 1280px layouts, 768px text-heavy, 480px forms
+- Responsive breakpoints: 640px / 768px / 1024px / 1280px
+- Sidebar: 240-280px fixed desktop, drawer on mobile
 
 ## Quality Checks
 
