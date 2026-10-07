@@ -71,6 +71,7 @@ Present this menu. The user picks which areas to review (or says "all"):
 | 4 | Accessibility | a11y, font, contrast, keyboard, screen reader | Read `accessibility.md` |
 | 5 | Dependencies | weight, size, heavy, bloat, alternatives | Read `dependencies.md` |
 | 6 | UI | overflow, empty state, placeholder, false success | Read `ui.md` |
+| 7 | Design | design, taste, spacing, UX laws, Fitts, Hick, visual, typography, color | Read `design.md` |
 
 > "Which areas should I review? Pick numbers, keywords, or say **all**."
 

@@ -1,13 +1,118 @@
 # Frontend Implementation
-Keywords: UI, components, state, styling, routing, accessibility, React, Vue, Svelte
+Keywords: UI, components, state, styling, routing, accessibility, React, Vue, Svelte, Playwright, UX laws, design
 
-Implement UI components, layouts, state management, API calls, styling, and routing using TDD.
+Implement UI components, layouts, state management, API calls, styling, and routing using TDD. Visual components use Playwright-first TDD with user-approved wireframes.
 
 ## Inputs
 
 Read from upstream docs before writing any code:
 - **Wireframes** (`requirements/wireframes/`): implement to match layout structure
 - **Component architecture, styling, state management, design system, accessibility target**: use what was decided in architecture/requirements docs
+- **UX Laws** (`skills/reviewer/references/ux-laws.md`): Fitts's, Hick's, Jakob's, Proximity — apply to every visual component
+- **Design Guidelines** (`skills/reviewer/references/design-guidelines.md`): spacing, typography, color, hierarchy — apply to all styling decisions
+
+## Visual Component TDD Cycle (mandatory for buttons, forms, modals, dropdowns, navs, cards, any CSS-styled component)
+
+Every visual component follows this 3-step cycle BEFORE implementation. Do not skip any step.
+
+### Step 1: Write Playwright Spec First
+
+Create `tests/e2e/<component-name>.spec.ts` BEFORE writing the component. The spec defines what the component must do, based on UX laws and design guidelines.
+
+**Required test categories for visual components:**
+
+```typescript
+// 1. FITTS'S LAW — target sizes
+test('interactive targets meet minimum size', async ({ page }) => {
+  const button = page.getByRole('button', { name: 'Submit' });
+  const box = await button.boundingBox();
+  expect(box!.width).toBeGreaterThanOrEqual(44);
+  expect(box!.height).toBeGreaterThanOrEqual(44);
+});
+
+// 2. HICK'S LAW — choice overload (for dropdowns, navs, menus)
+test('dropdown with many items has search', async ({ page }) => {
+  await page.getByRole('combobox').click();
+  const options = await page.getByRole('option').count();
+  if (options > 10) {
+    await expect(page.getByPlaceholder(/search|filter/i)).toBeVisible();
+  }
+});
+
+// 3. JAKOB'S LAW — standard interactions
+test('modal closes on Escape', async ({ page }) => {
+  // trigger modal open
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+});
+
+test('modal closes on overlay click', async ({ page }) => {
+  // trigger modal open
+  await page.locator('[data-testid="modal-overlay"]').click({ position: { x: 0, y: 0 } });
+  await expect(page.getByRole('dialog')).not.toBeVisible();
+});
+
+// 4. PROXIMITY — spacing between elements
+test('label is close to its input', async ({ page }) => {
+  const label = page.getByText('Email');
+  const input = page.getByRole('textbox', { name: 'Email' });
+  const labelBox = await label.boundingBox();
+  const inputBox = await input.boundingBox();
+  const gap = inputBox!.y - (labelBox!.y + labelBox!.height);
+  expect(gap).toBeLessThanOrEqual(12);
+});
+
+// 5. VISUAL — rendering, styles, responsiveness
+test('component renders correctly', async ({ page }) => {
+  await expect(page.getByRole('button', { name: 'Submit' })).toBeVisible();
+});
+
+// 6. INTERACTION — click, hover, focus, keyboard
+test('button shows focus ring on Tab', async ({ page }) => {
+  await page.keyboard.press('Tab');
+  const button = page.getByRole('button', { name: 'Submit' });
+  await expect(button).toBeFocused();
+});
+```
+
+**Which UX law tests to include per component type:**
+
+| Component | Fitts's (sizes) | Hick's (choices) | Jakob's (conventions) | Proximity (spacing) |
+|-----------|:---:|:---:|:---:|:---:|
+| Button | Yes | — | Yes (focus, keyboard) | — |
+| Form | Yes (submit) | Yes (field count) | Yes (submit position, error placement) | Yes (label-input gap) |
+| Modal | Yes (close button) | Yes (action count) | Yes (Escape, overlay close) | Yes (internal spacing) |
+| Dropdown/Select | Yes (option height) | Yes (option count, search) | Yes (keyboard nav) | Yes (option spacing) |
+| Navigation | Yes (link targets) | Yes (item count) | Yes (logo → home) | Yes (item grouping) |
+| Card | Yes (clickable area) | — | — | Yes (internal padding) |
+| Table | Yes (row click area) | — | Yes (sortable headers) | Yes (cell padding) |
+
+### Step 2: Generate HTML Wireframe for Approval
+
+After writing the Playwright spec, generate a self-contained HTML wireframe in `requirements/wireframes/<component-name>.html`. This is the user's chance to approve the design BEFORE you build it.
+
+**Wireframe requirements:**
+- Self-contained single HTML file (inline CSS, no external deps)
+- Gray-box style (no brand colors — gray backgrounds, black text, blue links)
+- Accurate layout, spacing, and proportions matching design guidelines
+- Annotations as HTML comments: `<!-- Fitts: 48x48px touch target -->`, `<!-- Hick: 5 nav items -->`
+- Responsive — works at 375px and 1280px
+- Interactive where relevant (dropdown opens, modal triggers)
+
+**Present to user:**
+> Here's the wireframe for [ComponentName]. Open `requirements/wireframes/<component-name>.html` in your browser.
+> Does this layout and interaction model look right? I'll build to match this exactly.
+
+**Wait for approval.** If user requests changes, update wireframe and re-present. Do NOT proceed to implementation without approval.
+
+### Step 3: Build Component to Pass Spec
+
+Now implement the component. It must:
+1. Pass all Playwright tests from Step 1
+2. Match the approved wireframe from Step 2
+3. Follow per-component rules (below)
+4. Pass the post-write resilience check
+5. Pass the post-write UX laws check (below)
 
 ## Per-Component Rules (enforced on every component written)
 
@@ -71,5 +176,88 @@ For [component just written/modified]:
 ```
 
 **Report:** "Resilience check for [ComponentName]: 7/7 passed" or list failures.
+
+## Post-Write UX Laws Check (mandatory after EVERY visual component write or modify)
+
+```
+For [component just written/modified]:
+
+[ ] 1. FITTS'S — Are all interactive targets >= 44x44px?
+      Check: button sizes, link padding, icon button areas
+      FAIL if: any clickable element < 44x44px total area
+      FAIL if: destructive action same size and adjacent to primary action
+
+[ ] 2. HICK'S — Are choices minimized?
+      Check: dropdown option count, nav item count, form field count, modal button count
+      FAIL if: dropdown > 10 items without search
+      FAIL if: nav > 7 ungrouped items
+      FAIL if: form > 6 visible fields without progressive disclosure
+
+[ ] 3. JAKOB'S — Are standard patterns used?
+      Check: modal close (Escape + overlay), keyboard nav, form submit position
+      FAIL if: modal missing Escape/overlay close
+      FAIL if: custom widget doesn't support keyboard
+
+[ ] 4. PROXIMITY — Are related elements grouped?
+      Check: label-input gap, button group gap, section spacing
+      FAIL if: label > 12px from its input
+      FAIL if: uniform spacing with no grouping
+      FAIL if: related actions separated by unrelated content
+```
+
+**Report:** "UX Laws check for [ComponentName]: 4/4 passed" or list failures.
+
+## Post-Write Design Check (mandatory after EVERY visual component write or modify)
+
+```
+For [component just written/modified]:
+
+[ ] 1. SPACING — Uses scale values (4/8/16/24/32px), no magic numbers
+[ ] 2. TYPOGRAPHY — Body >= 14px, max 4 text levels, line-length <= 75ch
+[ ] 3. COLOR — Theme tokens used, not hardcoded hex, max 3 colors per component
+[ ] 4. HIERARCHY — One primary action dominant, visual weight order correct
+[ ] 5. PLAYWRIGHT — Spec file exists and was written BEFORE this component
+[ ] 6. WIREFRAME — User approved the HTML wireframe before implementation
+```
+
+**Report:** "Design check for [ComponentName]: 6/6 passed" or list failures.
+
+## Playwright Integration Test Rules
+
+Visual components must have Playwright integration tests alongside unit tests. These are not optional.
+
+### When to Write Playwright Tests
+
+Write a Playwright `.spec.ts` for any component that:
+- Renders a button, link, or clickable element
+- Contains a form, dropdown, or select
+- Uses CSS for layout, spacing, or visual styling
+- Has hover, focus, or keyboard interactions
+- Displays dynamic content that could overflow
+- Opens/closes modals, drawers, or popups
+
+### Playwright Test File Location
+
+```
+tests/
+  e2e/
+    <component-name>.spec.ts     # Playwright integration tests
+  unit/
+    <component-name>.test.ts     # Unit tests (logic, state)
+```
+
+### Running Playwright Tests
+
+After building a visual component:
+```bash
+npx playwright test tests/e2e/<component-name>.spec.ts
+```
+
+Before committing any frontend slab:
+```bash
+npx playwright test  # Run all integration tests
+```
+
+**Precommit gate:** frontend changes without passing Playwright tests are flagged.
 
 For guardrails and core principles, see the main `SKILL.md`.
