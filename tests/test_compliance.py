@@ -267,6 +267,55 @@ class TestAuditSessionActions:
         result = audit_session_actions(log)
         assert result["tdd_order_respected"] is False
 
+    def test_scratch_files_exempt_from_tdd_tracking(self, tmp_path):
+        """Files in .scratch/ should not count as source edits for TDD ordering."""
+        from compliance import audit_session_actions
+
+        log = _make_jsonl(tmp_path, [
+            # Write to .scratch (should be ignored for TDD)
+            _tool_use_entry("Write", {"file_path": "/project/.scratch/precommit_foo/findings.json", "content": "{}"}),
+            # Then test edit — should be first real edit
+            _tool_use_entry("Edit", {"file_path": "/project/tests/test_foo.py", "old_string": "a", "new_string": "b"}),
+            # Then source edit
+            _tool_use_entry("Edit", {"file_path": "/project/src/foo.py", "old_string": "c", "new_string": "d"}),
+        ])
+        result = audit_session_actions(log)
+        assert result["tdd_order_respected"] is True
+
+    def test_tdd_order_resets_on_skill_invocation(self, tmp_path):
+        """TDD order resets when a new skill is invoked — only the latest window matters."""
+        from compliance import audit_session_actions
+
+        log = _make_jsonl(tmp_path, [
+            # First window: source before test (wrong order)
+            _tool_use_entry("Edit", {"file_path": "/project/src/foo.py", "old_string": "a", "new_string": "b"}),
+            _tool_use_entry("Edit", {"file_path": "/project/tests/test_foo.py", "old_string": "c", "new_string": "d"}),
+            # Skill invocation resets the window
+            _tool_use_entry("Skill", {"skill": "precommit"}),
+            # Second window: test before source (correct order)
+            _tool_use_entry("Edit", {"file_path": "/project/tests/test_bar.py", "old_string": "e", "new_string": "f"}),
+            _tool_use_entry("Edit", {"file_path": "/project/src/bar.py", "old_string": "g", "new_string": "h"}),
+        ])
+        result = audit_session_actions(log)
+        assert result["tdd_order_respected"] is True
+
+    def test_tdd_order_last_window_violated(self, tmp_path):
+        """If the latest skill window has wrong TDD order, it should fail."""
+        from compliance import audit_session_actions
+
+        log = _make_jsonl(tmp_path, [
+            # First window: correct order
+            _tool_use_entry("Edit", {"file_path": "/project/tests/test_foo.py", "old_string": "a", "new_string": "b"}),
+            _tool_use_entry("Edit", {"file_path": "/project/src/foo.py", "old_string": "c", "new_string": "d"}),
+            # Skill invocation resets the window
+            _tool_use_entry("Skill", {"skill": "implementation"}),
+            # Second window: source before test (wrong order)
+            _tool_use_entry("Edit", {"file_path": "/project/src/bar.py", "old_string": "e", "new_string": "f"}),
+            _tool_use_entry("Edit", {"file_path": "/project/tests/test_bar.py", "old_string": "g", "new_string": "h"}),
+        ])
+        result = audit_session_actions(log)
+        assert result["tdd_order_respected"] is False
+
     def test_plan_written_before_source(self, tmp_path):
         from compliance import audit_session_actions
 

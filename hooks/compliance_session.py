@@ -234,6 +234,9 @@ def audit_session_actions(log_path: Path) -> Dict[str, Any]:
                     # Skill tool expands the skill inline — always followed
                     skill_invocations.append({"skill": skill_name, "followed": True})
                     current_skill = None
+                    # Reset TDD tracking — each skill window gets its own order check
+                    first_test_edit_index = None
+                    first_source_edit_index = None
                 elif name == "Read" and current_skill:
                     file_path_read = inp.get("file_path", "")
                     # Check if this reads the SKILL.md for the current skill
@@ -265,6 +268,13 @@ def audit_session_actions(log_path: Path) -> Dict[str, Any]:
                 # Track Edit/Write for TDD ordering and test plan ordering
                 elif name in ("Edit", "Write"):
                     file_path = inp.get("file_path", "")
+                    # Skip .scratch/ files entirely — metadata, not source code
+                    if "/.scratch/" in file_path or file_path.startswith(".scratch/"):
+                        # Still track test plan writes within .scratch
+                        if "test-plan_" in file_path:
+                            if first_test_plan_write_index is None:
+                                first_test_plan_write_index = tool_index
+                        continue
                     # Track test plan writes
                     if "test-plan_" in file_path and ".scratch" in file_path:
                         if first_test_plan_write_index is None:

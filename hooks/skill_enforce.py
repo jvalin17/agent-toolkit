@@ -124,13 +124,7 @@ def _make_remind(message: str) -> str:
 
 
 def _make_block(message: str) -> str:
-    return json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "permissionDecision": "deny",
-            "reason": message,
-        }
-    })
+    return json.dumps({"decision": "block", "reason": message})
 
 
 def run_skill_enforce(

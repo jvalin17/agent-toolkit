@@ -84,9 +84,10 @@ class TestSkillEnforce:
         exit_code, output = run_skill_enforce(
             make_event("src/app.py"), tmp_path
         )
-        if output:
-            data = json.loads(output)
-            assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+        assert output != ""
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert "reason" in data
 
     def test_reminds_when_skill_active(self, tmp_path):
         """Active skill gets a reminder (anti-drift), not a block."""
@@ -132,7 +133,7 @@ class TestSkillEnforce:
         )
         assert output != "", "pre_code skill should not authorize code edits"
         data = json.loads(output)
-        assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+        assert data["decision"] == "block"
 
     def test_pre_code_skill_warns_in_remind_mode(self, tmp_path):
         """PRE_CODE_SKILLS in remind mode should inject warning context."""
@@ -215,7 +216,7 @@ class TestSkillEnforceModes:
         )
         assert output != ""
         data = json.loads(output)
-        assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+        assert data["decision"] == "block"
 
     def test_blocks_without_skill_in_safe_mode(self, tmp_path):
         """Safe mode blocks source edits when no skill is active."""
@@ -227,7 +228,7 @@ class TestSkillEnforceModes:
         )
         assert output != ""
         data = json.loads(output)
-        assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+        assert data["decision"] == "block"
 
     def test_blocks_without_skill_in_standard_mode(self, tmp_path):
         """Standard mode blocks source edits when no skill is active."""
@@ -239,7 +240,7 @@ class TestSkillEnforceModes:
         )
         assert output != ""
         data = json.loads(output)
-        assert data["hookSpecificOutput"].get("permissionDecision") == "deny"
+        assert data["decision"] == "block"
 
     def test_reminds_without_skill_in_tdd_mode(self, tmp_path):
         """TDD mode only reminds, does not block."""
