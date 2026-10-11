@@ -60,6 +60,16 @@ def _remove_gate_flags(gates_dir: Path, flag_names: frozenset[str]) -> None:
             flag.unlink()
 
 
+def _clear_stamps(gates_dir: Path) -> None:
+    """Remove all skill stamps from .gates/stamps/ on commit."""
+    stamps_dir = gates_dir / "stamps"
+    if not stamps_dir.is_dir():
+        return
+    for stamp in stamps_dir.iterdir():
+        if stamp.is_file():
+            stamp.unlink()
+
+
 def _clear_signed_gate_files(project_dir: Path) -> None:
     gate_dir = project_dir / ".gate"
     for filename in ("gate-token.jwt", "attestation.json"):
@@ -91,6 +101,7 @@ def run_gate_cleanup(
 
     if has_commit:
         _remove_gate_flags(gates_dir, COMMIT_GATE_FLAGS)
+        _clear_stamps(gates_dir)
         _clear_signed_gate_files(project_dir)
 
     if has_push:

@@ -25,6 +25,12 @@ def project(tmp_path):
     (gates_dir / "assess-passed").write_text("PASSED assess")
     (gates_dir / "enforcement-override").write_text("block")
 
+    stamps_dir = gates_dir / "stamps"
+    stamps_dir.mkdir()
+    (stamps_dir / "implementation").write_text('{"skill":"implementation"}')
+    (stamps_dir / "reviewer").write_text('{"skill":"reviewer"}')
+    (stamps_dir / "precommit").write_text('{"skill":"precommit"}')
+
     gate_dir = tmp_path / ".gate"
     gate_dir.mkdir()
     (gate_dir / "gate-token.jwt").write_text("token")
@@ -127,3 +133,24 @@ class TestEdgeCases:
         run_gate_cleanup(make_input("git commit -m 'feat'"), project)
         assert not (project / ".gate" / "gate-token.jwt").exists()
         assert (project / ".gate" / "other.txt").exists()
+
+
+class TestStampCleanup:
+    """Stamps in .gates/stamps/ are cleared on commit."""
+
+    def test_commit_clears_stamps(self, project):
+        run_gate_cleanup(make_input("git commit -m 'feat'"), project)
+        stamps_dir = project / ".gates" / "stamps"
+        assert not any(stamps_dir.iterdir()), "stamps should be cleared on commit"
+
+    def test_push_does_not_clear_stamps(self, project):
+        """Push should NOT clear stamps — they're commit-scoped."""
+        run_gate_cleanup(make_input("git push origin main"), project)
+        stamps_dir = project / ".gates" / "stamps"
+        assert (stamps_dir / "implementation").is_file()
+        assert (stamps_dir / "reviewer").is_file()
+
+    def test_non_git_does_not_clear_stamps(self, project):
+        run_gate_cleanup(make_input("ls -la"), project)
+        stamps_dir = project / ".gates" / "stamps"
+        assert (stamps_dir / "implementation").is_file()

@@ -35,6 +35,26 @@ def make_hook_response(message: str) -> str:
     )
 
 
+def _write_stamp(project_dir: Path, skill: str) -> None:
+    """Write a tamper-proof stamp to .gates/stamps/<skill>.
+
+    .gates/ is protected by path_protection.py (G-GATE-1) — the agent
+    cannot write, edit, or delete files there. Only hooks can.
+    """
+    try:
+        from datetime import datetime, timezone
+
+        stamps_dir = project_dir / ".gates" / "stamps"
+        stamps_dir.mkdir(parents=True, exist_ok=True)
+        stamp_data = json.dumps({
+            "skill": skill,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+        (stamps_dir / skill).write_text(stamp_data)
+    except OSError:
+        pass
+
+
 def _track_skill_state(project_dir: Path, skill: str) -> None:
     """Write skill_state.json so skill_enforce.py can authorize edits.
 
@@ -64,6 +84,9 @@ def run_skill_passed(
 
     if not skill:
         return 0, ""
+
+    # Write tamper-proof stamp for every skill invocation
+    _write_stamp(project_dir, skill)
 
     # Track code-change skills so skill_enforce.py can authorize edits.
     # This covers slash-command invocations that route_to_skill.py misses.

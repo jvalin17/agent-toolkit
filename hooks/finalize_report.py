@@ -82,6 +82,130 @@ _read_findings = read_findings
 _fail = fail
 
 
+def _check_skill_stamp(project_dir: Path, skill: str) -> list[str]:
+    """Verify a skill stamp exists in .gates/stamps/. Returns issues list."""
+    stamp_file = project_dir / ".gates" / "stamps" / skill
+    if not stamp_file.is_file():
+        return [
+            f"{skill} stamp missing — skill was not invoked via the Skill tool. "
+            f"Run /{skill} before submitting findings."
+        ]
+    return []
+
+
+def _check_stamps(project_dir: Path, findings: dict) -> list[str]:
+    """Verify skill stamps match agent claims. Returns issues list.
+
+    Catches three attack vectors:
+    1. Agent claims reviewer_called but never invoked /reviewer
+    2. Agent deleted execution-plan.json to bypass plan compliance
+    3. Agent submitted findings without invoking the skill
+    """
+    issues: list[str] = []
+
+    # Vector 1: reviewer_called claim without reviewer stamp
+    reviewer_gate = findings.get("reviewer_gate", {})
+    if reviewer_gate.get("reviewer_called"):
+        stamp_file = project_dir / ".gates" / "stamps" / "reviewer"
+        if not stamp_file.is_file():
+            issues.append(
+                "reviewer stamp missing — agent claimed reviewer_called: true "
+                "but /reviewer was never invoked via the Skill tool"
+            )
+
+    # Vector 2: execution plan deleted — implementation stamp exists but plan file gone
+    impl_stamp = project_dir / ".gates" / "stamps" / "implementation"
+    exec_plan = project_dir / ".scratch" / "execution-plan.json"
+    if impl_stamp.is_file() and not exec_plan.is_file():
+        issues.append(
+            "execution plan missing — /implementation was invoked (stamp exists) "
+            "but .scratch/execution-plan.json was deleted. This bypasses plan compliance."
+        )
+
+    return issues
+
+
+DEPTH_CHECK_MODES = {"safe", "standard"}
+
+
+def _check_review_depth(
+    session_audit: dict,
+    mode_name: str,
+    reviewer_stamp: bool = False,
+) -> list[str]:
+    """Verify review depth meets minimum bar. Safe/standard modes only.
+
+    Checks that if a reviewer was invoked, the agent actually did the work:
+    - Spawned role agents (not just submitted findings without review)
+    """
+    if mode_name not in DEPTH_CHECK_MODES:
+        return []
+
+    if not session_audit.get("available"):
+        return []
+
+    issues: list[str] = []
+
+    # If reviewer stamp exists, role agents should have been spawned
+    if reviewer_stamp and session_audit.get("role_agents_spawned", 0) == 0:
+        issues.append(
+            "shallow review — reviewer was invoked but no role review agents "
+            "were spawned. The skill requires per-role agents for code review."
+        )
+
+    return issues
+
+
+SPOT_CHECK_PATTERNS = [
+    (re.compile(r"except\s*:\s*\n\s*(pass|\.\.\.)\s*$", re.MULTILINE),
+     "swallowed exception — bare except:pass hides errors"),
+    (re.compile(r"except\s+\w.*:\s*\n\s*#\s*(TODO|FIXME|HACK)", re.MULTILINE | re.IGNORECASE),
+     "TODO/FIXME in error handling path — error may not be handled"),
+    (re.compile(r"""(password|secret|api_key|token)\s*=\s*["'][^"']{8,}["']""", re.IGNORECASE),
+     "possible hardcoded secret — use environment variable instead"),
+]
+
+SPOT_CHECK_PROBABILITY = 0.2  # 20% chance per finalize
+
+
+def _spot_check_files(file_paths: list[str]) -> list[str]:
+    """Scan files for obvious anti-patterns. Returns warning strings."""
+    warnings: list[str] = []
+    for file_path in file_paths:
+        try:
+            content = Path(file_path).read_text(errors="ignore")
+        except OSError:
+            continue
+        filename = Path(file_path).name
+        for pattern, message in SPOT_CHECK_PATTERNS:
+            if pattern.search(content):
+                warnings.append(f"spot check: {filename} — {message}")
+    return warnings
+
+
+def _maybe_spot_check(
+    changed_files: list[str],
+    mode_name: str,
+    force: bool = False,
+) -> list[str]:
+    """Run spot checks on changed files. Safe/standard modes only.
+
+    20% random chance unless force=True (for testing).
+    """
+    if mode_name not in DEPTH_CHECK_MODES:
+        return []
+    if not changed_files:
+        return []
+
+    import random
+    if not force and random.random() > SPOT_CHECK_PROBABILITY:
+        return []
+
+    # Sample up to 3 files
+    sample = random.sample(changed_files, min(3, len(changed_files)))
+    return _spot_check_files(sample)
+
+
 def _run_mechanical(project_dir: Path, config: dict) -> tuple[CheckResult, CheckResult]:
     test = detect_and_run_tests(project_dir, config)
     lint = detect_and_run_lint(project_dir, config)
@@ -570,6 +694,10 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
 
     test, lint = _run_mechanical(project_dir, config)
 
+    # Resolve mode early — used by stamp verification, depth checks, spot checks
+    from mode_resolver import resolve_mode_from_config as _resolve_mode
+    current_mode = _resolve_mode(config or {})
+
     # Mechanical session audit — verifies agent claims against JSONL evidence
     action_audit = _get_session_action_audit()
 
@@ -609,6 +737,24 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
         session_audit_skills=skill_audit,
     )
 
+    # Random spot check — safe/standard modes only, non-blocking warnings
+    try:
+        import subprocess as _sp2
+        diff_names = _sp2.run(
+            ["git", "diff", "--name-only", "HEAD"],
+            capture_output=True, text=True, cwd=project_dir, timeout=10,
+        )
+        changed_for_spot = [
+            str(project_dir / f.strip()) for f in diff_names.stdout.strip().split("\n")
+            if f.strip() and not f.strip().startswith(".")
+        ] if diff_names.returncode == 0 and diff_names.stdout.strip() else []
+    except Exception:
+        changed_for_spot = []
+
+    spot_warnings = _maybe_spot_check(changed_for_spot, current_mode.name)
+    for w in spot_warnings:
+        reasons.append(f"SPOT CHECK (non-blocking): {w}")
+
     # UI regression check — warn (not block) when UI files change without E2E tests
     # Appended to reasons as warnings (prefixed) — visible in report but not blocking
     if ui_without_e2e:
@@ -626,6 +772,21 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     if test_plan_required.get("blocked"):
         ready = False
         reasons.extend(test_plan_required["reasons"])
+
+    # Stamp verification — check skill stamps match agent claims
+    stamp_issues = _check_stamps(project_dir, findings)
+    if stamp_issues:
+        ready = False
+        reasons.extend(stamp_issues)
+
+    # Review depth check — safe/standard modes only
+    reviewer_stamp_exists = (project_dir / ".gates" / "stamps" / "reviewer").is_file()
+    depth_issues = _check_review_depth(
+        action_audit or {}, current_mode.name, reviewer_stamp=reviewer_stamp_exists,
+    )
+    if depth_issues:
+        ready = False
+        reasons.extend(depth_issues)
 
     # Execution plan check — verify all planned skills were invoked
     exec_plan_file = project_dir / ".scratch" / "execution-plan.json"
@@ -756,6 +917,25 @@ def finalize_reviewer(project_dir: Path, findings_path: Path) -> int:
 
     test, lint = _run_mechanical(project_dir, config)
     passed, reasons = _decide_reviewer(findings, test, lint)
+
+    # Stamp verification — reviewer must have been invoked via Skill tool
+    stamp_issues = _check_skill_stamp(project_dir, "reviewer")
+    if stamp_issues:
+        passed = False
+        reasons.extend(stamp_issues)
+
+    # Review depth check — safe/standard modes only
+    from mode_resolver import resolve_mode_from_config as _resolve_mode
+    current_mode = _resolve_mode(config or {})
+    action_audit = _get_session_action_audit()
+    reviewer_stamp_exists = not bool(stamp_issues)  # stamp exists if no issues
+    depth_issues = _check_review_depth(
+        action_audit, current_mode.name, reviewer_stamp=reviewer_stamp_exists,
+    )
+    if depth_issues:
+        passed = False
+        reasons.extend(depth_issues)
+
     report_id = uuid.uuid4().hex[:8]
     markdown = compose_reviewer_markdown(
         findings, test, lint, passed, reasons, report_id

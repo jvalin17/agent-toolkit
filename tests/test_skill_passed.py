@@ -159,6 +159,45 @@ class TestEdgeCases:
         assert output == ""
 
 
+class TestStampWriting:
+    """Skill invocations write tamper-proof stamps to .gates/stamps/."""
+
+    def test_writes_stamp_on_skill_invocation(self, project):
+        """Any skill invocation writes a stamp file."""
+        run_skill_passed(make_input("precommit"), project)
+        stamp = project / ".gates" / "stamps" / "precommit"
+        assert stamp.is_file(), "stamp not written for precommit"
+
+    def test_stamp_contains_skill_and_timestamp(self, project):
+        """Stamp file contains skill name and ISO timestamp."""
+        run_skill_passed(make_input("reviewer"), project)
+        stamp = project / ".gates" / "stamps" / "reviewer"
+        data = json.loads(stamp.read_text())
+        assert data["skill"] == "reviewer"
+        assert "timestamp" in data
+
+    def test_gated_skills_get_stamps(self, project):
+        """All gated skills (precommit, evaluate, reviewer, assess) write stamps."""
+        for skill in ("precommit", "evaluate", "reviewer", "assess"):
+            run_skill_passed(make_input(skill), project)
+            stamp = project / ".gates" / "stamps" / skill
+            assert stamp.is_file(), f"stamp not written for {skill}"
+
+    def test_code_change_skills_get_stamps(self, project):
+        """Code-change skills (implementation, debug_tool) also write stamps."""
+        for skill in ("implementation", "debug_tool"):
+            run_skill_passed(make_input(skill), project)
+            stamp = project / ".gates" / "stamps" / skill
+            assert stamp.is_file(), f"stamp not written for {skill}"
+
+    def test_stamps_dir_created_if_missing(self, project):
+        """stamps/ dir is created inside .gates/ if it doesn't exist."""
+        stamps_dir = project / ".gates" / "stamps"
+        assert not stamps_dir.exists()
+        run_skill_passed(make_input("implementation"), project)
+        assert stamps_dir.is_dir()
+
+
 class TestDemoCompleted:
     """F3.2: After /implementation completes, inject demo reminder for new features."""
 

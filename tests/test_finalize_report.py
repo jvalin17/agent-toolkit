@@ -935,6 +935,10 @@ class TestReviewerEndToEnd:
         findings_path = _write_reviewer_findings(
             project_dir, valid_reviewer_findings["slug"], valid_reviewer_findings
         )
+        # Stamp must exist for reviewer to pass
+        stamps_dir = project_dir / ".gates" / "stamps"
+        stamps_dir.mkdir(parents=True, exist_ok=True)
+        (stamps_dir / "reviewer").write_text('{"skill":"reviewer","timestamp":"2026-10-10T00:00:00Z"}')
         monkeypatch.chdir(project_dir)
 
         with patch.object(
@@ -1085,3 +1089,120 @@ class TestAssessEndToEnd:
         reports = list((project_dir / "reports" / "assess").glob("assess_*.md"))
         assert "BLOCKED" in reports[0].read_text()
         assert "[!!]" in reports[0].read_text()
+
+
+class TestStampVerification:
+    """Stamp checks — finalize verifies skill stamps before trusting agent claims."""
+
+    def test_blocks_reviewer_claimed_without_stamp(self, project_dir, valid_findings):
+        """Precommit blocks when findings claim reviewer_called but no stamp exists."""
+        valid_findings["reviewer_gate"] = {
+            "code_changed": True,
+            "reviewer_called": True,
+            "called_by_precommit": False,
+            "issues_found": 0,
+            "blocked": False,
+        }
+        stamp_issues = fr._check_stamps(project_dir, valid_findings)
+        assert any("reviewer" in i.lower() and "stamp" in i.lower() for i in stamp_issues)
+
+    def test_passes_reviewer_claimed_with_stamp(self, project_dir, valid_findings):
+        """No stamp issue when reviewer stamp exists and reviewer_called is true."""
+        valid_findings["reviewer_gate"] = {
+            "code_changed": True,
+            "reviewer_called": True,
+            "called_by_precommit": False,
+            "issues_found": 0,
+            "blocked": False,
+        }
+        stamps_dir = project_dir / ".gates" / "stamps"
+        stamps_dir.mkdir(parents=True, exist_ok=True)
+        (stamps_dir / "reviewer").write_text('{"skill":"reviewer","timestamp":"2026-10-10T00:00:00Z"}')
+        stamp_issues = fr._check_stamps(project_dir, valid_findings)
+        assert not any("reviewer" in i.lower() for i in stamp_issues)
+
+    def test_reviewer_blocks_without_stamp(self, project_dir):
+        """Reviewer finalize blocks when no reviewer stamp exists."""
+        stamp_issues = fr._check_skill_stamp(project_dir, "reviewer")
+        assert len(stamp_issues) > 0
+        assert any("reviewer" in i.lower() for i in stamp_issues)
+
+    def test_blocks_execution_plan_deleted(self, project_dir, valid_findings):
+        """Precommit blocks when execution plan stamp exists but file is missing."""
+        # Simulate: implementation was invoked (stamp exists) but plan file deleted
+        stamps_dir = project_dir / ".gates" / "stamps"
+        stamps_dir.mkdir(parents=True, exist_ok=True)
+        (stamps_dir / "implementation").write_text('{"skill":"implementation","timestamp":"2026-10-10T00:00:00Z"}')
+        # No .scratch/execution-plan.json — it was deleted
+        stamp_issues = fr._check_stamps(project_dir, valid_findings)
+        assert any("execution plan" in i.lower() for i in stamp_issues)
+
+
+class TestReviewDepthCheck:
+    """Review depth verification — safe/standard modes only."""
+
+    def test_depth_blocks_no_role_agents_safe(self):
+        """Safe mode blocks when reviewer stamp exists but no role agents spawned."""
+        audit = {"available": True, "role_agents_spawned": 0}
+        issues = fr._check_review_depth(audit, "safe", reviewer_stamp=True)
+        assert len(issues) > 0
+        assert any("role" in i.lower() and "agent" in i.lower() for i in issues)
+
+    def test_depth_passes_with_role_agents_safe(self):
+        """Safe mode passes when role agents were spawned."""
+        audit = {"available": True, "role_agents_spawned": 2}
+        issues = fr._check_review_depth(audit, "safe", reviewer_stamp=True)
+        assert len(issues) == 0
+
+    def test_depth_skipped_in_default_mode(self):
+        """Default mode does not enforce review depth."""
+        audit = {"available": True, "role_agents_spawned": 0}
+        issues = fr._check_review_depth(audit, "default", reviewer_stamp=True)
+        assert len(issues) == 0
+
+    def test_depth_blocks_in_standard_mode(self):
+        """Standard mode also enforces review depth."""
+        audit = {"available": True, "role_agents_spawned": 0}
+        issues = fr._check_review_depth(audit, "standard", reviewer_stamp=True)
+        assert len(issues) > 0
+
+
+class TestRandomSpotCheck:
+    """Random spot checks on changed files — safe/standard modes only."""
+
+    def test_spot_check_finds_swallowed_exception(self, tmp_path):
+        """Detects bare except:pass in changed files."""
+        src = tmp_path / "src" / "app.py"
+        src.parent.mkdir(parents=True)
+        src.write_text("try:\n    do_thing()\nexcept:\n    pass\n")
+        warnings = fr._spot_check_files([str(src)])
+        assert any("swallowed" in w.lower() or "except" in w.lower() for w in warnings)
+
+    def test_spot_check_finds_todo_in_error(self, tmp_path):
+        """Detects TODO/FIXME in error handling paths."""
+        src = tmp_path / "src" / "handler.py"
+        src.parent.mkdir(parents=True)
+        src.write_text("except ValueError:\n    # TODO: handle this properly\n    raise\n")
+        warnings = fr._spot_check_files([str(src)])
+        assert any("todo" in w.lower() for w in warnings)
+
+    def test_spot_check_clean_code(self, tmp_path):
+        """No warnings for clean code."""
+        src = tmp_path / "src" / "clean.py"
+        src.parent.mkdir(parents=True)
+        src.write_text("def greet(name: str) -> str:\n    return f'Hello {name}'\n")
+        warnings = fr._spot_check_files([str(src)])
+        assert len(warnings) == 0
+
+    def test_spot_check_skipped_default_mode(self):
+        """Default mode does not run spot checks."""
+        warnings = fr._maybe_spot_check([], "default", force=True)
+        assert len(warnings) == 0
+
+    def test_spot_check_runs_in_safe_mode(self, tmp_path):
+        """Safe mode runs spot checks."""
+        src = tmp_path / "src" / "bad.py"
+        src.parent.mkdir(parents=True)
+        src.write_text("except:\n    pass\n")
+        warnings = fr._maybe_spot_check([str(src)], "safe", force=True)
+        assert len(warnings) > 0
