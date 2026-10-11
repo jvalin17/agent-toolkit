@@ -122,6 +122,8 @@ You commit
   → New function without test? BLOCKED. (git diff scan)
   → Agent claims "app verified" but no server started? BLOCKED. (JSONL audit)
   → Source file edited before test file? BLOCKED. (TDD ordering check)
+  → Agent claims reviewer ran but no stamp? BLOCKED. (skill stamps)
+  → Execution plan deleted to skip checks? BLOCKED. (stamp + plan cross-check)
 ```
 
 ---
@@ -202,7 +204,10 @@ Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python,
 - **Mechanical verification** — `compliance.py` reads session JSONL to verify server starts, HTTP requests, TDD file ordering, and role agent spawns. Agent self-reports are overridden by machine evidence.
 - **Diff TDD check** — `compliance.py` scans the git diff for new functions without corresponding test functions; `finalize_report.py` blocks the precommit gate
 - **TDD enforcement** — `tdd_enforce.py` blocks Edit/Write of source files without a test file (in modes with TDD enabled); `taxonomy_enforce.py` injects "write failing test FIRST" into implementation-like Agent subagent prompts
-- **Skill enforcement** — `skill_enforce.py` blocks code edits without an active skill workflow
+- **Skill enforcement** — `skill_enforce.py` blocks code edits without an active skill workflow (in default, standard, safe modes)
+- **Tamper-proof skill stamps** — `skill_passed.py` writes stamps to `.gates/stamps/` on every skill invocation. Agent can't forge, edit, or delete them (G-GATE-1 protects `.gates/`). Finalize verifies stamps before trusting agent claims (reviewer_called, execution plan compliance)
+- **Review depth enforcement** — safe/standard modes block when reviewer stamp exists but no role review agents were spawned (catches shallow reviews)
+- **Random spot checks** — safe/standard modes: 20% chance per commit, mechanically scans 1-3 changed files for swallowed exceptions, TODOs in error paths, and hardcoded secrets
 - **Parallel role review** — precommit spawns one reviewer per detected role in parallel (opus); skips if `/reviewer` already ran
 - **Evidence verification** — `compliance.py` requires concrete output (command results, file:line references) — not "it works"
 - **Session audit** — `compliance.py` reads Claude Code's JSONL log to track what the agent actually did (skills invoked, tools used, agents spawned)
