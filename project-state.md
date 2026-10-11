@@ -1,6 +1,6 @@
 # Project state — agent-toolkit
 
-**Last updated:** 2026-09-16
+**Last updated:** 2026-10-10
 
 ## Resume in a new session
 
@@ -38,6 +38,18 @@
 | Consolidated mode system | 5 config axes (profile/tdd/tdd_mode/enforcement/mode) → single `"mode"` field with 7 named modes. `mode_resolver.py` is single source of truth. Net -560 lines. |
 | `/agent-toolkit-mode` command | Switch mode mid-session: `/agent-toolkit-mode safe`. Updates `gates.json` live. |
 | Role detection tests complete | All 17 roles in `ROLE_SIGNALS` now have detection tests (was 7/17) |
+| UX Laws enforcement | Fitts's, Hick's, Jakob's, Proximity — in frontend role anti-patterns + quality checks. `skills/reviewer/references/ux-laws.md` |
+| Design guidelines reference | Spacing scale, typography, color, visual hierarchy, layout, animation. `skills/reviewer/references/design-guidelines.md` |
+| Design reviewer (area #7) | `skills/reviewer/design.md` — UX laws compliance, visual design quality, Playwright coverage check |
+| Playwright TDD for visual components | 3-step cycle in `skills/implementation/frontend.md`: write spec first → HTML wireframe approval → build to pass |
+| `depth` param for role context | `load_role_context(depth="full")` inlines knowledge.json + books-knowledge.json for Cursor/Gemini/GPT/Grok. `setup_for_project` auto-selects full for non-Claude tools |
+| Quick Fix mode in `/debug_tool` | QF-1 to QF-4: test → fix → verify → show diff. For trivial 1-2 line fixes only. `route_to_skill.py` auto-detects quick vs full debug |
+| `skill_enforce` block format fix | `_make_block` now uses `{decision: block}` matching all other hooks — edits without active skill are actually denied |
+| TDD order per-skill tracking | `compliance_session.py` resets TDD order on Skill invocation; `.scratch/` files exempt from TDD tracking |
+| Tamper-proof skill stamps | `skill_passed.py` writes stamps to `.gates/stamps/` on every skill invocation. Agent can't forge (G-GATE-1 protects `.gates/`). Stamps cleared on commit by `gate_cleanup.py` |
+| Stamp verification in finalize | `finalize_report.py` checks stamps: blocks if reviewer_called claimed without stamp, blocks if execution plan deleted after /implementation |
+| Review depth check | Safe/standard modes block when reviewer stamp exists but no role agents spawned (shallow review detection) |
+| Random spot checks | Safe/standard modes: 20% chance, scans 1-3 changed files for swallowed exceptions, TODO in error paths, hardcoded secrets. Non-blocking warnings |
 
 ## Structural hooks (9)
 
@@ -78,16 +90,9 @@ None.
 ## Tests
 
 ```bash
-python3 -m pytest tests/ -q        # 910 passed
+python3 -m pytest tests/ -q        # 1059 passed
 bash tests/test-hooks.sh            # 33 passed
 ```
-
-
-## Session Summary (2026-09-22)
-
-**Skills used:** /precommit
-**Files changed:** findings.json, skill_enforce.py, test_skill_enforce.py
-**Tests:** 925 passed
 
 ## Test Plans
 
@@ -141,3 +146,11 @@ bash tests/test-hooks.sh            # 33 passed
 - TC3: set_mode preserves other gates.json fields → tests/test_mode_resolver.py:test_set_mode_preserves_other_fields
 - TC4: set_mode creates gates.json if missing → tests/test_mode_resolver.py:test_set_mode_creates_gates_json
 - Edge cases: invalid mode name, missing gates.json, preserves unrelated fields
+
+
+## Session Summary (2026-10-11)
+
+**Skills used:** /precommit, /implementation
+**Files changed:** compliance_session.py, execution-plan.json, finalize_report.py, findings.json, gate_cleanup.py, project-state.md, skill_enforce.py, skill_passed.py, test-plan_skill-stamps-slab1.json, test-plan_skill-...
+**Tests:** 1059 passed
+
