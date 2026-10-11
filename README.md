@@ -53,7 +53,7 @@ cd agent-toolkit && ./install.sh
 cd /path/to/your-project && claude
 ```
 
-**Claude Code plugin** — installs skills, agents, hooks, and MCP server:
+**Claude Code plugin:**
 
 ```bash
 claude plugin marketplace add jvalin17/agent-toolkit
@@ -116,14 +116,9 @@ You say: "add a stats page"
   → Security: "validate input at API boundary"
 
 You commit
-  → Every detected role reviews in parallel (backend, dba, security, qa...)
+  → Every detected role reviews in parallel
   → Each role checks from its expertise using book + repo knowledge
-  → Missing index? BLOCKED. No secrets check? BLOCKED.
-  → New function without test? BLOCKED. (git diff scan)
-  → Agent claims "app verified" but no server started? BLOCKED. (JSONL audit)
-  → Source file edited before test file? BLOCKED. (TDD ordering check)
-  → Agent claims reviewer ran but no stamp? BLOCKED. (skill stamps)
-  → Execution plan deleted to skip checks? BLOCKED. (stamp + plan cross-check)
+  → Hooks verify what actually happened — not what the agent claims
 ```
 
 ---
@@ -188,33 +183,58 @@ Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python,
 | Code generation, bug fix, test writing | **sonnet** | ~$3/MTok |
 | Quality reviews, architecture, security | **opus/fable** | ~$15/MTok |
 
-`taxonomy_enforce.py` blocks every Agent subagent call that uses the wrong tier. Cheap tasks can't waste opus tokens; critical reviews can't cut corners with haiku.
+Wrong-tier usage is blocked automatically. Cheap tasks can't waste opus tokens; critical reviews can't cut corners with haiku.
 
-### Enforcement (hooks — can't be bypassed)
+---
 
-- **Precommit mandatory** — `gate_hook.py` blocks `git commit` without a passing precommit gate (in modes that enable it)
-- **Model routing** — `taxonomy_enforce.py` blocks Agent subagent calls missing a `model` parameter or using the wrong tier
-- **Execution plan enforcement** — `/implementation` writes an execution plan (slabs, roles, skills); `/precommit` reads it and blocks if any planned skill was skipped
-- **Reviewer gate** — `/precommit` verifies `/reviewer` was called on code changes; auto-invokes it if skipped
-- **UI regression detection** — hooks detect UI file changes and inject reviewer checks (overflow, empty states, a11y); offer to generate Playwright E2E tests
-- **Canary context-loss detection** — `canary_check.py` verifies the agent starts every response with a greeting word (default: "Hey"). When the agent forgets, the hook injects a suggestion to start a new session. Hook-verified — the agent cannot fake compliance. Configure via `"canary"` in `gates.json` (set to `""` to disable)
-- **Retry loop detection** — `session_monitor.py` blocks after 3 identical errors; clears on success (G-IMPL-9)
-- **Damage radius limit** — warns after 5 unique files edited, blocks after 15 (G-IMPL-10)
-- **No fabricated history** — G-IMPL-8 blocks claims about prior code behavior without git log/blame evidence
-- **Mechanical verification** — `compliance.py` reads session JSONL to verify server starts, HTTP requests, TDD file ordering, and role agent spawns. Agent self-reports are overridden by machine evidence.
-- **Diff TDD check** — `compliance.py` scans the git diff for new functions without corresponding test functions; `finalize_report.py` blocks the precommit gate
-- **TDD enforcement** — `tdd_enforce.py` blocks Edit/Write of source files without a test file (in modes with TDD enabled); `taxonomy_enforce.py` injects "write failing test FIRST" into implementation-like Agent subagent prompts
-- **Skill enforcement** — `skill_enforce.py` blocks code edits without an active skill workflow (in default, standard, safe modes)
-- **Tamper-proof skill stamps** — `skill_passed.py` writes stamps to `.gates/stamps/` on every skill invocation. Agent can't forge, edit, or delete them (G-GATE-1 protects `.gates/`). Finalize verifies stamps before trusting agent claims (reviewer_called, execution plan compliance)
-- **Review depth enforcement** — safe/standard modes block when reviewer stamp exists but no role review agents were spawned (catches shallow reviews)
-- **Random spot checks** — safe/standard modes: 20% chance per commit, mechanically scans 1-3 changed files for swallowed exceptions, TODOs in error paths, and hardcoded secrets
-- **Parallel role review** — precommit spawns one reviewer per detected role in parallel (opus); skips if `/reviewer` already ran
-- **Evidence verification** — `compliance.py` requires concrete output (command results, file:line references) — not "it works"
-- **Session audit** — `compliance.py` reads Claude Code's JSONL log to track what the agent actually did (skills invoked, tools used, agents spawned)
-- **Session limits** — `auto_continue.py` caps at 20 sessions (configurable via `AGENT_TOOLKIT_MAX_SESSIONS`), preventing infinite restart loops
-- **Lint always passes** — `finalize_report.py` re-runs lint independently; any failure blocks the gate regardless of source
+## Enforcement
 
-→ [All 19 roles](roles/ROLES-FINAL.md) · [Architecture](architecture/role-context-layer.md) · [Skills reference](docs/skills.md)
+Hooks enforce quality at every step. The agent cannot bypass them.
+
+### Code quality
+
+| Check | What happens |
+|-------|-------------|
+| **Precommit gate** | `git commit` blocked without a passing `/precommit` |
+| **TDD ordering** | Source file edits blocked until a test file exists or was recently edited |
+| **Diff scan** | New functions without corresponding test functions → blocked |
+| **Lint re-run** | Finalize re-runs lint independently — can't fake results |
+| **Skill workflow required** | Code edits blocked without an active skill (default/standard/safe) |
+
+### Anti-gaming
+
+The agent can lie in `findings.json`. These checks catch it.
+
+| Check | What it catches |
+|-------|----------------|
+| **Skill stamps** | Every skill invocation writes a tamper-proof stamp to `.gates/stamps/`. Agent can't forge, edit, or delete them. Finalize verifies stamps before trusting claims. |
+| **Execution plan protection** | If `/implementation` ran but `execution-plan.json` is missing → blocked. Agent can't delete the plan to skip compliance. |
+| **Review depth** | Reviewer stamp exists but no role agents spawned → blocked (safe/standard only). Catches shallow "I reviewed it" claims. |
+| **Random spot checks** | 20% chance: mechanically scans 1-3 changed files for swallowed exceptions, TODO in error paths, hardcoded secrets (safe/standard only). |
+| **Mechanical verification** | Session JSONL proves what happened — server starts, HTTP requests, TDD ordering, agent spawns. Overrides agent self-reports. |
+| **No fabricated history** | Claims about prior behavior ("it used to...") blocked without git log/blame evidence. |
+
+### Process
+
+| Check | What happens |
+|-------|-------------|
+| **Execution plan** | `/implementation` writes a plan (slabs, roles, skills). `/precommit` blocks if any planned skill was skipped. |
+| **Reviewer gate** | Code changes require `/reviewer`. Auto-invoked if skipped. |
+| **Parallel role review** | Precommit spawns one reviewer per detected role in parallel. |
+| **Evidence required** | Claims need concrete output — command results, file:line references. Not "it works". |
+| **Model routing** | Agent subagent calls blocked if using the wrong model tier. |
+| **UI regression detection** | UI file changes inject reviewer checks and offer Playwright test generation. |
+
+### Session safety
+
+| Check | What happens |
+|-------|-------------|
+| **Canary detection** | Agent must start responses with a greeting word. When it forgets → context loss detected. |
+| **Retry loop detection** | Blocked after 3 identical errors. |
+| **Damage radius** | Warns after 5 files edited, blocks after 15. |
+| **Session limits** | Auto-continuation caps at 20 sessions. |
+
+> [All 19 roles](roles/ROLES-FINAL.md) · [Architecture](architecture/role-context-layer.md) · [Skills reference](docs/skills.md)
 
 ---
 
@@ -222,52 +242,49 @@ Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python,
 
 Single `"mode"` field in `gates.json` controls all enforcement:
 
-| Mode | TDD | Plan | Precommit | Reviewer |
-|------|-----|------|-----------|----------|
-| `minimal` | — | — | — | — |
-| `tdd` | yes | — | — | — |
-| `planned` | — | yes | — | — |
-| `guarded` | — | — | yes | — |
-| **`default`** | **yes** | — | **yes** | — |
-| `standard` | yes | yes | yes | — |
-| `safe` | yes | yes | yes | yes |
+| Mode | TDD | Plan | Precommit | Reviewer | Depth checks | Spot checks |
+|------|-----|------|-----------|----------|--------------|-------------|
+| `minimal` | — | — | — | — | — | — |
+| `tdd` | yes | — | — | — | — | — |
+| `planned` | — | yes | — | — | — | — |
+| `guarded` | — | — | yes | — | — | — |
+| **`default`** | **yes** | — | **yes** | — | — | — |
+| `standard` | yes | yes | yes | — | yes | yes |
+| `safe` | yes | yes | yes | yes | yes | yes |
 
 ### How to set a mode
 
-**Mid-session** — type as your first message (or anytime):
+**Mid-session:**
 ```
 /agent-toolkit-mode safe
 ```
 
-**Permanent** — set once in `gates.json` (persists across sessions):
+**Permanent** — in `gates.json`:
 ```json
 { "mode": "safe" }
 ```
 
-**One session only** — env var:
+**One session only:**
 ```bash
 AGENT_TOOLKIT_MODE=safe claude "Build the auth system"
 ```
 
-**Quick presets** — CLI setup:
+**CLI presets:**
 ```bash
 agent-toolkit-setup --balanced     # mode: default (TDD + precommit)
-agent-toolkit-setup --guarded      # mode: standard (+ plan ordering)
-agent-toolkit-setup --lockdown     # mode: safe (+ reviewer on push)
+agent-toolkit-setup --guarded      # mode: standard (+ plan + depth checks)
+agent-toolkit-setup --lockdown     # mode: safe (+ reviewer + spot checks)
 ```
+
+### Other settings
 
 Context-loss detection (on by default):
-
 ```json
-{
-  "canary": "Hey"
-}
+{ "canary": "Hey" }
 ```
-
-Every response starts with "Hey". When the agent forgets, a hook catches it and suggests a new session. Set your name (`"canary": "Jean"`) or disable (`"canary": ""`).
+Every response starts with "Hey". When the agent forgets, a hook catches it. Set your name (`"canary": "Jean"`) or disable (`"canary": ""`).
 
 Override roles:
-
 ```json
 {
   "roles": ["backend", "frontend", "dba"],
@@ -276,7 +293,7 @@ Override roles:
 }
 ```
 
-→ [Full configuration guide](docs/configuration.md)
+> [Full configuration guide](docs/configuration.md)
 
 ---
 
@@ -294,7 +311,7 @@ Override roles:
 | Set mode | `"mode": "safe"` in gates.json |
 | Signed gates (CI/CD) | [shared/gate-unlock.md](shared/gate-unlock.md) |
 
-→ [Auto-continuation](architecture/auto-continuation.md) · [Strict mode](shared/strict-mode.md) · [Orchestrator](shared/orchestrator.md)
+> [Auto-continuation](architecture/auto-continuation.md) · [Strict mode](shared/strict-mode.md) · [Orchestrator](shared/orchestrator.md)
 
 ---
 
