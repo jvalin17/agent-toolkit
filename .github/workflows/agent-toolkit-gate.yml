@@ -53,14 +53,20 @@ jobs:
                   assert r['serverInfo']['name'] == 'agent-toolkit', 'bad server name'
               elif 'tools' in r:
                   names = [t['name'] for t in r['tools']]
-                  assert len(names) == 8, f'expected 8 tools, got {len(names)}'
+                  required = {
+                      'select_agent', 'build_plan', 'list_roles', 'list_skills',
+                      'resolve_host', 'get_skill', 'get_module', 'run_function',
+                  }
+                  missing = required - set(names)
+                  assert not missing, f'missing tools: {missing}'
+                  assert len(names) >= 15, f'expected >=15 tools, got {len(names)}'
               elif 'content' in r:
                   data = json.loads(r['content'][0]['text'])
                   if isinstance(data, dict) and 'model' in data:
                       assert data['model'] == 'haiku', f'fetch should be haiku, got {data[\"model\"]}'
                   elif isinstance(data, list):
                       assert len(data) >= 5, f'expected >=5 items, got {len(data)}'
-          print('MCP smoke test passed: 8 tools, protocol ok, routing correct')
+          print('MCP smoke test passed: >=15 tools, protocol ok, routing correct')
           "
 
       - name: Bootstrap gate layout (idempotent)
