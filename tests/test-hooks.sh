@@ -220,13 +220,13 @@ else
   fail "git commit should clear precommit only" "precommit=$([ -f .gates/precommit-passed ] && echo yes || echo no) evaluate=$([ -f .gates/evaluate-passed ] && echo yes || echo no)"
 fi
 
-# Test 10: git push clears push-scoped flags
+# Test 10: git push clears all flags (full cleanup for clean slate)
 mkdir -p .gates && echo "READY" > .gates/precommit-passed && echo "PASSED 96%" > .gates/evaluate-passed
 echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$HOOKS_DIR/gate_cleanup.py" > /dev/null 2>&1
-if [ -f ".gates/precommit-passed" ] && [ ! -f ".gates/evaluate-passed" ]; then
-  pass "git push clears evaluate; precommit survives"
+if [ ! -f ".gates/precommit-passed" ] && [ ! -f ".gates/evaluate-passed" ]; then
+  pass "git push clears all flags (clean slate)"
 else
-  fail "git push should clear push-scoped flags only" "unexpected .gates state"
+  fail "git push should clear all flags" "precommit=$([ -f .gates/precommit-passed ] && echo yes || echo no) evaluate=$([ -f .gates/evaluate-passed ] && echo yes || echo no)"
 fi
 
 # Test 11: non-commit doesn't clear .gates/
