@@ -155,31 +155,40 @@ def make_hook_response(message: str) -> str:
     )
 
 
-def make_block_response(reason: str) -> str:
-    """Build Claude Code hook JSON response that blocks the tool."""
-    return json.dumps({"decision": "block", "reason": reason})
+def make_block_response(reason: str, agent: str = "claude-code") -> str:
+    """Build host-aware hook JSON that blocks the tool."""
+    from hook_io import make_block_json
+
+    return make_block_json(reason, agent=agent)
 
 
 def _parse_hook_command(stdin_input: str) -> Optional[str]:
-    """Extract git command from hook JSON. Returns None if not a git hook event."""
-    try:
-        hook_input = json.loads(stdin_input)
-        command = hook_input.get("tool_input", {}).get("command", "")
-    except (json.JSONDecodeError, TypeError):
-        return None
+    """Extract git command from any host hook JSON. Returns None if absent."""
+    from hook_io import parse_hook_stdin
+
+    _agent, canonical = parse_hook_stdin(stdin_input)
+    command = canonical.get("command") or ""
     if not command:
         return None
     return command
 
 
+def _parse_hook_agent(stdin_input: str) -> str:
+    from hook_io import parse_hook_stdin
+
+    agent, _canonical = parse_hook_stdin(stdin_input)
+    return agent
+
+
 def _make_gate_finish(
     enforcement: str,
     project_dir: Path,
+    agent: str = "claude-code",
 ) -> Callable[[str], tuple]:
     """Return a callback that blocks the git action."""
 
     def gate_finish(msg: str) -> tuple:
-        return 0, make_block_response(msg)
+        return 0, make_block_response(msg, agent=agent)
 
     return gate_finish
 
@@ -337,6 +346,7 @@ def run_gate(
     env_enforcement: Optional[str] = None,
 ) -> tuple:
     """Main gate logic. Returns (exit_code, output_json)."""
+    agent = _parse_hook_agent(stdin_input)
     command = _parse_hook_command(stdin_input)
     if command is None:
         return 0, ""
@@ -349,7 +359,7 @@ def run_gate(
     if config.get("_no_config"):
         return 0, ""  # No gates.json — not a toolkit-managed project
     gate_mode = config.get("gate_mode", "legacy")
-    gate_finish = _make_gate_finish("block", project_dir)
+    gate_finish = _make_gate_finish("block", project_dir, agent=agent)
 
     if gate_mode == "signed":
         verify_error = _verify_signed_gate(project_dir, action)

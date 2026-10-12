@@ -50,8 +50,10 @@ def make_hook_response(message: str) -> str:
     )
 
 
-def make_block_response(reason: str) -> str:
-    return json.dumps({"decision": "block", "reason": reason})
+def make_block_response(reason: str, agent: str = "claude-code") -> str:
+    from hook_io import make_block_json
+
+    return make_block_json(reason, agent=agent)
 
 
 def find_test_file(file_path: Path, project_dir: Path) -> bool:
@@ -114,11 +116,10 @@ def run_tdd_enforce(
     if not mode.tdd:
         return 0, ""
 
-    try:
-        hook_input = json.loads(stdin_input)
-        file_path_str = hook_input.get("tool_input", {}).get("file_path", "")
-    except (json.JSONDecodeError, TypeError, AttributeError):
-        return 0, ""
+    from hook_io import parse_hook_stdin
+
+    agent, canonical = parse_hook_stdin(stdin_input)
+    file_path_str = canonical.get("file_path") or ""
 
     if not file_path_str:
         return 0, ""
@@ -138,7 +139,7 @@ def run_tdd_enforce(
     message = (
         f"Write the test for {filename} first — source edits need a test file."
     )
-    return 0, make_block_response(message)
+    return 0, make_block_response(message, agent=agent)
 
 
 def main() -> int:

@@ -2,7 +2,7 @@
   "id": "codex-cli",
   "rules_targets": ["AGENTS.md"],
   "skills_path": null,
-  "hooks": "cli_only",
+  "hooks": "structural",
   "hooks_config": {
     "path": ".codex/config.toml",
     "format": "codex"

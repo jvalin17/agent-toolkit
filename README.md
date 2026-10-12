@@ -91,6 +91,29 @@ agent-toolkit-continue "Build a price comparison feature for utensils in my inve
 
 The skill handles everything: requirements check, execution plan, TDD, review, precommit. You approve the plan, then watch it build slab-by-slab.
 
+**Try the demos** (calculators, unit-converter, todo-list, password-strength):
+
+```bash
+./demos/run_demos.sh
+```
+
+See [demos/README.md](demos/README.md).
+
+**Foolproof on Cursor / Codex / Grok** (structural hooks):
+
+```bash
+./install.sh --host cursor --project /path/to/your-app
+```
+
+**Foolproof on Gemini** (CLI gate):
+
+```bash
+./install.sh --host gemini --project /path/to/your-app
+python3 scripts/atk.py --project /path/to/your-app commit -m "message"
+```
+
+See [docs/other-llms.md](docs/other-llms.md).
+
 Roles activate automatically — no configuration needed. You can also invoke roles directly:
 
 ```
@@ -333,6 +356,7 @@ Override roles:
 | [Daily workflow](docs/workflow.md) | Commit, push, gate flows |
 | [Install & updates](docs/install-and-updates.md) | Setup and sync |
 | [Other LLMs](docs/other-llms.md) | Cursor, Gemini, Codex, Windsurf |
+| [Demos](demos/README.md) | Sample apps for LLM-agnostic skills |
 | [Configuration](docs/configuration.md) | All gates.json settings |
 | [Roles](roles/ROLES-FINAL.md) | 19 roles with interactions |
 | [Role architecture](architecture/role-context-layer.md) | How roles detect, learn, evaluate |

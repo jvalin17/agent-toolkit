@@ -146,13 +146,10 @@ def run_skill_enforce(
     if mode.name == "minimal":
         return 0, ""
 
-    try:
-        event = json.loads(stdin_input)
-    except (json.JSONDecodeError, TypeError):
-        return 0, ""
+    from hook_io import parse_hook_stdin, make_block_json, make_context_json
 
-    tool_input = event.get("tool_input", {})
-    file_path = tool_input.get("file_path", "")
+    agent, canonical = parse_hook_stdin(stdin_input)
+    file_path = canonical.get("file_path") or ""
 
     if not file_path:
         return 0, ""
@@ -174,13 +171,13 @@ def run_skill_enforce(
 
     if skill_active:
         # Skill is active — inject anti-drift reminder (never block)
-        return 0, _make_remind(SKILL_REMINDER)
+        return 0, make_context_json(SKILL_REMINDER, agent=agent)
 
     # No skill active — block or remind
     if should_block:
-        return 0, _make_block(NO_SKILL_MESSAGE)
+        return 0, make_block_json(NO_SKILL_MESSAGE, agent=agent)
 
-    return 0, _make_remind(NO_SKILL_MESSAGE)
+    return 0, make_context_json(NO_SKILL_MESSAGE, agent=agent)
 
 
 def main() -> int:

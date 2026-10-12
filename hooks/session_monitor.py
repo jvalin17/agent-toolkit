@@ -461,6 +461,8 @@ def parse_input(raw_input: str) -> dict:
 
 def main() -> int:
     """Read event from stdin, dispatch to handler, output JSON response."""
+    from hook_io import parse_hook_stdin, make_block_json, make_context_json
+
     raw_input = sys.stdin.read()
     event = parse_input(raw_input)
 
@@ -469,13 +471,13 @@ def main() -> int:
 
     state_file = Path(SESSION_DIR) / STATE_FILENAME
 
-    hook_event = event.get("hook_event_name", "")
-    tool_name = event.get("tool_name", "")
-    tool_input = event.get("tool_input", {})
+    agent, canonical = parse_hook_stdin(raw_input)
+    hook_event = canonical.get("event") or event.get("hook_event_name", "")
+    tool_name = canonical.get("tool_name") or event.get("tool_name", "")
     tool_result = event.get("tool_result", "")
 
-    file_path = tool_input.get("file_path", "") if isinstance(tool_input, dict) else ""
-    command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+    file_path = canonical.get("file_path") or ""
+    command = canonical.get("command") or ""
 
     state = load_state(state_file)
 
@@ -502,7 +504,7 @@ def main() -> int:
             state, tool_name, file_path, command
         )
 
-    elif "prompt" in event:
+    elif "prompt" in event or canonical.get("prompt"):
         state, response = handle_user_prompt(state)
 
     elif tool_name:
@@ -514,7 +516,10 @@ def main() -> int:
 
     if response:
         event_name = hook_event or ("PreToolUse" if tool_name else "UserPromptSubmit")
-        print(make_hook_response(event_name, response))
+        if blocked:
+            print(make_block_json(response, agent=agent, event=event_name))
+        else:
+            print(make_context_json(response, agent=agent, event=event_name))
 
     return 2 if blocked else 0
 

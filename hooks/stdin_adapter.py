@@ -101,9 +101,13 @@ def _normalize_claude_code(raw: dict) -> dict:
 
 def _normalize_cursor(raw: dict) -> dict:
     """Normalize Cursor stdin JSON."""
-    event = _normalize_event(raw.get("hook_event_name", ""))
-    tool_name = _normalize_tool_name(raw.get("tool_name", ""))
-    tool_input = raw.get("tool_input", {})
+    event = _normalize_event(
+        raw.get("hook_event_name") or raw.get("hookEventName") or ""
+    )
+    tool_name = _normalize_tool_name(
+        raw.get("tool_name") or raw.get("toolName") or ""
+    )
+    tool_input = raw.get("tool_input") or raw.get("toolInput") or {}
     if not isinstance(tool_input, dict):
         tool_input = {}
 
@@ -111,9 +115,9 @@ def _normalize_cursor(raw: dict) -> dict:
         "event": event,
         "tool_name": tool_name,
         "command": tool_input.get("command", ""),
-        "file_path": tool_input.get("file_path", ""),
+        "file_path": tool_input.get("file_path") or tool_input.get("filePath", ""),
         "prompt": raw.get("prompt", ""),
-        "session_id": raw.get("conversation_id", ""),
+        "session_id": raw.get("conversation_id") or raw.get("session_id", ""),
         "raw": raw,
     }
 
@@ -137,17 +141,17 @@ def _normalize_codex(raw: dict) -> dict:
 
 def _normalize_grok(raw: dict) -> dict:
     """Normalize Grok Build stdin JSON (camelCase fields)."""
-    tool_input = raw.get("toolInput", {})
+    tool_input = raw.get("toolInput") or raw.get("tool_input") or {}
     if not isinstance(tool_input, dict):
         tool_input = {}
 
     return {
-        "event": raw.get("hookEventName", ""),
-        "tool_name": _normalize_tool_name(raw.get("toolName", "")),
+        "event": _normalize_event(raw.get("hookEventName") or raw.get("hook_event_name") or ""),
+        "tool_name": _normalize_tool_name(raw.get("toolName") or raw.get("tool_name") or ""),
         "command": tool_input.get("command", ""),
-        "file_path": tool_input.get("file_path", tool_input.get("filePath", "")),
+        "file_path": tool_input.get("file_path") or tool_input.get("filePath", ""),
         "prompt": raw.get("prompt", ""),
-        "session_id": raw.get("sessionId", ""),
+        "session_id": raw.get("sessionId") or raw.get("session_id", ""),
         "raw": raw,
     }
 
@@ -232,7 +236,17 @@ def normalize_output(
             result["message"] = message
         return json.dumps(result)
 
-    # Claude Code, Cursor, Codex CLI, Grok Build all use the same output format
+    # Claude Code, Cursor, Codex CLI, Grok Build
+    if blocked:
+        return json.dumps({
+            "decision": "block",
+            "reason": message,
+            "hookSpecificOutput": {
+                "hookEventName": event,
+                "additionalContext": message,
+                "permissionDecision": "deny",
+            },
+        })
     return json.dumps({
         "hookSpecificOutput": {
             "hookEventName": event,

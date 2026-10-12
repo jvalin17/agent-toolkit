@@ -2,7 +2,7 @@
   "id": "grok-build",
   "rules_targets": ["AGENTS.md"],
   "skills_path": null,
-  "hooks": "cli_only",
+  "hooks": "structural",
   "hooks_config": {
     "path": ".grok/hooks.json",
     "format": "claude"

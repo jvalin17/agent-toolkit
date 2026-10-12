@@ -8,16 +8,29 @@
 # Usage:
 #   ./install.sh            # full install (interactive on conflicts)
 #   ./install.sh --sync-only  # quiet idempotent sync (used by update.sh)
+#   ./install.sh --host cursor [--project DIR]  # host hooks + short rules only
 
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 SYNC_ONLY=0
-for arg in "$@"; do
-    case "$arg" in
-        --sync-only) SYNC_ONLY=1 ;;
+HOST_ONLY=""
+PROJECT_DIR="."
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --sync-only) SYNC_ONLY=1; shift ;;
+        --host) HOST_ONLY="$2"; shift 2 ;;
+        --project) PROJECT_DIR="$2"; shift 2 ;;
+        *) shift ;;
     esac
 done
+
+# Fast path: host-only install (Phase B)
+if [ -n "$HOST_ONLY" ]; then
+    exec python3 "$SCRIPT_DIR/scripts/install_host_hooks.py" --host "$HOST_ONLY" --project "$PROJECT_DIR" --toolkit "$SCRIPT_DIR"
+fi
+
+# Note: argv was consumed above; full Claude install path below uses SYNC_ONLY only
 
 # Quiet sync when invoked from update.sh (set AGENT_TOOLKIT_SYNC_VERBOSE=1 to debug)
 if [ "$SYNC_ONLY" = "1" ] && [ "${AGENT_TOOLKIT_SYNC_VERBOSE:-}" != "1" ]; then
