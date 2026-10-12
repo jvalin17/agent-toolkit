@@ -40,14 +40,9 @@ LAST_TEST_EDITS_WINDOW = 5
 
 
 def make_hook_response(message: str) -> str:
-    return json.dumps(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "additionalContext": message,
-            }
-        }
-    )
+    from hook_io import context_json
+
+    return context_json(message)
 
 
 def make_block_response(reason: str, agent: str = "claude-code") -> str:

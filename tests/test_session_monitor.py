@@ -1755,3 +1755,50 @@ class TestDamageRadius:
             state, tool_name="Edit", file_path="/tmp/c.py", command=""
         )
         assert blocked is False
+
+
+# --- End-to-end: real stdin JSON through main() ---
+
+
+HOOK_PATH = Path(__file__).parent.parent / "hooks" / "session_monitor.py"
+
+
+def _run_hook(stdin_text: str, cwd: Path) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        [sys.executable, str(HOOK_PATH)],
+        input=stdin_text, capture_output=True, text=True, cwd=cwd, timeout=20,
+    )
+
+
+class TestMainEndToEnd:
+    def test_main_session_start_compact_counts_compaction(self, tmp_path):
+        """Claude Code delivers compaction as SessionStart/source=compact, not PostCompact."""
+        event = {"hook_event_name": "SessionStart", "source": "compact", "session_id": "s-7f3a"}
+        proc = _run_hook(json.dumps(event), tmp_path)
+        assert proc.returncode == 0
+        payload = json.loads(proc.stdout)
+        assert "CONTEXT COMPACTED (1x)" in payload["hookSpecificOutput"]["additionalContext"]
+        state = json.loads((tmp_path / ".session" / "state.json").read_text())
+        assert state["compactions"] == 1
+
+    def test_main_session_start_startup_is_not_compaction(self, tmp_path):
+        event = {"hook_event_name": "SessionStart", "source": "startup", "session_id": "s-7f3a"}
+        proc = _run_hook(json.dumps(event), tmp_path)
+        assert proc.returncode == 0
+        assert "CONTEXT COMPACTED" not in proc.stdout
+
+    @pytest.mark.parametrize("stdin_text", ["", "{not json", '"just a string"', "[1, 2, 3]"])
+    def test_main_malformed_stdin(self, tmp_path, stdin_text):
+        proc = _run_hook(stdin_text, tmp_path)
+        assert proc.returncode == 0
+        assert proc.stdout.strip() == ""
+        assert "Traceback" not in proc.stderr
+
+    def test_main_unicode_file_path(self, tmp_path):
+        event = {
+            "hook_event_name": "PreToolUse", "tool_name": "Edit",
+            "tool_input": {"file_path": str(tmp_path / "src" / "módulos" / "façade.py")},
+        }
+        proc = _run_hook(json.dumps(event, ensure_ascii=False), tmp_path)
+        assert proc.returncode == 0
+        assert "Traceback" not in proc.stderr

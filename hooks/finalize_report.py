@@ -61,6 +61,7 @@ from finalize_render import (  # noqa: E402
 from finalize_schema import (  # noqa: E402
     compute_evaluate_score,
     grade_letter,
+    merge_dimension_scores,
     read_findings,
     validate_assess_findings,
     validate_evaluate_findings,
@@ -82,13 +83,61 @@ _read_findings = read_findings
 _fail = fail
 
 
+# hosts/<id>.json "stamp_mode": "hook_skill_passed" means the host's Skill hook
+# writes stamps itself (Claude Code). A "cli" stamp there was written through
+# the MCP/CLI tool by the agent — a forgery. On "cli_stamp" hosts (Cursor,
+# Gemini, Codex, Grok, Windsurf, default) the CLI stamp is the only mechanism.
+HOOK_STAMP_MODE = "hook_skill_passed"
+
+
+def _host_stamps_via_hook() -> bool:
+    from host_config import resolve_host
+
+    return resolve_host().get("stamp_mode") == HOOK_STAMP_MODE
+
+
+def _read_stamp(stamp_file: Path) -> dict | None:
+    """Parse a stamp file. Returns None when it is not the hook's JSON format."""
+    try:
+        data = json.loads(stamp_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
 def _check_skill_stamp(project_dir: Path, skill: str) -> list[str]:
-    """Verify a skill stamp exists in .gates/stamps/. Returns issues list."""
+    """Verify a genuine skill stamp exists in .gates/stamps/. Returns issues list.
+
+    A stamp counts only if it is the JSON the hook writes, names this skill,
+    and — on hosts where the Skill hook writes stamps — was not written via
+    the CLI/MCP ``stamp_skill`` tool.
+    """
     stamp_file = project_dir / ".gates" / "stamps" / skill
     if not stamp_file.is_file():
         return [
             f"{skill} stamp missing — skill was not invoked via the Skill tool. "
             f"Run /{skill} before submitting findings."
+        ]
+
+    data = _read_stamp(stamp_file)
+    if data is None:
+        return [
+            f"{skill} stamp unreadable — not the format written by the Skill hook. "
+            f"Run /{skill} via the Skill tool; do not write stamps by hand."
+        ]
+
+    stamped_skill = str(data.get("skill", ""))
+    if stamped_skill.rsplit(":", 1)[-1] != skill:
+        return [
+            f"{skill} stamp names a different skill ('{stamped_skill}') — "
+            f"stamps cannot be copied between skills. Run /{skill}."
+        ]
+
+    if data.get("source") == "cli" and _host_stamps_via_hook():
+        return [
+            f"{skill} stamp was written via the cli/MCP stamp_skill tool, "
+            "which is not accepted on Claude Code — the Skill hook writes stamps there. "
+            f"Run /{skill} via the Skill tool."
         ]
     return []
 
@@ -103,15 +152,11 @@ def _check_stamps(project_dir: Path, findings: dict) -> list[str]:
     """
     issues: list[str] = []
 
-    # Vector 1: reviewer_called claim without reviewer stamp
+    # Vector 1: reviewer_called claim without a genuine reviewer stamp
     reviewer_gate = findings.get("reviewer_gate", {})
     if reviewer_gate.get("reviewer_called"):
-        stamp_file = project_dir / ".gates" / "stamps" / "reviewer"
-        if not stamp_file.is_file():
-            issues.append(
-                "reviewer stamp missing — agent claimed reviewer_called: true "
-                "but /reviewer was never invoked via the Skill tool"
-            )
+        for issue in _check_skill_stamp(project_dir, "reviewer"):
+            issues.append(f"{issue} (agent claimed reviewer_called: true)")
 
     # Vector 2: execution plan deleted — implementation stamp exists but plan file gone
     impl_stamp = project_dir / ".gates" / "stamps" / "implementation"
@@ -656,8 +701,8 @@ def _append_session_summary(project_dir: Path) -> None:
             content += "\n\n" + summary + "\n"
 
         state_file.write_text(content, encoding="utf-8")
-    except Exception:
-        pass  # Non-critical — don't block the gate
+    except Exception as exc:  # Non-critical — don't block the gate, but say so
+        sys.stderr.write(f"finalize_report: session summary not appended to project-state.md: {exc}\n")
 
 
 def _cleanup_test_plans(project_dir: Path, plans: list[dict]) -> None:
@@ -688,6 +733,90 @@ def _cleanup_test_plans(project_dir: Path, plans: list[dict]) -> None:
             pass
 
 
+def _git_output(project_dir: Path, args: list[str]) -> str:
+    """Run a git command in project_dir; empty string on any failure."""
+    import subprocess as _sp
+
+    try:
+        proc = _sp.run(
+            ["git", *args], capture_output=True, text=True, cwd=project_dir, timeout=10,
+        )
+    except Exception as exc:
+        sys.stderr.write(f"finalize_report: git {' '.join(args)} failed: {exc}\n")
+        return ""
+    return proc.stdout if proc.returncode == 0 else ""
+
+
+def _collect_diff_checks(project_dir: Path) -> dict:
+    """Staged diff (or unstaged fallback) plus the TDD/noqa/UI scans over it."""
+    diff_text = _git_output(project_dir, ["diff", "--cached", "--unified=0"])
+    if not diff_text.strip():
+        diff_text = _git_output(project_dir, ["diff", "HEAD", "--unified=0"])
+    return {
+        "diff_text": diff_text,
+        "untested": check_diff_for_untested_functions(diff_text),
+        "noqa_in_tests": check_diff_for_noqa_in_tests(diff_text),
+        "ui_without_e2e": check_diff_for_ui_without_e2e(diff_text),
+    }
+
+
+def _changed_files_for_spot_check(project_dir: Path) -> list[str]:
+    """Absolute paths of changed, non-dot files (input for the random spot check)."""
+    names = _git_output(project_dir, ["diff", "--name-only", "HEAD"])
+    return [
+        str(project_dir / name.strip())
+        for name in names.strip().split("\n")
+        if name.strip() and not name.strip().startswith(".")
+    ]
+
+
+def _apply_execution_plan_check(project_dir: Path, ready: bool, reasons: list[str]) -> bool:
+    """Verify every planned skill ran; delete the plan on a clean pass. Returns ready."""
+    exec_plan_file = project_dir / ".scratch" / "execution-plan.json"
+    if not exec_plan_file.is_file():
+        return ready
+    try:
+        exec_plan = json.loads(exec_plan_file.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        reasons.append("execution plan: cannot read .scratch/execution-plan.json")
+        return ready
+
+    plan_errors = validate_execution_plan(exec_plan)
+    if plan_errors:
+        reasons.append(f"execution plan invalid: {'; '.join(plan_errors)}")
+        return False
+
+    # Skills invoked come from get_session_skill_usage, not the action audit
+    skill_audit = _check_session_audit()
+    skills_from_audit = skill_audit.get("skills_invoked", []) if skill_audit.get("available") else []
+    compliance = check_execution_plan_compliance(exec_plan, skills_from_audit)
+    if compliance["blocked"]:
+        reasons.extend(compliance["reasons"])
+        return False
+
+    if ready:
+        try:
+            exec_plan_file.unlink()
+        except OSError as exc:
+            sys.stderr.write(f"finalize_report: could not remove execution plan: {exc}\n")
+    return ready
+
+
+def _write_precommit_report(
+    project_dir: Path, slug: str, report_id: str, markdown: str, session_audit: dict,
+) -> Path:
+    """Write the precommit report, appending session-audit warnings when present."""
+    if session_audit.get("warnings"):
+        audit_section = "\n\n## Session Audit (automated)\n\n"
+        for w in session_audit["warnings"]:
+            audit_section += f"- ⚠ {w}\n"
+        audit_section += f"\nSkills invoked: {session_audit.get('skills_invoked', [])}\n"
+        markdown += audit_section
+    out_path = _report_path(project_dir, "precommit", slug, report_id)
+    out_path.write_text(markdown, encoding="utf-8")
+    return out_path
+
+
 def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     findings = validate_precommit_findings(read_findings(findings_path))
     config = load_gate_config(project_dir)
@@ -701,65 +830,28 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     # Mechanical session audit — verifies agent claims against JSONL evidence
     action_audit = _get_session_action_audit()
 
-    # Git diff TDD check — new functions must have corresponding tests
-    # Also checks for noqa additions in test files (linter-fighting)
-    try:
-        import subprocess as _sp
-        diff_result = _sp.run(
-            ["git", "diff", "--cached", "--unified=0"],
-            capture_output=True, text=True, cwd=project_dir, timeout=10,
-        )
-        if diff_result.returncode == 0 and diff_result.stdout.strip():
-            diff_text = diff_result.stdout
-        else:
-            # Fall back to unstaged diff
-            diff_result = _sp.run(
-                ["git", "diff", "HEAD", "--unified=0"],
-                capture_output=True, text=True, cwd=project_dir, timeout=10,
-            )
-            diff_text = diff_result.stdout if diff_result.returncode == 0 else ""
-        untested = check_diff_for_untested_functions(diff_text)
-        noqa_in_tests = check_diff_for_noqa_in_tests(diff_text)
-        ui_without_e2e = check_diff_for_ui_without_e2e(diff_text)
-    except Exception:
-        diff_text = ""
-        untested = []
-        noqa_in_tests = []
-        ui_without_e2e = []
+    # Git diff checks: new functions need tests, no noqa in tests, UI needs E2E
+    diff = _collect_diff_checks(project_dir)
+    diff_text = diff["diff_text"]
 
     # Skill invocation audit — did /precommit actually run via Skill tool?
     skill_audit = _check_session_audit()
 
     ready, reasons = _decide_precommit(
         findings, test, lint, session_audit=action_audit,
-        untested_functions=untested, noqa_in_tests=noqa_in_tests,
+        untested_functions=diff["untested"], noqa_in_tests=diff["noqa_in_tests"],
         config=config,
         session_audit_skills=skill_audit,
     )
 
     # Random spot check — safe/standard modes only, non-blocking warnings
-    try:
-        import subprocess as _sp2
-        diff_names = _sp2.run(
-            ["git", "diff", "--name-only", "HEAD"],
-            capture_output=True, text=True, cwd=project_dir, timeout=10,
-        )
-        changed_for_spot = [
-            str(project_dir / f.strip()) for f in diff_names.stdout.strip().split("\n")
-            if f.strip() and not f.strip().startswith(".")
-        ] if diff_names.returncode == 0 and diff_names.stdout.strip() else []
-    except Exception:
-        changed_for_spot = []
-
-    spot_warnings = _maybe_spot_check(changed_for_spot, current_mode.name)
+    spot_warnings = _maybe_spot_check(_changed_files_for_spot_check(project_dir), current_mode.name)
     for w in spot_warnings:
         reasons.append(f"SPOT CHECK (non-blocking): {w}")
 
     # UI regression check — warn (not block) when UI files change without E2E tests
-    # Appended to reasons as warnings (prefixed) — visible in report but not blocking
-    if ui_without_e2e:
-        for w in ui_without_e2e:
-            reasons.append(f"UI WARNING (non-blocking): {w}")
+    for w in diff["ui_without_e2e"]:
+        reasons.append(f"UI WARNING (non-blocking): {w}")
 
     # Test plan check — verify coverage if a test plan exists
     test_plan_results = _check_test_plans(project_dir)
@@ -789,30 +881,7 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
         reasons.extend(depth_issues)
 
     # Execution plan check — verify all planned skills were invoked
-    exec_plan_file = project_dir / ".scratch" / "execution-plan.json"
-    if exec_plan_file.is_file():
-        try:
-            exec_plan = json.loads(exec_plan_file.read_text(encoding="utf-8"))
-            plan_errors = validate_execution_plan(exec_plan)
-            if plan_errors:
-                ready = False
-                reasons.append(f"execution plan invalid: {'; '.join(plan_errors)}")
-            else:
-                # Get skills invoked from session audit (uses get_session_skill_usage, not action audit)
-                skill_audit = _check_session_audit()
-                skills_from_audit = skill_audit.get("skills_invoked", []) if skill_audit.get("available") else []
-                compliance = check_execution_plan_compliance(exec_plan, skills_from_audit)
-                if compliance["blocked"]:
-                    ready = False
-                    reasons.extend(compliance["reasons"])
-                elif ready:
-                    # Plan passed — clean up
-                    try:
-                        exec_plan_file.unlink()
-                    except OSError:
-                        pass
-        except (json.JSONDecodeError, OSError):
-            reasons.append("execution plan: cannot read .scratch/execution-plan.json")
+    ready = _apply_execution_plan_check(project_dir, ready, reasons)
 
     # Session audit — warnings only, not blocking
     session_audit = _check_session_audit()
@@ -821,18 +890,9 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     markdown = compose_precommit_markdown(
         findings, test, lint, ready, reasons, report_id
     )
-
-    # Append audit warnings to report
-    if session_audit.get("warnings"):
-        audit_section = "\n\n## Session Audit (automated)\n\n"
-        for w in session_audit["warnings"]:
-            audit_section += f"- ⚠ {w}\n"
-        audit_section += f"\nSkills invoked: {session_audit.get('skills_invoked', [])}\n"
-        out_path = _report_path(project_dir, "precommit", findings["slug"], report_id)
-        out_path.write_text(markdown + audit_section, encoding="utf-8")
-    else:
-        out_path = _report_path(project_dir, "precommit", findings["slug"], report_id)
-        out_path.write_text(markdown, encoding="utf-8")
+    out_path = _write_precommit_report(
+        project_dir, findings["slug"], report_id, markdown, session_audit,
+    )
 
     gate_flag = _write_gate_flag(project_dir, "precommit") if ready else None
 
@@ -867,17 +927,22 @@ def finalize_evaluate(project_dir: Path, findings_path: Path) -> int:
     config = load_gate_config(project_dir)
     threshold = int(get_config_value(config, "eval_threshold", 95))
 
-    # Mechanical scoring — agent cannot influence these
-    dimensions = score_codebase(project_dir)
-    findings["dimensions"] = dimensions
+    # Mechanical scoring — the agent cannot raise these
+    mechanical = score_codebase(project_dir)
 
     test, lint = _run_mechanical(project_dir, config)
 
     # Adjust completeness based on mechanical test/lint results
     if test.passed and lint.passed:
-        dimensions["completeness"] = max(dimensions["completeness"], 90)
+        mechanical["completeness"] = max(mechanical["completeness"], 90)
     elif not test.passed:
-        dimensions["completeness"] = min(dimensions["completeness"], 50)
+        mechanical["completeness"] = min(mechanical["completeness"], 50)
+
+    # Agent findings can only lower a dimension (e.g. a forgeable stamp the
+    # grep-based scorer cannot see); they can never raise one.
+    agent_dimensions = findings.get("dimensions")
+    dimensions = merge_dimension_scores(mechanical, agent_dimensions)
+    findings["dimensions"] = dimensions
 
     passed, score, reasons = _decide_evaluate(dimensions, test, lint, threshold)
     report_id = uuid.uuid4().hex[:8]
@@ -898,6 +963,9 @@ def finalize_evaluate(project_dir: Path, findings_path: Path) -> int:
             "passed": passed,
             "score": score,
             "threshold": threshold,
+            "dimensions": dimensions,
+            "mechanical_dimensions": mechanical,
+            "agent_dimensions": agent_dimensions,
             "report_path": str(out_path.relative_to(project_dir)),
             "report_id": report_id,
             "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,

@@ -4,10 +4,10 @@
 Reads hook input from stdin, checks whether git commit/push is allowed based
 on .gates/ flag files and gates.json configuration.
 
-Default enforcement is **block** (matches `templates/gates.json`). Set
-`enforcement: warn` in gates.json for advisory-only mode. In warn mode,
-auto-escalates: first violation writes `.gates/enforcement-override` →
-subsequent attempts are hard-blocked.
+Enforcement is always **block** — there is no advisory mode. Which skills a
+commit or push requires comes from the `mode` field (see mode_resolver.py).
+A gates.json that exists but cannot be parsed blocks every git action until
+it is fixed (fail closed).
 """
 
 import json
@@ -51,24 +51,32 @@ def detect_git_action(command: str) -> Optional[str]:
     return None
 
 
-def load_gate_config(project_dir: Path) -> dict:
-    """Load gates.json from project directory.
+_TOOLKIT_ROOT = Path(__file__).resolve().parents[1]
 
-    Search order: gates.json, .claude/gates.json, hooks/gates.json.
-    Returns defaults if not found.
+# Config used when gates.json exists but cannot be read. Safe mode requires
+# every gate, so nothing passes until the file is fixed (fail closed).
+_CORRUPT_CONFIG_FALLBACK = {"gate_mode": "legacy", "mode": "safe"}
+
+
+def load_gate_config(project_dir: Path) -> dict:
+    """Load gates.json from project directory (search order in gate.config).
+
+    No file → defaults with ``_no_config`` (not a toolkit-managed project).
+    Corrupt file → safe-mode config with ``_config_error`` so every consumer
+    fails closed instead of silently falling back to weaker defaults.
     """
-    candidates = [
-        project_dir / "gates.json",
-        project_dir / ".claude" / "gates.json",
-        project_dir / "hooks" / "gates.json",
-    ]
-    for candidate in candidates:
-        if candidate.is_file():
-            try:
-                return json.loads(candidate.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
-                pass
-    return {"enforcement": "block", "gate_mode": "legacy", "_no_config": True}
+    if str(_TOOLKIT_ROOT) not in sys.path:
+        sys.path.insert(0, str(_TOOLKIT_ROOT))
+    from gate.config import GatesConfigError, load_gates_config
+
+    try:
+        config = load_gates_config(project_dir)
+    except GatesConfigError as exc:
+        sys.stderr.write(f"gate_hook: {exc}\n")
+        return {**_CORRUPT_CONFIG_FALLBACK, "_config_error": str(exc)}
+    if config is None:
+        return {"enforcement": "block", "gate_mode": "legacy", "_no_config": True}
+    return config
 
 
 def get_config_value(config: dict, key: str, default=None):
@@ -89,18 +97,6 @@ def get_config_value(config: dict, key: str, default=None):
                 pass
         return env_val
     return config.get(key, default)
-
-
-def resolve_enforcement(
-    config_enforcement: str,
-    project_dir: Path,
-    env_override: Optional[str] = None,
-) -> str:
-    """Resolve enforcement level. Always 'block' in new mode system.
-
-    Kept for backward compatibility with signed mode and tests.
-    """
-    return "block"
 
 
 def check_gate_flags(
@@ -145,14 +141,9 @@ def check_gate_flags(
 
 def make_hook_response(message: str) -> str:
     """Build Claude Code hook JSON response (context injection, non-blocking)."""
-    return json.dumps(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "additionalContext": message,
-            }
-        }
-    )
+    from hook_io import context_json
+
+    return context_json(message)
 
 
 def make_block_response(reason: str, agent: str = "claude-code") -> str:
@@ -360,6 +351,12 @@ def run_gate(
         return 0, ""  # No gates.json — not a toolkit-managed project
     gate_mode = config.get("gate_mode", "legacy")
     gate_finish = _make_gate_finish("block", project_dir, agent=agent)
+
+    if config.get("_config_error"):
+        return gate_finish(
+            f"gates.json is unreadable — {config['_config_error']}. "
+            f"Gates fail closed: fix the file before git {action}."
+        )
 
     if gate_mode == "signed":
         verify_error = _verify_signed_gate(project_dir, action)

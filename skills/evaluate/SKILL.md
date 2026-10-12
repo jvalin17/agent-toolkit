@@ -200,9 +200,11 @@ Findings schema (all keys required):
 }
 ```
 
-Dimension scores must be honest integers 0–100. The hook **recomputes**
-the overall score from the weighted average — you cannot claim a higher
-score than your dimension scores support.
+Dimension scores must be honest integers 0–100. The hook runs its own
+mechanical scorer and, per dimension, keeps the **lower** of its score and
+yours — your findings can lower a dimension the grep heuristics cannot see,
+but can never raise one. The overall score is the weighted average of the
+merged dimensions.
 
 Then run:
 

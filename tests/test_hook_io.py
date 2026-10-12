@@ -7,7 +7,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "hooks"))
 
-from hook_io import parse_hook_stdin, make_block_json, make_context_json
+import pytest
+
+from hook_io import (
+    context_json,
+    make_block_json,
+    make_context_json,
+    parse_hook_stdin,
+    read_hook_event,
+)
 
 
 def test_parse_cursor_shell_git_commit():
@@ -65,3 +73,37 @@ def test_make_block_json_windsurf_deny():
 def test_make_context_json_non_blocking():
     body = json.loads(make_context_json("hello", agent="claude-code", event="UserPromptSubmit"))
     assert body["hookSpecificOutput"]["additionalContext"] == "hello"
+
+
+@pytest.mark.parametrize("stdin_text", ["", "   ", "{not json", '"a string"', "[1, 2]", "42", "null"])
+def test_read_hook_event_malformed(stdin_text):
+    assert read_hook_event(stdin_text) == {}
+
+
+def test_read_hook_event_default_distinguishes_invalid_from_empty_object():
+    assert read_hook_event("{not json", default=None) is None
+    assert read_hook_event("{}", default=None) == {}
+
+
+def test_read_hook_event_object():
+    event = read_hook_event('{"tool_name": "Edit", "tool_input": {"file_path": "src/billing.py"}}')
+    assert event["tool_name"] == "Edit"
+    assert event["tool_input"]["file_path"] == "src/billing.py"
+
+
+def test_read_hook_event_unicode_prompt():
+    event = read_hook_event(json.dumps({"prompt": "Añade facturación — étape 1 ✓"}, ensure_ascii=False))
+    assert event["prompt"] == "Añade facturación — étape 1 ✓"
+
+
+def test_parse_hook_stdin_non_object_is_unknown():
+    agent, canonical = parse_hook_stdin("[1, 2, 3]")
+    assert agent == "unknown"
+    assert canonical["tool_name"] == ""
+
+
+def test_context_json_shape():
+    body = json.loads(context_json("tests first", event="PostToolUse"))
+    assert body == {
+        "hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": "tests first"}
+    }

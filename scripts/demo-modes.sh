@@ -95,7 +95,7 @@ run_mode() {
         cat "$project_dir/gates.json" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
-for k in ['tdd','skill_routing','enforcement','profile','mode','max_session_minutes','auto','model']:
+for k in ['mode','gate_mode','skill_routing','max_session_minutes','auto','model']:
     print(f'    {k}: {d.get(k, \"n/a\")}')
 "
         return 0

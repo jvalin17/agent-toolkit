@@ -437,11 +437,9 @@ def run_toolkit_update() -> None:
 
 def main() -> int:
     """Read SessionStart event from stdin, output JSON context response."""
-    raw_input = sys.stdin.read()
-    try:
-        event = json.loads(raw_input)
-    except (json.JSONDecodeError, TypeError):
-        event = {}
+    from hook_io import read_hook_event
+
+    event = read_hook_event(sys.stdin.read())
 
     project_dir = get_project_dir()
     settings_path = get_settings_path()

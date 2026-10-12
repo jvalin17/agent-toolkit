@@ -82,3 +82,37 @@ class TestStampSkill:
         assert result.get("ok") is True
         stamp = tmp_path / ".gates" / "stamps" / "implementation"
         assert stamp.is_file()
+
+    def test_stamp_writes_json_with_cli_source(self, tmp_path):
+        stamp_skill("reviewer", project_dir=tmp_path)
+        data = json.loads((tmp_path / ".gates" / "stamps" / "reviewer").read_text())
+        assert data["skill"] == "reviewer"
+        assert data["source"] == "cli"
+        assert data["timestamp"].startswith("20")
+
+    @pytest.mark.parametrize("bad_name", [
+        "../../escaped",
+        "..\\..\\escaped",
+        "stamps/../../escaped",
+        "/etc/passwd",
+        "",
+        "..",
+    ])
+    def test_stamp_rejects_traversal_name(self, tmp_path, bad_name):
+        result = stamp_skill(bad_name, project_dir=tmp_path)
+        assert result.get("ok") is False
+        assert "name" in result.get("error", "").lower()
+        assert not (tmp_path / "escaped").exists()
+        stamps = tmp_path / ".gates" / "stamps"
+        assert not stamps.exists() or list(stamps.iterdir()) == []
+
+    def test_stamp_rejects_unknown_skill(self, tmp_path):
+        result = stamp_skill("not-a-real-skill", project_dir=tmp_path)
+        assert result.get("ok") is False
+        assert "unknown skill" in result.get("error", "").lower()
+        assert not (tmp_path / ".gates" / "stamps" / "not-a-real-skill").exists()
+
+    def test_stamp_accepts_plugin_prefixed_skill(self, tmp_path):
+        result = stamp_skill("agent-toolkit:precommit", project_dir=tmp_path)
+        assert result.get("ok") is True
+        assert (tmp_path / ".gates" / "stamps" / "agent-toolkit:precommit").is_file()

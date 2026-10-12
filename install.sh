@@ -278,7 +278,7 @@ install_hooks() {
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|Skill",
+        "matcher": "Bash|Write|Edit|Skill|mcp__agent-toolkit__stamp_skill",
         "hooks": [
           {
             "type": "command",
@@ -321,19 +321,6 @@ install_hooks() {
           }
         ]
       }
-    ],
-    "PostCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "$monitor_cmd",
-            "timeout": 5,
-            "statusMessage": "Session monitor (compact)..."
-          }
-        ]
-      }
     ]
   }
 }
@@ -344,7 +331,7 @@ HOOKEOF
         local tmp_file_fresh=$(mktemp)
         jq --arg route "$route_cmd" --arg init "$session_init_cmd" --arg monitor "$monitor_cmd" --arg deferral "$deferral_cmd" --arg canary "$canary_cmd" '
             .hooks.UserPromptSubmit = [{"matcher": "", "hooks": [{"type": "command", "command": $route, "timeout": 5}, {"type": "command", "command": $monitor, "timeout": 5}, {"type": "command", "command": $deferral, "timeout": 5}, {"type": "command", "command": $canary, "timeout": 5}]}] |
-            .hooks.SessionStart = [{"matcher": "startup", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}, {"matcher": "compact", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}]
+            .hooks.SessionStart = [{"matcher": "startup", "hooks": [{"type": "command", "command": $init, "timeout": 5}]}, {"matcher": "compact", "hooks": [{"type": "command", "command": $init, "timeout": 5}, {"type": "command", "command": $monitor, "timeout": 5, "statusMessage": "Session monitor (compact)..."}]}]
         ' "$SETTINGS_FILE" > "$tmp_file_fresh" && mv "$tmp_file_fresh" "$SETTINGS_FILE"
         echo "  [installed] skill routing + session init + session monitor hooks"
         return
@@ -523,15 +510,26 @@ HOOKEOF
         echo "  [skip] session monitor PostToolUse hook (already installed)"
     fi
 
-    # Add session-monitor PostCompact hook (compaction detection)
-    if ! jq -e '.hooks.PostCompact[]? | select(.hooks[]? | .command | contains("session_monitor"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
+    # Migrate: "PostCompact" is not a Claude Code hook event (settings.json rejects it).
+    # Compaction is delivered as SessionStart with matcher "compact".
+    if jq -e '.hooks.PostCompact' "$SETTINGS_FILE" > /dev/null 2>&1; then
+        jq 'del(.hooks.PostCompact)' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
+        echo "  [migrated] removed invalid PostCompact hook key"
+    fi
+
+    # Add session-monitor compaction hook (SessionStart, matcher "compact")
+    if ! jq -e '.hooks.SessionStart[]? | select(.matcher == "compact") | .hooks[]? | select(.command | contains("session_monitor"))' "$SETTINGS_FILE" > /dev/null 2>&1; then
         jq --arg cmd "$monitor_cmd" '
-            .hooks //= {} | .hooks.PostCompact //= [] |
-            .hooks.PostCompact += [{"matcher": "", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Session monitor (compact)..."}]}]
+            .hooks //= {} | .hooks.SessionStart //= [] |
+            if any(.hooks.SessionStart[]; .matcher == "compact") then
+                .hooks.SessionStart |= map(if .matcher == "compact" then .hooks += [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Session monitor (compact)..."}] else . end)
+            else
+                .hooks.SessionStart += [{"matcher": "compact", "hooks": [{"type": "command", "command": $cmd, "timeout": 5, "statusMessage": "Session monitor (compact)..."}]}]
+            end
         ' "$SETTINGS_FILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGS_FILE"
-        echo "  [installed] session monitor PostCompact hook (compaction detection)"
+        echo "  [installed] session monitor compaction hook (SessionStart/compact)"
     else
-        echo "  [skip] session monitor PostCompact hook (already installed)"
+        echo "  [skip] session monitor compaction hook (already installed)"
     fi
 
     # Add session-init hook (SessionStart — startup + compact)

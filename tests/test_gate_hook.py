@@ -130,6 +130,55 @@ class TestLoadGateConfig:
         assert config["enforcement"] == "block"
         assert config["gate_mode"] == "legacy"
 
+    def test_loader_matches_gate_core(self, tmp_path):
+        """hooks/gates.json is the last candidate for both the hook and gate.config."""
+        from gate.config import find_gates_config
+
+        (tmp_path / "hooks").mkdir()
+        (tmp_path / "hooks" / "gates.json").write_text('{"gate_mode": "legacy", "mode": "tdd"}')
+        assert find_gates_config(tmp_path) == tmp_path / "hooks" / "gates.json"
+        assert load_gate_config(tmp_path)["mode"] == "tdd"
+
+    @pytest.mark.parametrize("content", ["{not json", "", "   \n", "[1, 2]"])
+    def test_corrupt_config_fails_closed(self, tmp_path, content):
+        (tmp_path / "gates.json").write_text(content)
+        config = load_gate_config(tmp_path)
+        assert config["mode"] == "safe"
+        assert "gates.json" in config["_config_error"]
+        assert "_no_config" not in config
+
+
+class TestCorruptConfigBlocksGit:
+    def _commit_event(self, message):
+        return json.dumps({
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": f"git commit -m '{message}'"},
+        })
+
+    def test_corrupt_config_blocks_commit(self, tmp_path):
+        (tmp_path / "gates.json").write_text("{not json")
+        exit_code, output = run_gate(self._commit_event("add invoice export"), tmp_path)
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert "gates.json" in data["reason"]
+        assert "invalid JSON" in data["reason"]
+
+    def test_empty_config_file_blocks_push(self, tmp_path):
+        (tmp_path / "gates.json").write_text("")
+        event = json.dumps({"tool_name": "Bash", "tool_input": {"command": "git push origin main"}})
+        _, output = run_gate(event, tmp_path)
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert "empty" in data["reason"]
+
+    def test_unicode_commit_message(self, project_dir):
+        """Default mode needs precommit; a non-ASCII message must not break the hook."""
+        _, output = run_gate(self._commit_event("Añadir facturación — étape 1 ✓"), project_dir)
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert "precommit" in data["reason"]
+
 
 # --- Full gate run (mode-based) ---
 

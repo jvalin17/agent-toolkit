@@ -70,6 +70,47 @@ class TestCollectToolkitHooks:
                 )
 
 
+# --- Compaction event per host ---
+
+
+class TestCompactionEvent:
+    """PostCompact is not a real hook event anywhere; each host gets its native name."""
+
+    def _monitor_hooks(self, groups):
+        return [h for g in groups for h in g["hooks"] if "session_monitor" in h["command"]]
+
+    def test_no_generator_emits_postcompact(self):
+        for tool, output in generate_all(collect_toolkit_hooks(ROOT), ROOT).items():
+            assert "PostCompact" not in output, f"{tool} still emits PostCompact"
+
+    def test_claude_code_uses_session_start_compact(self):
+        parsed = json.loads(generate_claude_code(collect_toolkit_hooks(ROOT), ROOT))
+        compact = [g for g in parsed["hooks"]["SessionStart"] if g["matcher"] == "compact"]
+        assert len(compact) == 1
+        assert len(self._monitor_hooks(compact)) == 1
+
+    def test_grok_build_uses_session_start_compact(self):
+        parsed = json.loads(generate_grok_build(collect_toolkit_hooks(ROOT), ROOT))
+        compact = [g for g in parsed["hooks"]["SessionStart"] if g["matcher"] == "compact"]
+        assert len(self._monitor_hooks(compact)) == 1
+
+    def test_cursor_uses_precompact(self):
+        parsed = json.loads(generate_cursor(collect_toolkit_hooks(ROOT), ROOT))
+        assert "preCompact" in parsed["hooks"]
+        assert len(self._monitor_hooks(parsed["hooks"]["preCompact"])) == 1
+        assert all("matcher" not in g for g in parsed["hooks"]["preCompact"])
+
+    def test_windsurf_uses_post_compact(self):
+        parsed = json.loads(generate_windsurf(collect_toolkit_hooks(ROOT), ROOT))
+        monitors = [h for h in parsed["hooks"]["post-compact"] if "session_monitor" in h["command"]]
+        assert len(monitors) == 1
+
+    def test_codex_uses_session_start_compact(self):
+        output = generate_codex_cli(collect_toolkit_hooks(ROOT), ROOT)
+        assert "[[hooks.SessionStart]]" in output
+        assert 'matcher = "compact"' in output
+
+
 # --- Claude Code output ---
 
 

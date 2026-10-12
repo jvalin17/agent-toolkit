@@ -18,8 +18,9 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-# Add roles/ to path
+# Add roles/ and hooks/ to path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "roles"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 # Task keywords → expected tier
 # Be precise: "review" alone is ambiguous, so we match on specific phrases
@@ -152,10 +153,10 @@ def get_tdd_injection(description: str) -> Optional[str]:
 
 def main() -> int:
     """PreToolUse hook — check Agent tool model parameter."""
-    try:
-        raw = sys.stdin.read()
-        event = json.loads(raw)
-    except (json.JSONDecodeError, TypeError):
+    from hook_io import read_hook_event
+
+    event = read_hook_event(sys.stdin.read())
+    if not event:
         return 0
 
     tool_name = event.get("tool_name", "")

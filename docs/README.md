@@ -10,7 +10,7 @@ Public design documentation for Agent Toolkit — how skills, hooks, gates, and 
 | [**Daily workflow**](workflow.md) | Day-to-day users | Commit, push, finalize, gate profiles |
 | [**Install & updates**](install-and-updates.md) | Claude Code users | First setup, auto-sync, manual refresh |
 | [**Other LLMs**](other-llms.md) | Cursor, GPT, Gemini, etc. | Project rules without hooks |
-| [**Skills reference**](skills.md) | All users | All 13 skills and gated skills |
+| [**Skills reference**](skills.md) | All users | All 14 skills and gated skills |
 | [**Configuration**](configuration.md) | Project admins | `gates.json`, presets, signed mode |
 | [**Gate unlock**](../shared/gate-unlock.md) | Teams adopting gates | Legacy vs signed, rare options |
 
@@ -46,13 +46,13 @@ Product intent and acceptance criteria — written before implementation.
 1. **Structural over prompt** — On Claude Code, hooks run as subprocesses the agent cannot disable. Other tools get the same rules via `AGENTS.md`, but enforcement is prompt-based.
 2. **Hook-owned artifacts** — With default `gate_protect` and `report_protect`, only `finalize_report.py` writes `.gates/` and `reports/`. Skills produce findings; hooks produce proof.
 3. **Same bar in auto mode** — Auto-chaining removes wait time between steps, not quality gates.
-4. **Escalation, not holes** — Rare options like `enforcement: warn` exist for migration; first violation auto-escalates to block.
+4. **Fail closed, no holes** — Gates always block; there is no advisory mode. A corrupt or empty `gates.json` blocks commit and push until it is fixed instead of falling back to weaker defaults.
 5. **Signed mode is additive** — Legacy finalize flow stays; JWT attestation adds cryptographic binding for teams and CI.
 
 ## Repo map (design-relevant paths)
 
 ```
-skills/          Workflow definitions (13 skills)
+skills/          Workflow definitions (14 skills)
 hooks/           Structural enforcement (gate_hook, finalize_report, session_monitor, …)
 gate/            JWT attest/verify (copied to .agent-toolkit/gate/ on install)
 shared/          Guardrails, gate-unlock, orchestrator, report-format

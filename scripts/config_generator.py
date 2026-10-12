@@ -55,7 +55,7 @@ def collect_toolkit_hooks(toolkit_path: Path) -> List[ToolkitHook]:
         ToolkitHook("PreToolUse", "Bash",
                      f"python3 {tp}/hooks/gate_hook.py", 5,
                      "Checking quality gates..."),
-        ToolkitHook("PreToolUse", "Bash|Write|Edit|Skill",
+        ToolkitHook("PreToolUse", "Bash|Write|Edit|Skill|mcp__agent-toolkit__stamp_skill",
                      f"python3 {tp}/hooks/session_monitor.py", 5,
                      "Session monitor..."),
         ToolkitHook("PreToolUse", "Edit|Write",
@@ -89,14 +89,35 @@ def collect_toolkit_hooks(toolkit_path: Path) -> List[ToolkitHook]:
                      f"python3 {tp}/hooks/session_init.py", 5),
         ToolkitHook("SessionStart", "compact",
                      f"python3 {tp}/hooks/session_init.py", 5),
-
-        # --- PostCompact ---
-        ToolkitHook("PostCompact", "",
+        # Compaction detection — canonical event, mapped per host by
+        # NATIVE_COMPACTION (Claude Code: SessionStart/compact, Cursor: preCompact, ...).
+        ToolkitHook(COMPACTION_EVENT, "",
                      f"python3 {tp}/hooks/session_monitor.py", 5,
                      "Session monitor (compact)..."),
     ]
 
     return hooks
+
+
+# --- Compaction (canonical event, per-host native name) ---
+
+# "PostCompact" is not a hook event on any supported host. Each host delivers
+# compaction differently; session_monitor.COMPACTION_EVENTS accepts all of these.
+COMPACTION_EVENT = "Compaction"
+NATIVE_COMPACTION: Dict[str, tuple] = {
+    "claude-code": ("SessionStart", "compact"),
+    "grok-build": ("SessionStart", "compact"),
+    "codex-cli": ("SessionStart", "compact"),
+    "cursor": ("preCompact", ""),
+    "windsurf": ("post-compact", ""),
+}
+
+
+def _native_event(h: ToolkitHook, tool: str) -> tuple:
+    """(event, matcher) as the host names them; non-compaction hooks pass through."""
+    if h.event == COMPACTION_EVENT:
+        return NATIVE_COMPACTION[tool]
+    return h.event, h.matcher
 
 
 # --- Claude Code ---
@@ -107,8 +128,9 @@ def generate_claude_code(hooks: List[ToolkitHook], toolkit_path: Path) -> str:
     config: Dict[str, list] = {}
 
     for h in hooks:
-        if h.event not in config:
-            config[h.event] = []
+        event, matcher = _native_event(h, "claude-code")
+        if event not in config:
+            config[event] = []
 
         hook_entry = {"type": "command", "command": h.command, "timeout": h.timeout}
         if h.status_message:
@@ -116,15 +138,15 @@ def generate_claude_code(hooks: List[ToolkitHook], toolkit_path: Path) -> str:
 
         # Group by matcher
         existing = None
-        for group in config[h.event]:
-            if group["matcher"] == h.matcher:
+        for group in config[event]:
+            if group["matcher"] == matcher:
                 existing = group
                 break
 
         if existing:
             existing["hooks"].append(hook_entry)
         else:
-            config[h.event].append({"matcher": h.matcher, "hooks": [hook_entry]})
+            config[event].append({"matcher": matcher, "hooks": [hook_entry]})
 
     return json.dumps({"hooks": config}, indent=2)
 
@@ -137,7 +159,6 @@ CURSOR_EVENT_MAP = {
     "PostToolUse": "postToolUse",
     "UserPromptSubmit": "beforeSubmitPrompt",
     "SessionStart": "sessionStart",
-    "PostCompact": "preCompact",
 }
 
 # Cursor matcher mapping
@@ -163,7 +184,8 @@ def generate_cursor(hooks: List[ToolkitHook], toolkit_path: Path) -> str:
     config: Dict[str, list] = {}
 
     for h in hooks:
-        event = CURSOR_EVENT_MAP.get(h.event, h.event)
+        native_event, native_matcher = _native_event(h, "cursor")
+        event = CURSOR_EVENT_MAP.get(native_event, native_event)
         if event not in config:
             config[event] = []
 
@@ -175,7 +197,7 @@ def generate_cursor(hooks: List[ToolkitHook], toolkit_path: Path) -> str:
         if h.status_message:
             hook_entry["statusMessage"] = h.status_message
 
-        matcher = _cursor_matcher(h.matcher)
+        matcher = _cursor_matcher(native_matcher)
         existing = None
         for group in config[event]:
             if group.get("matcher", "") == matcher:
@@ -200,21 +222,22 @@ def generate_codex_cli(hooks: List[ToolkitHook], toolkit_path: Path) -> str:
     """Generate Codex CLI .codex/config.toml hooks section."""
     lines = ["# Agent Toolkit hooks for Codex CLI", "# Place in .codex/config.toml", ""]
 
-    # Group hooks by event
-    by_event: Dict[str, List[ToolkitHook]] = {}
+    # Group hooks by native event
+    by_event: Dict[str, List[tuple]] = {}
     for h in hooks:
-        by_event.setdefault(h.event, []).append(h)
+        event, matcher = _native_event(h, "codex-cli")
+        by_event.setdefault(event, []).append((h, matcher))
 
     lines.append("[hooks]")
     lines.append("")
 
     for event, event_hooks in by_event.items():
-        for h in event_hooks:
+        for h, matcher in event_hooks:
             lines.append(f"[[hooks.{event}]]")
             lines.append(f'command = "{h.command}"')
             lines.append(f"timeout = {h.timeout}")
-            if h.matcher:
-                lines.append(f'matcher = "{h.matcher}"')
+            if matcher:
+                lines.append(f'matcher = "{matcher}"')
             if h.status_message:
                 lines.append(f'status_message = "{h.status_message}"')
             lines.append("")
@@ -234,24 +257,25 @@ def generate_grok_build(hooks: List[ToolkitHook], toolkit_path: Path) -> str:
     config: Dict[str, list] = {}
 
     for h in hooks:
-        if h.event not in config:
-            config[h.event] = []
+        event, matcher = _native_event(h, "grok-build")
+        if event not in config:
+            config[event] = []
 
         hook_entry = {"type": "command", "command": h.command, "timeout": h.timeout}
         if h.status_message:
             hook_entry["statusMessage"] = h.status_message
 
         existing = None
-        for group in config[h.event]:
-            if group.get("matcher", "") == h.matcher:
+        for group in config[event]:
+            if group.get("matcher", "") == matcher:
                 existing = group
                 break
 
         if existing:
             existing["hooks"].append(hook_entry)
         else:
-            entry = {"matcher": h.matcher, "hooks": [hook_entry]}
-            config[h.event].append(entry)
+            entry = {"matcher": matcher, "hooks": [hook_entry]}
+            config[event].append(entry)
 
     return json.dumps({"hooks": config}, indent=2)
 
@@ -262,7 +286,6 @@ WINDSURF_EVENT_MAP = {
     "PreToolUse": "pre-edit",
     "PostToolUse": "post-edit",
     "UserPromptSubmit": "pre-prompt",
-    "PostCompact": "post-compact",
     "SessionStart": "session-start",
 }
 
@@ -272,7 +295,8 @@ def generate_windsurf(hooks: List[ToolkitHook], toolkit_path: Path) -> str:
     config: Dict[str, list] = {}
 
     for h in hooks:
-        event = WINDSURF_EVENT_MAP.get(h.event, h.event)
+        native_event, native_matcher = _native_event(h, "windsurf")
+        event = WINDSURF_EVENT_MAP.get(native_event, native_event)
         if event not in config:
             config[event] = []
 
@@ -281,8 +305,8 @@ def generate_windsurf(hooks: List[ToolkitHook], toolkit_path: Path) -> str:
             "command": h.command,
             "timeout": h.timeout,
         }
-        if h.matcher:
-            hook_entry["matcher"] = h.matcher
+        if native_matcher:
+            hook_entry["matcher"] = native_matcher
         if h.status_message:
             hook_entry["statusMessage"] = h.status_message
 

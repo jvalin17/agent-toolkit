@@ -5,19 +5,18 @@ All settings live in **`gates.json`** at the project root.
 ```bash
 agent-toolkit-setup --status       # show current config
 agent-toolkit-setup --balanced     # daily dev
-agent-toolkit-setup --guarded      # production (standard profile)
-agent-toolkit-setup --lockdown     # strict mode + paranoid profile
-agent-toolkit-setup --tdd off      # toggle one setting
+agent-toolkit-setup --guarded      # production → mode: standard
+agent-toolkit-setup --lockdown     # → mode: safe
 ```
 
 ## Presets
 
-| Preset | Typical use |
-|--------|-------------|
-| **balanced** | Daily development |
-| **guarded** | Production — block + protect on |
-| **lockdown** | Strict mode + paranoid profile |
-| **quick** | Local experiments only — disables structural protection; not for shared branches |
+| Preset | Sets `mode` | Typical use |
+|--------|-------------|-------------|
+| **balanced** | `default` | Daily development (TDD + precommit) |
+| **guarded** | `standard` | Production — plan, review depth, spot checks |
+| **lockdown** | `safe` | Everything on, reviewer required for push |
+| **quick** | `minimal` | Local experiments only — no structural protection; not for shared branches |
 
 Demo: `scripts/demo-modes.sh`
 
@@ -25,29 +24,25 @@ Demo: `scripts/demo-modes.sh`
 
 | Setting | Default | What it does |
 |---------|---------|--------------|
-| `enforcement` | `block` | Block commit/push when gates missing |
-| `profile` | `minimal` | Which skills required — see [workflow.md](workflow.md) |
+| `mode` | `default` | Which gates apply: `minimal` · `tdd` · `planned` · `guarded` · `default` · `standard` · `safe` (table in the [README](../README.md#configuration)) |
 | `gate_mode` | `legacy` | `legacy` = finalize + flags; `signed` = JWT |
 | `gate_protect` | **`true`** | Block agent writes to `.gates/` (G-GATE-1) |
 | `report_protect` | **`true`** | Block agent writes to `reports/` (G-REPORT-1) |
-| `tdd` | `true` | Remind test-first before source edits |
-| `tdd_mode` | `remind` | `remind` = advisory; `strict` = block source edits until tests exist |
 | `skill_routing` | `true` | Auto-detect intent → skill |
-| `mode` | `normal` | `strict` = anti-fake drift detection |
 | `eval_threshold` | `95` | Minimum evaluate score to pass gate |
+| `canary` | `""` | Greeting word checked on every reply (`"Hey"` to enable) |
+| `test_command` / `lint_command` | auto-detect | Commands finalize re-runs; split on whitespace, never passed to a shell |
 
-Keep **`block`**, **`gate_protect`**, and **`report_protect`** at defaults for any project where the agent can commit or push.
+Enforcement is always block. A `gates.json` that exists but cannot be parsed blocks commit and push until it is fixed. Keep **`gate_protect`** and **`report_protect`** at defaults for any project where the agent can commit or push.
 
 ## Rare but important
 
 | Option | When |
 |--------|------|
-| `enforcement: warn` | Rolling out gates — first violation escalates to block |
-| `setup-signed-gates.sh --warn` | Signed-mode CI smoke test |
 | `gate_mode: signed` | Team `main`, branch protection, JWT attestation |
-| `profile: strict` / `paranoid` | Extra push gates |
-| `mode: strict` | Fixture provenance, drift detection |
-| Env overrides | Maintainer/CI — `AGENT_TOOLKIT_ENFORCEMENT`, etc. |
+| `profile: strict` / `paranoid` | Signed mode only — extra push gates |
+| `AGENT_TOOLKIT_MODE=safe` | One-session mode override |
+| Env overrides | Maintainer/CI — any key as `AGENT_TOOLKIT_<KEY>` |
 
 Full reference: [gate-unlock.md](../shared/gate-unlock.md)
 

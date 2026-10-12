@@ -16,13 +16,21 @@
 | Feature | Status | Date | Notes |
 |---------|--------|------|-------|
 | ~~LLM-agnostic modular (Option B)~~ | ~~done~~ | ~~2026-10-12~~ | hosts/*.json, pull API, stub implementation/precommit, generate-project-rules |
+| ~~Evaluate fix plan (65% → re-score)~~ | ~~done~~ | ~~2026-10-12~~ | Stamp forgery, fail-closed config, hook_io consolidation, docs drift, evaluate min-merge, PostCompact migration |
 | Stubify remaining skills | remaining | | Same pattern as implementation/precommit |
-| Wire stdin_adapter into all hooks | remaining | | Cross-host structural enforcement |
+| gate/core profiles vs mode_resolver | remaining | | Signed mode still reads `profile`/`profiles`; legacy reads `mode`. Unify or document as two axes (currently documented in gate-unlock.md) |
 
 ## Recently shipped
 
 | Item | Note |
 |------|------|
+| Stamp forgery closed (all hosts) | `skill_pull.stamp_skill` validates name (known skill, no separators/`..`), confines path, writes JSON with `source: cli`. `finalize._check_skill_stamp` parses stamps and rejects `cli` stamps on `stamp_mode: hook_skill_passed` hosts (Claude Code); `cli_stamp` hosts (Cursor/Gemini/Codex/Grok/Windsurf) keep using it. `path_protection` blocks the MCP `stamp_skill` tool on hook-stamping hosts only (`agent` passed from `hook_io`). Tests: `test_path_protection.py`, `test_skill_pull.py`, `test_toolkit_pull.py` |
+| gates.json fails closed | `gate/config.py` is the single loader (gates.json, .claude/gates.json, hooks/gates.json). Corrupt/empty file → `_config_error` + safe mode; `gate_hook`, `atk.py`, CI generate script all block instead of using defaults |
+| hook_io consolidation | `read_hook_event` (malformed/non-object stdin → `{}`), `context_json`; 7 hooks stopped hand-parsing stdin; `skill_enforce` block payload goes through `make_block_json`; dead `resolve_enforcement`/`_make_remind` removed. Fixed crash on non-object stdin in `session_monitor` |
+| Evaluate honors agent scores | `merge_dimension_scores`: per dimension min(mechanical, agent). Agent can lower, never raise. Schema validates agent dimensions 0-100 |
+| PostCompact → SessionStart/compact | `PostCompact` is not a Claude Code hook event (settings.json rejected it). Canonical `Compaction` event in `config_generator` maps per host (Claude/Grok/Codex: SessionStart+compact, Cursor: preCompact, Windsurf: post-compact); `install.sh` migrates old settings; `session_monitor.COMPACTION_EVENTS` |
+| Docs drift | README skills table (`/agent-toolkit-mode`, no `/readme`), Aider via default host, plugin.json 14 skills, `enforcement: warn` removed everywhere (never implemented — resolver always blocked), `hooks/gates.json` matches template, configuration.md/gate-unlock.md describe `mode` (legacy) vs `profile` (signed) |
+| finalize_precommit split | `_collect_diff_checks`, `_changed_files_for_spot_check`, `_apply_execution_plan_check`, `_write_precommit_report`; silent passes now log to stderr |
 | LLM-agnostic modular toolkit (Option B) | `hosts/*.json`, `hooks/host_config.py`, `hooks/skill_pull.py`, MCP pull tools, `functions/*`, stub skills, `generate-project-rules.sh`, orchestrator host+pull_policy. Tests: 1106 passed |
 | Anti-fake: G-REPORT-1 (`report_protect`) | `session_monitor` blocks agent writes to `reports/` |
 | Hook-owned gated skill reports | `finalize_report.py` (+ `finalize_schema.py`, `finalize_render.py`) — precommit, evaluate, reviewer, assess |
@@ -64,8 +72,8 @@
 
 | # | Hook | Location | Events |
 |---|------|----------|--------|
-| 1 | `session_init.py` | `hooks/` | SessionStart, PostCompact |
-| 2 | `session_monitor.py` | `hooks/` | PreToolUse, PostToolUse, UserPromptSubmit, PostCompact |
+| 1 | `session_init.py` | `hooks/` | SessionStart (startup, compact) |
+| 2 | `session_monitor.py` | `hooks/` | PreToolUse, PostToolUse, UserPromptSubmit, SessionStart (compact) |
 | 3 | `route_to_skill.py` | `hooks/` | UserPromptSubmit |
 | 4 | `gate_hook.py` | `hooks/` | PreToolUse (git commit/push) |
 | 5 | `skill_passed.py` | `hooks/` | PostToolUse (Skill) |
@@ -99,7 +107,7 @@ None.
 ## Tests
 
 ```bash
-python3 -m pytest tests/ -q        # 1059 passed
+python3 -m pytest tests/ -q        # 1237 passed
 bash tests/test-hooks.sh            # 33 passed
 ```
 
@@ -159,7 +167,7 @@ bash tests/test-hooks.sh            # 33 passed
 
 ## Session Summary (2026-10-12)
 
-**Skills used:** /precommit, /implementation
-**Files changed:** README.md, compliance_session.py, execution-plan.json, finalize_report.py, findings.json, gate_cleanup.py, gate_hook.py, project-state.md, session_monitor.py, skill_enforce.py, skill_passed.py, test-h...
-**Tests:** 33 passed, 0 failed
+**Skills used:** /evaluate, /implementation, /precommit
+**Files changed:** README.md, SKILL.md, atk.py, canary_check.py, ci-generate-reports.py, config.py, config_generator.py, configuration.md, core.py, deferral_detect.py, demo-modes.sh, execution-plan.json, finalize_report...
+**Tests:** 1131 passed
 

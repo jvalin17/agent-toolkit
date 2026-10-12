@@ -7,7 +7,7 @@ Check `gates.json` → `gate_mode` (default: **`legacy`** for daily work; **`sig
 | **legacy** | Hook-owned reports + `.gates/` flags via `finalize_report.py` | Daily development (default) |
 | **signed** | Skills write `reports/` → attest → `.gate/gate-token.jwt` | 2+ hour sessions, HANDOFF resume, team `main`, regulated work |
 
-**`enforcement`:** default **`block`** — hooks block commit/push when required gates are missing. Keep **`block`** for any project where the agent can run `git commit` or `git push`.
+**Enforcement is always block.** Hooks block commit/push when required gates are missing; there is no advisory mode. A `gates.json` that exists but cannot be parsed blocks every git action until it is fixed (fail closed).
 
 **`AGENT_TOOLKIT_GATE_SECRET`:** optional. Not needed for legacy or single-job CI (bootstrap creates `.gate/signing.key`). Use `scripts/setup-signed-gates.sh --upload-github-secret` only when GitHub and your laptop must share one key.
 
@@ -23,20 +23,24 @@ Review `gates.json` after switching.
 
 | What you want | Command | Result in `gates.json` |
 |---------------|---------|-------------------------|
-| Default | `./install.sh` only | `legacy`, `block`, `minimal` |
+| Default | `./install.sh` only | `legacy`, `mode: default` |
 | Enable signed | `scripts/setup-signed-gates.sh` or `set-gate-mode.sh signed` | `signed` + bootstrap + smoke test |
-| Back to legacy | `set-gate-mode.sh legacy` | `legacy`, `block`, `minimal` |
+| Back to legacy | `set-gate-mode.sh legacy` | `legacy`, `mode: default` |
 | Signed + GitHub secret | `setup-signed-gates.sh --upload-github-secret` | + `AGENT_TOOLKIT_GATE_SECRET` |
 | Stricter profile | `setup-signed-gates.sh --profile strict` | `signed`, `profile: strict` |
 
 **Agent prompts:** *“Run `set-gate-mode.sh status`”* · *“Enable signed gates with `setup-signed-gates.sh`”* · *“Switch to legacy with `set-gate-mode.sh legacy`”*
 
-## Gate profiles (`gates.json`)
+## Which skills a commit or push needs
+
+**Legacy mode** reads the `mode` field (`minimal` … `safe`); see the mode table in the README [Configuration](../README.md#configuration) section and `hooks/mode_resolver.py`.
+
+**Signed mode** reads a `profile` (used by `gate/core.py` when issuing and verifying tokens):
 
 | Profile | Commit needs | Push needs |
 |---------|-------------|------------|
-| **minimal** (template default) | `/precommit` | *(none — commit already gated)* |
-| **standard** | `/precommit` | `/evaluate` (≥ threshold) |
+| **minimal** | `/precommit` | *(none — commit already gated)* |
+| **standard** (signed default) | `/precommit` | `/evaluate` (≥ threshold) |
 | **strict** | `/precommit` + `/evaluate` | `/reviewer` *(evaluate survives commit)* |
 | **paranoid** | `/precommit` + `/evaluate` | `/reviewer` + `/assess` |
 
@@ -48,8 +52,7 @@ push-scoped flags for the next cycle.
 ```json
 {
   "gate_mode": "legacy",
-  "enforcement": "block",
-  "profile": "minimal",
+  "mode": "default",
   "eval_threshold": 95
 }
 ```
@@ -114,23 +117,9 @@ Manual signed setup: copy `templates/gates.signed.example.json` or edit `gates.j
 
 ## Important rare options
 
-These settings exist for migration, CI bootstrap, and toolkit maintenance — not for daily bypass. Defaults (`block`, `gate_protect: true`, `report_protect: true`) should stay on for any repo where the agent can commit or push.
+These settings exist for CI bootstrap and toolkit maintenance — not for daily bypass. Defaults (`gate_protect: true`, `report_protect: true`) should stay on for any repo where the agent can commit or push.
 
-### `enforcement: warn` (advisory → block)
-
-`gate_hook.py` default is **`block`**. Setting `"enforcement": "warn"` logs a reminder instead of blocking — **once**.
-
-On the first warn-mode violation, the hook writes `.gates/enforcement-override` with `block`. Every subsequent commit/push attempt is hard-blocked until you remove that file or switch back to `"enforcement": "block"` in `gates.json`.
-
-Use warn only while rolling out gates to a team; do not leave a project in warn mode on shared branches.
-
-### Signed setup with `--warn`
-
-```bash
-scripts/setup-signed-gates.sh --warn   # sets enforcement: warn for initial CI smoke test
-```
-
-Same auto-escalation applies. Switch to `"enforcement": "block"` (or re-run without `--warn`) before relying on gates for real protection.
+There is no advisory (`warn`) enforcement. Rolling gates out to a team is done by choosing a lighter `mode` (for example `minimal` or `guarded`), never by making a required gate non-blocking.
 
 ### Environment overrides (maintainers / CI)
 
@@ -138,7 +127,6 @@ Any `gates.json` key can be overridden at runtime via `AGENT_TOOLKIT_{KEY_UPPER}
 
 | Variable | Effect |
 |----------|--------|
-| `AGENT_TOOLKIT_ENFORCEMENT` | `block` or `warn` (overrides file + escalation file) |
 | `AGENT_TOOLKIT_GATE_PROTECT` | `true` / `false` — G-GATE-1 |
 | `AGENT_TOOLKIT_REPORT_PROTECT` | `true` / `false` — G-REPORT-1 |
 | `AGENT_TOOLKIT_MODE` | `strict` — anti-fake mode without editing `gates.json` |
@@ -148,26 +136,25 @@ Any `gates.json` key can be overridden at runtime via `AGENT_TOOLKIT_{KEY_UPPER}
 
 ### Mode combination matrix
 
-Three independent axes in `gates.json`:
+Two independent axes in `gates.json`:
 
-| Axis | Values |
-|------|--------|
-| `gate_mode` | `legacy` · `signed` |
-| `enforcement` | `block` · `warn` (escalates after first violation) |
-| `profile` | `minimal` · `standard` · `strict` · `paranoid` |
-
-That yields **16 combinations** (2 × 2 × 4). Most projects use **`legacy` + `block` + `minimal`** or **`signed` + `block` + `standard`**. Paranoid + signed is the strongest team setup.
+| Axis | Values | Read by |
+|------|--------|---------|
+| `gate_mode` | `legacy` · `signed` | `hooks/gate_hook.py` |
+| `mode` (legacy) | `minimal` · `tdd` · `planned` · `guarded` · `default` · `standard` · `safe` | `hooks/mode_resolver.py` |
+| `profile` (signed) | `minimal` · `standard` · `strict` · `paranoid` | `gate/core.py` |
 
 | Combo | Commit gates | Push gates | Notes |
 |-------|-------------|------------|-------|
-| legacy · block · minimal | precommit | — | Template default |
-| legacy · block · standard | precommit | evaluate | Common production preset |
-| signed · block · standard | precommit (JWT) | evaluate (JWT) | Team + CI |
-| signed · block · paranoid | precommit + evaluate | reviewer + assess | Lockdown preset |
+| legacy · mode default | precommit | — | Template default |
+| legacy · mode standard | precommit | evaluate | Common production preset |
+| legacy · mode safe | precommit | evaluate + reviewer | Lockdown preset |
+| signed · profile standard | precommit (JWT) | evaluate (JWT) | Team + CI |
+| signed · profile paranoid | precommit + evaluate | reviewer + assess | Strongest team setup |
 
 ## Mode reference
 
-**Defaults:** `legacy`, `block`, `minimal`, `gate_protect: true`, `report_protect: true`.
+**Defaults:** `legacy`, `mode: default`, `gate_protect: true`, `report_protect: true`.
 
 Signed mode adds JWT verification; profiles add skills required at commit/push.
 See [Gate profiles](#gate-profiles) above, [System overview](../docs/system-overview.md), and README [Configuration](../README.md#configuration).

@@ -83,9 +83,9 @@ def check_canary_in_text(text: str, canary: str) -> Optional[str]:
 
 def run_canary_check(stdin_input: str) -> Tuple[int, str]:
     """Main entry point. Returns (exit_code, hook_output)."""
-    try:
-        json.loads(stdin_input)
-    except (json.JSONDecodeError, TypeError):
+    from hook_io import read_hook_event
+
+    if read_hook_event(stdin_input, default=None) is None:
         return 0, ""
 
     config = load_gate_config(Path.cwd())

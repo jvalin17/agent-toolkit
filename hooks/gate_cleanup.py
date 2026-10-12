@@ -10,11 +10,12 @@ Runs as PostToolUse hook on Bash tool.
 Replaces gate-cleanup.sh.
 """
 
-import json
 import re
 import sys
 from pathlib import Path
 from typing import Tuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 COMMIT_GATE_FLAGS = frozenset({"precommit-passed"})
 PUSH_GATE_FLAGS = frozenset(
@@ -83,11 +84,10 @@ def run_gate_cleanup(
     project_dir: Path,
 ) -> Tuple[int, str]:
     """Main cleanup logic. Returns (exit_code, output)."""
-    try:
-        hook_input = json.loads(stdin_input)
-        command = hook_input.get("tool_input", {}).get("command", "")
-    except (json.JSONDecodeError, TypeError, AttributeError):
-        return 0, ""
+    from hook_io import parse_hook_stdin
+
+    _agent, canonical = parse_hook_stdin(stdin_input)
+    command = canonical.get("command") or ""
 
     if not command:
         return 0, ""

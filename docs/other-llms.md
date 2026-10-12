@@ -15,6 +15,21 @@ Orchestrator detects the host → `hosts/<id>.json` → short bootstrap. Skills 
 | Pull skill/module | MCP + Skill | MCP / CLI | MCP / CLI |
 | Block bad commit | Hooks | Hooks after install | **`atk commit` required** |
 | TDD / path protect | Hooks | Hooks (normalized via `hook_io`) | Prompt + `atk` |
+| Skill stamps | Skill hook (`hook_skill_passed`) | `stamp_skill` MCP / CLI (`cli_stamp`) | `stamp_skill` CLI (`cli_stamp`) |
+| Corrupt `gates.json` | Blocks commit/push | Blocks commit/push | `atk` refuses |
+
+### Skill stamps per host
+
+`.gates/stamps/<skill>` proves a skill ran. The host config (`hosts/<id>.json` → `stamp_mode`) decides who may write it:
+
+- **`hook_skill_passed`** (Claude Code): the Skill PostToolUse hook writes the stamp. The `stamp_skill` MCP tool is **blocked** there, and finalize rejects any stamp marked `"source": "cli"` — otherwise an agent could forge `/reviewer` or `/precommit`.
+- **`cli_stamp`** (Cursor, Codex, Grok, Windsurf, Gemini, default): there is no Skill hook, so the agent stamps through the tool after running the skill:
+
+```bash
+python3 /path/to/agent-toolkit/scripts/toolkit_pull.py stamp_skill reviewer --project .
+```
+
+The name must be a real skill (`skills/<name>/SKILL.md`); path separators and `..` are rejected. Stamps are JSON (`skill`, `timestamp`, `source`) on every host, so the stale-precommit check works the same everywhere.
 
 ## Foolproof setup
 
@@ -60,6 +75,7 @@ atk-git commit -m "message"
 python3 /path/to/agent-toolkit/scripts/toolkit_pull.py get_skill implementation
 python3 /path/to/agent-toolkit/scripts/toolkit_pull.py get_module implementation tdd
 python3 /path/to/agent-toolkit/scripts/toolkit_pull.py run_function gate_status --project .
+python3 /path/to/agent-toolkit/scripts/toolkit_pull.py stamp_skill precommit --project .
 ```
 
 ## Extending a new LLM

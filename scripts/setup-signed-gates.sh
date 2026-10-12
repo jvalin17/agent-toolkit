@@ -14,7 +14,6 @@ TOOLKIT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT_ROOT=""
 UPLOAD_SECRET=0
 PROFILE="standard"
-ENFORCEMENT="block"
 
 usage() {
   sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
@@ -25,7 +24,10 @@ while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help) usage ;;
     --upload-github-secret) UPLOAD_SECRET=1; shift ;;
-    --warn) ENFORCEMENT="warn"; shift ;;
+    --warn)
+      echo "--warn was removed: gates always block (no advisory mode)." >&2
+      exit 1
+      ;;
     --profile)
       PROFILE="${2:?profile name required}"
       shift 2
@@ -78,10 +80,10 @@ if [ ! -f "$GATES_FILE" ]; then
   cp "$TOOLKIT_DIR/templates/gates.json" "$GATES_FILE"
 fi
 TMP="$(mktemp)"
-jq --arg profile "$PROFILE" --arg enforcement "$ENFORCEMENT" \
-  '.gate_mode = "signed" | .profile = $profile | .enforcement = $enforcement' \
+jq --arg profile "$PROFILE" \
+  '.gate_mode = "signed" | .profile = $profile | del(.enforcement)' \
   "$GATES_FILE" > "$TMP" && mv "$TMP" "$GATES_FILE"
-echo "[2/5] gates.json → gate_mode=signed, profile=$PROFILE, enforcement=$ENFORCEMENT"
+echo "[2/5] gates.json → gate_mode=signed, profile=$PROFILE"
 
 # 3. Signing key
 KEY_FILE="$PROJECT_ROOT/.gate/signing.key"

@@ -27,6 +27,16 @@ def test_gate_ready_false_without_flag(tmp_path):
     assert any("precommit" in m for m in missing)
 
 
+def test_gate_ready_false_with_corrupt_config(tmp_path):
+    """Gemini/Codex/Grok go through atk — a corrupt gates.json must fail closed there too."""
+    (tmp_path / "gates.json").write_text('{"mode": "minimal",')
+    ok, missing = gate_ready(tmp_path, "commit")
+    assert ok is False
+    assert len(missing) == 1
+    assert "gates.json" in missing[0]
+    assert "fail closed" in missing[0]
+
+
 def test_gate_ready_true_with_ready_flag(tmp_path):
     project = _proj(tmp_path)
     gates = project / ".gates"

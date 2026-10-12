@@ -2,6 +2,22 @@
 
 How to build, commit, and push with Agent Toolkit gates.
 
+## Default build pipeline
+
+When you ask to build a feature, the orchestrator typically chains:
+
+1. `/requirements` → specs
+2. `/architecture` → design + tradeoffs
+3. `/explore` → codebase map
+4. Research agents → stack evidence (when needed)
+5. `/implementation` → execution plan (confirm) → TDD slabs (sonnet)
+6. `/reviewer` → quality (opus)
+7. `/evaluate` → % gate (opus)
+8. `/precommit` → plan compliance + finalize
+9. On failure → `/debug_tool` (hypothesis-driven)
+
+Roles inject foundational (SOLID, DDD, OWASP, …) and practical (95+ repos) knowledge. Details: [orchestrator](../shared/orchestrator.md).
+
 ## Pick a starting skill
 
 | Situation | Start with |

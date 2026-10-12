@@ -731,11 +731,21 @@ class TestEvaluateSchemaValidation:
         result = fr._validate_evaluate_findings(valid_evaluate_findings)
         assert result["skill"] == "evaluate"
 
-    def test_ignores_agent_dimensions(self, valid_evaluate_findings):
-        """Even if agent passes dimensions, they're ignored by finalize."""
+    def test_rejects_out_of_range_agent_dimension(self, valid_evaluate_findings):
+        """Agent dimensions are validated: integers 0-100 only."""
         valid_evaluate_findings["dimensions"]["completeness"] = 999
-        result = fr._validate_evaluate_findings(valid_evaluate_findings)
-        # Schema accepts it — finalize_evaluate overwrites with mechanical
+        with pytest.raises(SystemExit) as excinfo:
+            fr._validate_evaluate_findings(valid_evaluate_findings)
+        assert excinfo.value.code == 2
+
+    def test_rejects_unknown_agent_dimension(self, valid_evaluate_findings):
+        valid_evaluate_findings["dimensions"]["vibes"] = 90
+        with pytest.raises(SystemExit):
+            fr._validate_evaluate_findings(valid_evaluate_findings)
+
+    def test_accepts_findings_without_dimensions(self, valid_evaluate_findings):
+        valid_evaluate_findings.pop("dimensions")
+        assert fr._validate_evaluate_findings(valid_evaluate_findings)["slug"] == "repo-eval"
 
 
 class TestEvaluateScore:
@@ -785,6 +795,8 @@ class TestEvaluateEndToEnd:
     def test_writes_report_and_gate_when_passed(
         self, project_dir: Path, valid_evaluate_findings: dict, monkeypatch
     ):
+        # Agent and mechanical both ≥ threshold — the merged score passes
+        valid_evaluate_findings["dimensions"] = dict(self.HIGH_SCORES)
         (project_dir / "gates.json").write_text(
             json.dumps({"eval_threshold": 95, "test_command": "true", "lint_command": "true"})
         )
@@ -836,6 +848,63 @@ class TestEvaluateEndToEnd:
 
         assert exit_code == 1
         assert not (project_dir / ".gates" / "evaluate-passed").exists()
+
+    def _finalize(self, project_dir, findings, mechanical, monkeypatch):
+        (project_dir / "gates.json").write_text(
+            json.dumps({"eval_threshold": 95, "test_command": "true", "lint_command": "true"})
+        )
+        findings_path = _write_evaluate_findings(project_dir, findings["slug"], findings)
+        monkeypatch.chdir(project_dir)
+        with patch.object(
+            fr, "detect_and_run_tests", return_value=CheckResult("tests", True)
+        ), patch.object(
+            fr, "detect_and_run_lint", return_value=CheckResult("lint", True)
+        ), patch.object(
+            fr, "score_codebase", return_value=dict(mechanical)
+        ):
+            exit_code = fr.finalize_evaluate(project_dir, findings_path)
+        report = next((project_dir / "reports" / "evaluate").glob("eval_*.md")).read_text()
+        return exit_code, report
+
+    def test_agent_dimensions_can_lower_score(
+        self, project_dir: Path, valid_evaluate_findings: dict, monkeypatch
+    ):
+        """An agent finding (e.g. forgeable stamps) the grep scorer cannot see must count."""
+        valid_evaluate_findings["dimensions"] = {**self.HIGH_SCORES, "security": 58}
+        exit_code, report = self._finalize(
+            project_dir, valid_evaluate_findings, self.HIGH_SCORES, monkeypatch
+        )
+        assert exit_code == 1
+        assert "| Security | 58% |" in report
+        assert not (project_dir / ".gates" / "evaluate-passed").exists()
+
+    def test_agent_dimensions_cannot_raise_score(
+        self, project_dir: Path, valid_evaluate_findings: dict, monkeypatch
+    ):
+        valid_evaluate_findings["dimensions"] = {k: 100 for k in EVAL_DIMENSIONS}
+        low = {k: 70 for k in EVAL_DIMENSIONS}
+        exit_code, report = self._finalize(project_dir, valid_evaluate_findings, low, monkeypatch)
+        assert exit_code == 1
+        assert "| Security | 70% |" in report
+        assert "# Score: **" in report
+
+    def test_findings_without_dimensions_use_mechanical(
+        self, project_dir: Path, valid_evaluate_findings: dict, monkeypatch
+    ):
+        valid_evaluate_findings.pop("dimensions")
+        exit_code, report = self._finalize(
+            project_dir, valid_evaluate_findings, self.HIGH_SCORES, monkeypatch
+        )
+        assert exit_code == 0
+        assert "| Security | 96% |" in report
+
+    def test_invalid_agent_dimension_rejected(
+        self, project_dir: Path, valid_evaluate_findings: dict, monkeypatch
+    ):
+        valid_evaluate_findings["dimensions"] = {**self.HIGH_SCORES, "security": 140}
+        with pytest.raises(SystemExit) as excinfo:
+            self._finalize(project_dir, valid_evaluate_findings, self.HIGH_SCORES, monkeypatch)
+        assert excinfo.value.code == 2
 
     def test_main_evaluate_via_cli(self, project_dir: Path, valid_evaluate_findings: dict):
         (project_dir / "gates.json").write_text(
@@ -1126,6 +1195,67 @@ class TestStampVerification:
         stamp_issues = fr._check_skill_stamp(project_dir, "reviewer")
         assert len(stamp_issues) > 0
         assert any("reviewer" in i.lower() for i in stamp_issues)
+
+    @staticmethod
+    def _write_stamp(project_dir, skill, content):
+        stamps_dir = project_dir / ".gates" / "stamps"
+        stamps_dir.mkdir(parents=True, exist_ok=True)
+        (stamps_dir / skill).write_text(content)
+
+    def test_rejects_non_json_stamp(self, project_dir):
+        """A stamp that is not the hook's JSON format is treated as forged."""
+        self._write_stamp(project_dir, "reviewer", "cli_stamp\n")
+        stamp_issues = fr._check_skill_stamp(project_dir, "reviewer")
+        assert len(stamp_issues) == 1
+        assert "unreadable" in stamp_issues[0].lower()
+
+    def test_rejects_cli_stamp_on_claude_code(self, project_dir, monkeypatch):
+        """On Claude Code the hook writes stamps; a cli-sourced stamp is a bypass."""
+        monkeypatch.setenv("CLAUDECODE", "1")
+        monkeypatch.delenv("AGENT_TOOLKIT_TOOL", raising=False)
+        self._write_stamp(
+            project_dir, "reviewer",
+            '{"skill":"reviewer","timestamp":"2026-10-12T00:00:00+00:00","source":"cli"}',
+        )
+        stamp_issues = fr._check_skill_stamp(project_dir, "reviewer")
+        assert len(stamp_issues) == 1
+        assert "cli" in stamp_issues[0].lower()
+        assert "claude code" in stamp_issues[0].lower()
+
+    def test_accepts_cli_stamp_on_other_host(self, project_dir, monkeypatch):
+        """Cursor and friends have no Skill hook, so cli stamps are their only option."""
+        monkeypatch.delenv("CLAUDECODE", raising=False)
+        monkeypatch.setenv("AGENT_TOOLKIT_TOOL", "cursor")
+        self._write_stamp(
+            project_dir, "reviewer",
+            '{"skill":"reviewer","timestamp":"2026-10-12T00:00:00+00:00","source":"cli"}',
+        )
+        assert fr._check_skill_stamp(project_dir, "reviewer") == []
+
+    def test_rejects_stamp_for_different_skill(self, project_dir):
+        """A hook stamp copied from another skill does not count."""
+        self._write_stamp(
+            project_dir, "reviewer",
+            '{"skill":"implementation","timestamp":"2026-10-12T00:00:00+00:00"}',
+        )
+        stamp_issues = fr._check_skill_stamp(project_dir, "reviewer")
+        assert len(stamp_issues) == 1
+        assert "implementation" in stamp_issues[0]
+
+    def test_check_stamps_rejects_forged_reviewer_stamp(self, project_dir, valid_findings, monkeypatch):
+        """_check_stamps applies the same content validation as _check_skill_stamp."""
+        monkeypatch.setenv("CLAUDECODE", "1")
+        monkeypatch.delenv("AGENT_TOOLKIT_TOOL", raising=False)
+        valid_findings["reviewer_gate"] = {
+            "code_changed": True,
+            "reviewer_called": True,
+            "called_by_precommit": False,
+            "issues_found": 0,
+            "blocked": False,
+        }
+        self._write_stamp(project_dir, "reviewer", "cli_stamp\n")
+        stamp_issues = fr._check_stamps(project_dir, valid_findings)
+        assert any("reviewer" in i.lower() and "unreadable" in i.lower() for i in stamp_issues)
 
     def test_blocks_execution_plan_deleted(self, project_dir, valid_findings):
         """Precommit blocks when execution plan stamp exists but file is missing."""

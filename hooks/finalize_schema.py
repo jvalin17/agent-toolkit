@@ -99,10 +99,12 @@ def validate_precommit_findings(data: dict) -> dict:
 
 
 def validate_evaluate_findings(data: dict) -> dict:
-    """Validate evaluate findings — metadata only, no agent-reported scores.
+    """Validate evaluate findings.
 
-    The hook computes scores mechanically via mechanical_scorer.py.
-    Agent provides: skill, slug, topic, and optional summary.
+    The hook computes scores mechanically via mechanical_scorer.py. Agent
+    `dimensions` are optional; when present each must be an int 0-100 for a
+    known dimension, and they can only LOWER the mechanical score
+    (see merge_dimension_scores).
     """
     skill = _require(data, "skill", str, "findings")
     if skill != "evaluate":
@@ -116,9 +118,34 @@ def validate_evaluate_findings(data: dict) -> dict:
         )
 
     _require(data, "topic", str, "findings")
-    # dimensions is now optional — if present, it's ignored (mechanical scores win)
+
+    dimensions = data.get("dimensions")
+    if dimensions is not None:
+        if not isinstance(dimensions, dict):
+            fail("findings.dimensions must be an object of dimension → integer 0-100")
+        for key, value in dimensions.items():
+            if key not in EVAL_DIMENSION_WEIGHTS:
+                fail(f"findings.dimensions has unknown dimension '{key}'")
+            if isinstance(value, bool) or not isinstance(value, int) or not 0 <= value <= 100:
+                fail(f"findings.dimensions.{key} must be an integer 0-100, got {value!r}")
 
     return data
+
+
+def merge_dimension_scores(mechanical: dict, agent: dict | None) -> dict:
+    """Per dimension, the lower of the mechanical and agent-reported score.
+
+    Mechanical checks are grep heuristics; the agent reads the code. Either
+    may spot a problem the other cannot, so a dimension takes the worse of the
+    two. The agent can never raise a score above what the mechanics found.
+    """
+    merged = dict(mechanical)
+    if not agent:
+        return merged
+    for key in EVAL_DIMENSION_WEIGHTS:
+        if key in agent and key in merged:
+            merged[key] = min(int(merged[key]), int(agent[key]))
+    return merged
 
 
 def validate_reviewer_findings(data: dict) -> dict:

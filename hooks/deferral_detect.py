@@ -96,9 +96,10 @@ def _get_session_stats() -> dict:
 
 def run_deferral_check(stdin_input: str) -> Tuple[int, str]:
     """Main entry point. Returns (exit_code, hook_output)."""
-    try:
-        hook_input = json.loads(stdin_input)
-    except (json.JSONDecodeError, TypeError):
+    from hook_io import read_hook_event
+
+    hook_input = read_hook_event(stdin_input, default=None)
+    if hook_input is None:
         return 0, ""
 
     log_path = find_latest_session_log()

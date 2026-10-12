@@ -37,7 +37,7 @@ EXTRA_ARGS=()
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help) usage ;;
-    --upload-github-secret|--warn|--profile)
+    --upload-github-secret|--profile)
       EXTRA_ARGS+=("$1")
       if [ "$1" = "--profile" ]; then
         EXTRA_ARGS+=("${2:?}")
@@ -70,7 +70,7 @@ show_status() {
   fi
   if command -v jq >/dev/null 2>&1; then
     echo "gates.json in $PROJECT_ROOT:"
-    jq '{gate_mode, enforcement, profile, eval_threshold}' "$GATES_FILE"
+    jq '{gate_mode, mode, profile, eval_threshold}' "$GATES_FILE"
   else
     cat "$GATES_FILE"
   fi
@@ -91,9 +91,9 @@ apply_legacy() {
     cp "$TOOLKIT_DIR/templates/gates.json" "$GATES_FILE"
   fi
   TMP="$(mktemp)"
-  jq '.gate_mode = "legacy" | .enforcement = "block" | .profile = "minimal"' \
+  jq '.gate_mode = "legacy" | .mode //= "default" | del(.enforcement)' \
     "$GATES_FILE" > "$TMP" && mv "$TMP" "$GATES_FILE"
-  echo "Set gate_mode=legacy, enforcement=block, profile=minimal"
+  echo "Set gate_mode=legacy (mode: $(jq -r .mode "$GATES_FILE"))"
   echo "Hooks use .gates/*-passed files written by hooks/finalize_report.py."
   echo "JWT files are ignored until you switch back to signed."
   show_status

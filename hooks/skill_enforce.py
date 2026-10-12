@@ -114,19 +114,6 @@ NO_SKILL_MESSAGE = (
 )
 
 
-def _make_remind(message: str) -> str:
-    return json.dumps({
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "additionalContext": message,
-        }
-    })
-
-
-def _make_block(message: str) -> str:
-    return json.dumps({"decision": "block", "reason": message})
-
-
 def run_skill_enforce(
     stdin_input: str,
     project_dir: Path,

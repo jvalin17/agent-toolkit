@@ -11,6 +11,32 @@ BASH_REPORTS_WRITE = re.compile(
     r"(rm|mv|cp|echo|tee|sed\s+-i|chmod|chown|mkdir|cat\s*<<|printf)"
 )
 
+# MCP tools that write under .gates/. On hosts whose Skill hook writes stamps
+# (hosts/<id>.json "stamp_mode": "hook_skill_passed" — Claude Code), an agent
+# calling these is forging a stamp (G-GATE-1). On "cli_stamp" hosts (Cursor,
+# Gemini, Codex, Grok, Windsurf) this tool is the legitimate stamping path.
+GATE_WRITING_TOOLS = (
+    "mcp__agent-toolkit__stamp_skill",
+    "mcp__agent_toolkit__stamp_skill",
+)
+GATE_WRITING_TOOL_MESSAGE = (
+    "G-GATE-1: stamp_skill writes to .gates/ and is not allowed from this host — "
+    "stamps are written by the Skill hook. Run the skill via the Skill tool instead."
+)
+HOOK_STAMP_MODE = "hook_skill_passed"
+
+
+def _is_gate_writing_tool(tool_name: str) -> bool:
+    return tool_name in GATE_WRITING_TOOLS or tool_name.endswith("__stamp_skill")
+
+
+def _host_stamps_via_hook(agent: str) -> bool:
+    """True when the host writes stamps from its Skill hook (so CLI stamps are forgeries)."""
+    from host_config import load_host_config, resolve_host
+
+    cfg = load_host_config(agent) if agent else resolve_host()
+    return cfg.get("stamp_mode") == HOOK_STAMP_MODE
+
 PROTECTED_PATHS = (
     {
         "marker": ".session/",
@@ -103,8 +129,20 @@ def check_protected_paths(
     tool_name: str,
     file_path: str,
     command: str,
+    agent: str = "",
 ) -> tuple:
-    """Run G-SESSION-1, G-GATE-1, G-REPORT-1 checks. Returns (blocked, message)."""
+    """Run G-SESSION-1, G-GATE-1, G-REPORT-1 checks. Returns (blocked, message).
+
+    `agent` is the host id from the hook payload (hook_io.parse_hook_stdin);
+    empty means detect from the environment.
+    """
+    if (
+        state.gate_protect
+        and _is_gate_writing_tool(tool_name)
+        and _host_stamps_via_hook(agent)
+    ):
+        return True, GATE_WRITING_TOOL_MESSAGE
+
     for spec in PROTECTED_PATHS:
         if spec["rule"] == "G-GATE-1" and not state.gate_protect:
             continue

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -110,14 +112,48 @@ def run_function(
         return {"ok": False, "error": str(exc)}
 
 
+# Stamp names: a skill name, optionally plugin-prefixed ("agent-toolkit:precommit").
+_STAMP_NAME_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}(:[A-Za-z0-9_-]{1,64})?$")
+
+
+def _validate_stamp_name(name: str, toolkit_root: Path) -> Optional[str]:
+    """Return an error string if `name` is not a safe, known skill name."""
+    if not isinstance(name, str) or not _STAMP_NAME_RE.match(name):
+        return "Invalid stamp name: must be a skill name (letters, digits, '-', '_', optional 'plugin:' prefix)"
+    base = name.rsplit(":", 1)[-1]
+    if not (_skills_dir(toolkit_root) / base / "SKILL.md").is_file():
+        return f"Unknown skill: {base}"
+    return None
+
+
 def stamp_skill(
     name: str,
     project_dir: Path,
+    toolkit_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """Write CLI skill stamp under project .gates/stamps/<name>."""
+    """Write a CLI skill stamp under project .gates/stamps/<name>.
+
+    For hosts without a Skill hook (Cursor, Gemini, Codex, ...). The stamp
+    carries ``source: "cli"`` so finalize can refuse it on hosts where the
+    hook writes stamps itself (Claude Code) — otherwise any agent could forge
+    a /reviewer or /precommit stamp through this tool.
+    """
+    root = toolkit_root or TOOLKIT_ROOT
+    error = _validate_stamp_name(name, root)
+    if error:
+        return {"ok": False, "error": error}
+
     project_dir = Path(project_dir)
     stamps = project_dir / ".gates" / "stamps"
-    stamps.mkdir(parents=True, exist_ok=True)
     stamp_path = stamps / name
-    stamp_path.write_text("cli_stamp\n", encoding="utf-8")
+    if not _safe_under(stamps, stamp_path):
+        return {"ok": False, "error": "Invalid stamp name: path escape blocked"}
+
+    stamps.mkdir(parents=True, exist_ok=True)
+    stamp_data = {
+        "skill": name,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source": "cli",
+    }
+    stamp_path.write_text(json.dumps(stamp_data), encoding="utf-8")
     return {"ok": True, "path": str(stamp_path)}

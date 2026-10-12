@@ -13,6 +13,39 @@ from agent_detect import detect_agent, detect_from_stdin
 from stdin_adapter import normalize_input, normalize_output
 
 
+_MISSING = object()
+
+
+def read_hook_event(stdin_input: str, default: Any = _MISSING) -> Any:
+    """Parse raw hook stdin into a dict.
+
+    Empty, malformed, or non-object input returns `default` ({} when not
+    given, so callers can `.get()` safely; pass `default=None` to tell a
+    missing/invalid payload apart from a valid empty object).
+
+    Every hook entry point should use this instead of calling json.loads on
+    stdin itself, so malformed payloads are handled identically on every host.
+    """
+    fallback: Any = {} if default is _MISSING else default
+    if not stdin_input or not isinstance(stdin_input, str) or not stdin_input.strip():
+        return fallback
+    try:
+        raw = json.loads(stdin_input)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return fallback
+    return raw if isinstance(raw, dict) else fallback
+
+
+def context_json(message: str, event: str = "PreToolUse") -> str:
+    """Claude Code additionalContext payload (host-agnostic hooks use make_context_json)."""
+    return json.dumps({
+        "hookSpecificOutput": {
+            "hookEventName": event,
+            "additionalContext": message,
+        }
+    })
+
+
 def parse_hook_stdin(stdin_input: str) -> Tuple[str, Dict[str, Any]]:
     """Parse stdin JSON → (agent_id, canonical_event).
 
@@ -28,13 +61,8 @@ def parse_hook_stdin(stdin_input: str) -> Tuple[str, Dict[str, Any]]:
         "session_id": "",
         "raw": {},
     }
-    if not stdin_input or not stdin_input.strip():
-        return "unknown", empty
-    try:
-        raw = json.loads(stdin_input)
-    except (json.JSONDecodeError, TypeError):
-        return "unknown", empty
-    if not isinstance(raw, dict):
+    raw = read_hook_event(stdin_input)
+    if not raw:
         return "unknown", empty
 
     # Payload-first (critical for multi-host correctness)

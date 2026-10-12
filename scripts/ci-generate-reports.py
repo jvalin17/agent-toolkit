@@ -35,14 +35,10 @@ def _find_gate_module(project_root: Path) -> bool:
 
 
 def _load_config(project_root: Path) -> dict:
-    """Load gates.json."""
-    for candidate in [
-        project_root / "gates.json",
-        project_root / ".claude" / "gates.json",
-    ]:
-        if candidate.is_file():
-            return json.loads(candidate.read_text())
-    return {}
+    """Load gates.json via gate.config. A corrupt file raises — CI must fail loudly."""
+    from gate.config import load_gates_config
+
+    return load_gates_config(project_root) or {}
 
 
 def _write_report(report_dir: Path, prefix: str, lines: list[str]) -> Path:

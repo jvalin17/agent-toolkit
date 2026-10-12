@@ -135,6 +135,17 @@ class TestSkillEnforce:
         data = json.loads(output)
         assert data["decision"] == "block"
 
+    def test_block_payload_is_host_aware(self, tmp_path):
+        """Block JSON comes from hook_io: Claude Code needs permissionDecision deny."""
+        from skill_enforce import run_skill_enforce
+        (tmp_path / "gates.json").write_text('{"skill_enforce": "block"}')
+
+        _, output = run_skill_enforce(make_event("src/app.py"), tmp_path)
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert data["hookSpecificOutput"]["permissionDecision"] == "deny"
+        assert data["hookSpecificOutput"]["additionalContext"] == data["reason"]
+
     def test_pre_code_skill_warns_in_remind_mode(self, tmp_path):
         """PRE_CODE_SKILLS in remind mode should inject warning context."""
         from skill_enforce import run_skill_enforce

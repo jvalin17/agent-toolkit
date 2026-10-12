@@ -11,6 +11,8 @@ from typing import Any
 
 import jwt
 
+from gate.config import GatesConfigError, find_gates_config  # noqa: F401 — re-exported
+from gate.config import load_gates_config as _load_gates_config
 from gate.keys import load_signing_secret
 
 ISSUER = "https://agent-toolkit.gate/local"
@@ -18,27 +20,25 @@ ALGORITHM = "HS256"
 TOKEN_TYP = "GATE+JWT"
 
 
-def find_gates_config(project_root: Path) -> Path | None:
-    for candidate in (
-        project_root / "gates.json",
-        project_root / ".claude" / "gates.json",
-    ):
-        if candidate.is_file():
-            return candidate
-    return None
+SIGNED_DEFAULT_CONFIG: dict[str, Any] = {
+    "gate_mode": "legacy",
+    "profile": "standard",
+    "eval_threshold": 95,
+    "commit_requires": ["precommit"],
+    "push_requires": ["evaluate"],
+}
 
 
 def load_gates_config(project_root: Path) -> dict[str, Any]:
-    path = find_gates_config(project_root)
-    if not path:
-        return {
-            "gate_mode": "legacy",
-            "profile": "standard",
-            "eval_threshold": 95,
-            "commit_requires": ["precommit"],
-            "push_requires": ["evaluate"],
-        }
-    return json.loads(path.read_text(encoding="utf-8"))
+    """Load gates.json via gate.config; signed defaults when no file exists.
+
+    A corrupt file raises GatesConfigError (fail closed) — callers such as
+    issue_token / verify_gate let it propagate so the gate stays shut.
+    """
+    config = _load_gates_config(project_root)
+    if config is None:
+        return dict(SIGNED_DEFAULT_CONFIG)
+    return config
 
 
 def resolve_profile(config: dict[str, Any]) -> str:

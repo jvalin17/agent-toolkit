@@ -37,6 +37,8 @@ def gate_ready(project_dir: Path, action: str) -> tuple:
     config = load_gate_config(project_dir)
     if config.get("_no_config"):
         return False, ["no gates.json — not a toolkit project"]
+    if config.get("_config_error"):
+        return False, [f"gates.json unreadable — {config['_config_error']} (gates fail closed)"]
     required = _required_for(project_dir, action)
     if not required:
         return True, []

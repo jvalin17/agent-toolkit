@@ -1,6 +1,6 @@
 # Skills reference
 
-13 workflow skills. Invoke with `/skill-name` in Claude Code, or describe the same intent in natural language.
+14 workflow skills. Invoke with `/skill-name` in Claude Code, or describe the same intent in natural language.
 
 Append **`auto`** to chain skills without stopping: `/requirements auto my-app`. Protocol: [orchestrator.md](../shared/orchestrator.md).
 
@@ -19,6 +19,7 @@ Append **`auto`** to chain skills without stopping: `/requirements auto my-app`.
 | `/setup` | Install scripts, Docker, Makefile, README |
 | `/status` | Project dashboard — done, next, blockers |
 | `/updater` | Toolkit health — links, freshness, standards |
+| `/agent-toolkit-mode` | Switch enforcement mode mid-session (`/agent-toolkit-mode safe`) |
 
 ## Gated skills
 

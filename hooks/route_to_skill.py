@@ -429,11 +429,9 @@ def run_route_to_skill(
     if not get_config_value(config, "skill_routing", True):
         return 0, ""
 
-    try:
-        hook_input = json.loads(stdin_input)
-        prompt = hook_input.get("prompt", "")
-    except (json.JSONDecodeError, TypeError, AttributeError):
-        return 0, ""
+    from hook_io import read_hook_event
+
+    prompt = read_hook_event(stdin_input).get("prompt", "")
 
     if not prompt:
         return 0, ""

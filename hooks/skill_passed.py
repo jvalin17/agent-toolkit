@@ -14,6 +14,8 @@ import sys
 from pathlib import Path
 from typing import Tuple
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 GATED_SKILLS = ("precommit", "evaluate", "reviewer", "assess")
 
 # Skills that authorize code changes — mirrors skill_enforce.py CODE_CHANGE_SKILLS
@@ -23,16 +25,11 @@ CODE_CHANGE_SKILLS = {
 }
 
 
-def make_hook_response(message: str) -> str:
-    """Build Claude Code PostToolUse hook JSON response."""
-    return json.dumps(
-        {
-            "hookSpecificOutput": {
-                "hookEventName": "PostToolUse",
-                "additionalContext": message,
-            }
-        }
-    )
+def make_hook_response(message: str, agent: str = "claude-code") -> str:
+    """Build a host-aware PostToolUse hook JSON response."""
+    from hook_io import make_context_json
+
+    return make_context_json(message, agent=agent, event="PostToolUse")
 
 
 def _write_stamp(project_dir: Path, skill: str) -> None:
@@ -90,11 +87,11 @@ def run_skill_passed(
     project_dir: Path,
 ) -> Tuple[int, str]:
     """Check gate status after a skill runs. Returns (exit_code, output)."""
-    try:
-        hook_input = json.loads(stdin_input)
-        skill = hook_input.get("tool_input", {}).get("skill", "")
-    except (json.JSONDecodeError, TypeError, AttributeError):
-        return 0, ""
+    from hook_io import parse_hook_stdin
+
+    agent, canonical = parse_hook_stdin(stdin_input)
+    tool_input = (canonical.get("raw") or {}).get("tool_input") or {}
+    skill = tool_input.get("skill", "") if isinstance(tool_input, dict) else ""
 
     if not skill:
         return 0, ""
@@ -116,7 +113,7 @@ def run_skill_passed(
             "Ask the user for sample data if you don't have any. "
             "Skip this for bug fixes and refactors."
         )
-        return 0, make_hook_response(message)
+        return 0, make_hook_response(message, agent=agent)
 
     if skill not in GATED_SKILLS:
         return 0, ""
@@ -144,7 +141,7 @@ def run_skill_passed(
             "Check the skill output for BLOCKED reasons."
         )
 
-    return 0, make_hook_response(message)
+    return 0, make_hook_response(message, agent=agent)
 
 
 def main() -> int:

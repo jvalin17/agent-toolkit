@@ -40,7 +40,7 @@
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|Skill",
+        "matcher": "Bash|Write|Edit|Skill|mcp__agent-toolkit__stamp_skill",
         "hooks": [
           {
             "type": "command",

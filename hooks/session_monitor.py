@@ -3,13 +3,13 @@
 
 Context-pressure detection:
 - Cumulative tool output bytes (PostToolUse)
-- Compaction events (PostCompact)
+- Compaction events (SessionStart with source "compact")
 - Exchange count fallback (raised threshold)
 
 Single script, multiple events. Reads hook_event_name from stdin JSON
 and dispatches to the appropriate handler.
 
-Fires on: PreToolUse, PostToolUse, UserPromptSubmit, PostCompact
+Fires on: PreToolUse, PostToolUse, UserPromptSubmit, SessionStart (matcher "compact")
 State: .session/state.json
 """
 
@@ -151,8 +151,11 @@ def _invalidate_precommit_on_bash(command: str, project_dir: Path) -> None:
         flag = project_dir / ".gates" / "precommit-passed"
         if flag.is_file():
             flag.unlink()
-    except (OSError, ImportError):
-        pass
+    except (OSError, ImportError) as exc:
+        # Never silent: a stale precommit flag that survives is a gate hole.
+        sys.stderr.write(
+            f"session_monitor: could not invalidate precommit after Bash source write: {exc}\n"
+        )
 
 
 def _strict_integrity_response(state: SessionState) -> Optional[str]:
@@ -361,7 +364,7 @@ def handle_post_tool_use(
 
 
 def handle_post_compact(state: SessionState) -> tuple:
-    """Handle PostCompact event. Context was compressed — session continues.
+    """Handle compaction (SessionStart/compact). Context was compressed — session continues.
 
     Compaction is normal. The session keeps running with compressed context.
     We just note it and warn that quality may degrade.
@@ -381,8 +384,13 @@ def handle_pre_tool_use(
     tool_name: str,
     file_path: str,
     command: str,
+    agent: str = "",
 ) -> tuple:
-    """Handle PreToolUse: path protection + edit recovery + session limits."""
+    """Handle PreToolUse: path protection + edit recovery + session limits.
+
+    `agent` is the host id (claude-code, cursor, gemini, ...) so host-specific
+    rules such as the stamp_skill block apply only where they belong.
+    """
     state.tool_calls += 1
 
     # Edit failure recovery: block everything except Read on the failed file
@@ -429,7 +437,7 @@ def handle_pre_tool_use(
         _invalidate_precommit_on_bash(command, Path.cwd())
 
     blocked, block_msg = check_protected_paths(
-        state, tool_name, file_path, command
+        state, tool_name, file_path, command, agent=agent
     )
     if blocked:
         return state, block_msg, True
@@ -451,12 +459,15 @@ def handle_pre_tool_use(
     return state, response, False
 
 
+# Per-host compaction event names (see scripts/config_generator.py COMPACTION_EVENT).
+COMPACTION_EVENTS = {"PostCompact", "preCompact", "PreCompact", "post-compact"}
+
+
 def parse_input(raw_input: str) -> dict:
-    """Parse JSON input from Claude Code hook system."""
-    try:
-        return json.loads(raw_input)
-    except json.JSONDecodeError:
-        return {}
+    """Parse JSON input from the hook system. Non-object or malformed → {}."""
+    from hook_io import read_hook_event
+
+    return read_hook_event(raw_input)
 
 
 def main() -> int:
@@ -496,12 +507,16 @@ def main() -> int:
         if edit_response:
             response = edit_response
 
-    elif hook_event == "PostCompact":
+    elif hook_event in COMPACTION_EVENTS or (
+        hook_event == "SessionStart" and str(event.get("source", "")) == "compact"
+    ):
+        # Claude Code / Grok: SessionStart with source "compact".
+        # Cursor: preCompact. Windsurf: post-compact. Legacy hosts: PostCompact.
         state, response = handle_post_compact(state)
 
     elif hook_event == "PreToolUse":
         state, response, blocked = handle_pre_tool_use(
-            state, tool_name, file_path, command
+            state, tool_name, file_path, command, agent=agent
         )
 
     elif "prompt" in event or canonical.get("prompt"):
@@ -509,7 +524,7 @@ def main() -> int:
 
     elif tool_name:
         state, response, blocked = handle_pre_tool_use(
-            state, tool_name, file_path, command
+            state, tool_name, file_path, command, agent=agent
         )
 
     save_state(state, state_file)
