@@ -67,6 +67,93 @@ ERROR_MATCH_LENGTH = 100  # compare first N chars of error message
 DAMAGE_RADIUS_WARN = 5  # warn after this many unique files edited
 DAMAGE_RADIUS_BLOCK = 15  # block after this many (likely off track)
 
+# Bash source-write detection
+import re as _re_bash
+
+_SOURCE_EXTENSIONS = (
+    r"\.py|\.ts|\.tsx|\.js|\.jsx|\.go|\.rs|\.java|\.kt|\.swift"
+    r"|\.c|\.cpp|\.h|\.rb|\.php|\.cs|\.scala|\.ex|\.exs"
+)
+
+# Patterns that indicate a Bash command writes to a source file
+_BASH_WRITE_COMMANDS = _re_bash.compile(
+    r"sed\s+-i"        # sed in-place edit
+    r"|patch\b"        # patch command
+)
+
+_BASH_REDIRECT_TO_SOURCE = _re_bash.compile(
+    r"(?:>|>>)\s*\S*(?:" + _SOURCE_EXTENSIONS + r")(?:\s|$|'|\")"
+)
+
+_BASH_FILE_COMMANDS_TO_SOURCE = _re_bash.compile(
+    r"(?:tee|cp|mv)\s+\S*\s*\S*(?:" + _SOURCE_EXTENSIONS + r")(?:\s|$|'|\")"
+)
+
+# Exempt paths — writes here don't count as source edits
+_BASH_EXEMPT_PATHS = _re_bash.compile(
+    r"hooks/|scripts/|\.scratch/|\.session/|\.gates/|\.github/"
+)
+
+
+def _detect_bash_source_write(command: str) -> bool:
+    """Detect if a Bash command writes to source files.
+
+    Returns True if the command modifies source code files,
+    bypassing Edit/Write tool protections.
+    """
+    if not command:
+        return False
+
+    # Git commands are not source writes
+    if command.lstrip().startswith("git "):
+        return False
+
+    # Check for exempt paths in the command
+    if _BASH_EXEMPT_PATHS.search(command):
+        return False
+
+    # patch always modifies source files
+    if _re_bash.search(r"\bpatch\b", command):
+        return True
+
+    # sed -i targeting a source file
+    if _re_bash.search(r"sed\s+-i", command):
+        if _re_bash.search(_SOURCE_EXTENSIONS, command):
+            return True
+
+    # Redirect (> or >>) to a source file
+    if _BASH_REDIRECT_TO_SOURCE.search(command):
+        return True
+
+    # cp/mv/tee to a source file
+    if _BASH_FILE_COMMANDS_TO_SOURCE.search(command):
+        return True
+
+    return False
+
+
+def _invalidate_precommit_on_bash(command: str, project_dir: Path) -> None:
+    """Clear precommit-passed if Bash command writes to source files.
+
+    Only in default/standard/safe modes.
+    """
+    if not _detect_bash_source_write(command):
+        return
+
+    try:
+        from gate_hook import load_gate_config
+        from mode_resolver import resolve_mode_from_config
+        config = load_gate_config(project_dir)
+        mode = resolve_mode_from_config(config)
+        if mode.name not in ("default", "standard", "safe"):
+            return
+
+        flag = project_dir / ".gates" / "precommit-passed"
+        if flag.is_file():
+            flag.unlink()
+    except (OSError, ImportError):
+        pass
+
 
 def _strict_integrity_response(state: SessionState) -> Optional[str]:
     """Periodic strict-mode integrity check (every DRIFT_CHECK_INTERVAL exchanges)."""
@@ -336,6 +423,10 @@ def handle_pre_tool_use(
         if n_files == DAMAGE_RADIUS_WARN:
             # Warn once at threshold (not every subsequent edit)
             pass  # warning injected below, not blocking
+
+    # Bash source-write detection — invalidate precommit if Bash modifies source files
+    if tool_name == "Bash" and command:
+        _invalidate_precommit_on_bash(command, Path.cwd())
 
     blocked, block_msg = check_protected_paths(
         state, tool_name, file_path, command
