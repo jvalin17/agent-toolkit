@@ -70,9 +70,10 @@ class TestCommitCleanup:
 
 
 class TestPushCleanup:
-    def test_push_removes_push_scoped_flags_only(self, project):
+    def test_push_clears_all_gate_flags(self, project):
+        """Push clears both push-scoped AND commit-scoped flags for clean slate."""
         run_gate_cleanup(make_input("git push origin main"), project)
-        assert (project / ".gates" / "precommit-passed").is_file()
+        assert not (project / ".gates" / "precommit-passed").exists()
         assert not (project / ".gates" / "evaluate-passed").exists()
         assert not (project / ".gates" / "reviewer-passed").exists()
         assert not (project / ".gates" / "assess-passed").exists()
@@ -143,12 +144,18 @@ class TestStampCleanup:
         stamps_dir = project / ".gates" / "stamps"
         assert not any(stamps_dir.iterdir()), "stamps should be cleared on commit"
 
-    def test_push_does_not_clear_stamps(self, project):
-        """Push should NOT clear stamps — they're commit-scoped."""
+    def test_push_clears_precommit_flag(self, project):
+        """Push clears precommit-passed for a clean slate."""
+        assert (project / ".gates" / "precommit-passed").is_file()
+        run_gate_cleanup(make_input("git push origin main"), project)
+        assert not (project / ".gates" / "precommit-passed").exists()
+
+    def test_push_clears_stamps(self, project):
+        """Push clears all stamps for a clean slate."""
         run_gate_cleanup(make_input("git push origin main"), project)
         stamps_dir = project / ".gates" / "stamps"
-        assert (stamps_dir / "implementation").is_file()
-        assert (stamps_dir / "reviewer").is_file()
+        remaining = [f.name for f in stamps_dir.iterdir()] if stamps_dir.is_dir() else []
+        assert len(remaining) == 0, f"stamps should be cleared on push, found: {remaining}"
 
     def test_non_git_does_not_clear_stamps(self, project):
         run_gate_cleanup(make_input("ls -la"), project)

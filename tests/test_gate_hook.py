@@ -295,3 +295,49 @@ class TestGetConfigValue:
         config = {"model": "opus"}
         monkeypatch.setenv("AGENT_TOOLKIT_MODEL", "sonnet")
         assert get_config_value(config, "model", "auto") == "sonnet"
+
+
+class TestStalePrecommitBlock:
+    """Block commit if a code-change stamp is newer than precommit stamp."""
+
+    def _make_stamp(self, gates_dir, skill, offset_seconds=0):
+        from datetime import datetime, timezone, timedelta
+        stamps_dir = gates_dir / "stamps"
+        stamps_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now(timezone.utc) + timedelta(seconds=offset_seconds)
+        (stamps_dir / skill).write_text(json.dumps({
+            "skill": skill, "timestamp": ts.isoformat()
+        }))
+
+    def test_blocks_commit_when_impl_stamp_newer_than_precommit(self, project_dir, gates_dir):
+        """Commit blocked when implementation stamp is newer than precommit."""
+        (gates_dir / "precommit-passed").write_text("READY")
+        self._make_stamp(gates_dir, "precommit", offset_seconds=0)
+        self._make_stamp(gates_dir, "implementation", offset_seconds=1)
+        (project_dir / "gates.json").write_text(json.dumps({"gate_mode": "legacy", "mode": "default"}))
+
+        from hooks.gate_hook import run_gate
+        _, output = run_gate(json.dumps({"tool_input": {"command": "git commit -m 'feat'"}}), project_dir)
+        assert output != "", "should block when code-change stamp is newer than precommit"
+        data = json.loads(output)
+        assert data["decision"] == "block"
+
+    def test_allows_commit_when_precommit_is_latest(self, project_dir, gates_dir):
+        """Commit allowed when precommit stamp is the most recent."""
+        (gates_dir / "precommit-passed").write_text("READY")
+        self._make_stamp(gates_dir, "implementation", offset_seconds=0)
+        self._make_stamp(gates_dir, "precommit", offset_seconds=1)
+        (project_dir / "gates.json").write_text(json.dumps({"gate_mode": "legacy", "mode": "default"}))
+
+        from hooks.gate_hook import run_gate
+        _, output = run_gate(json.dumps({"tool_input": {"command": "git commit -m 'feat'"}}), project_dir)
+        # Should pass — precommit is most recent
+        if output:
+            data = json.loads(output)
+            assert data.get("decision") != "block"
+
+    def test_skipped_in_minimal_mode(self, project_dir, gates_dir):
+        """Minimal mode does not check stamp ordering."""
+        (project_dir / "gates.json").write_text(json.dumps({"gate_mode": "legacy", "mode": "minimal"}))
+        _, output = run_gate(json.dumps({"tool_input": {"command": "git commit -m 'feat'"}}), project_dir)
+        assert output == "" or json.loads(output).get("decision") != "block"

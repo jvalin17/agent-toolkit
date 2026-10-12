@@ -252,6 +252,55 @@ def _required_skills_for_action(config: dict, action: str) -> list:
     return []
 
 
+# Skills that modify code — if their stamp is newer than precommit, block
+_CODE_CHANGE_STAMPS = {
+    "implementation", "build", "debug_tool", "fix", "refactor", "setup",
+}
+
+STAMP_CHECK_MODES = {"default", "standard", "safe"}
+
+
+def _check_stale_precommit(project_dir: Path, config: dict) -> Optional[str]:
+    """Block if a code-change skill ran after the last precommit.
+
+    Returns error message if stale, None if OK.
+    Only enforced in default/standard/safe modes.
+    """
+    from mode_resolver import resolve_mode_from_config
+    mode = resolve_mode_from_config(config)
+    if mode.name not in STAMP_CHECK_MODES:
+        return None
+
+    stamps_dir = project_dir / ".gates" / "stamps"
+    if not stamps_dir.is_dir():
+        return None
+
+    precommit_stamp = stamps_dir / "precommit"
+    if not precommit_stamp.is_file():
+        return None  # No precommit stamp — flag check handles this
+
+    try:
+        precommit_data = json.loads(precommit_stamp.read_text())
+        precommit_ts = precommit_data.get("timestamp", "")
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    # Check if any code-change stamp is newer
+    for stamp_file in stamps_dir.iterdir():
+        if stamp_file.name in _CODE_CHANGE_STAMPS and stamp_file.is_file():
+            try:
+                data = json.loads(stamp_file.read_text())
+                if data.get("timestamp", "") > precommit_ts:
+                    return (
+                        f"stale precommit — /{stamp_file.name} ran after /precommit. "
+                        "Re-run /precommit before committing."
+                    )
+            except (json.JSONDecodeError, OSError):
+                continue
+
+    return None
+
+
 def _run_legacy_gate(
     project_dir: Path,
     config: dict,
@@ -272,6 +321,12 @@ def _run_legacy_gate(
         return gate_finish(
             f"git {action} needs skills:{missing_str} — run them first."
         )
+
+    # Stamp ordering check — code-change skill after precommit = stale
+    if action == "commit":
+        stale_msg = _check_stale_precommit(project_dir, config)
+        if stale_msg:
+            return gate_finish(stale_msg)
 
     return 0, ""
 

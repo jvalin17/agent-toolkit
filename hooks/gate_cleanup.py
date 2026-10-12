@@ -106,6 +106,8 @@ def run_gate_cleanup(
 
     if has_push:
         _remove_gate_flags(gates_dir, PUSH_GATE_FLAGS)
+        _remove_gate_flags(gates_dir, COMMIT_GATE_FLAGS)  # Full cleanup post-push
+        _clear_stamps(gates_dir)
         _clear_signed_gate_files(project_dir)
 
     return 0, ""
