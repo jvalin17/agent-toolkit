@@ -117,7 +117,9 @@ Knowledge: foundational (SOLID, DDD, Clean Architecture, DDIA, GoF, OWASP, 12-Fa
 
 Non-MCP: `scripts/toolkit_pull.py`, `generate-project-rules.sh` — [docs/other-llms.md](docs/other-llms.md).
 
-### Model routing (hook-enforced)
+### Model routing (hook-enforced for subagents)
+
+`taxonomy_enforce.py` checks the `model` on every `Agent` spawn and blocks an expensive model on a cheap task or a cheap model on deep-reasoning work. It does not change the main session's model.
 
 | Tier | Tasks | Approx. |
 |------|-------|---------|

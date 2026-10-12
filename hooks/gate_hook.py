@@ -334,7 +334,6 @@ def _run_legacy_gate(
 def run_gate(
     stdin_input: str,
     project_dir: Path,
-    env_enforcement: Optional[str] = None,
 ) -> tuple:
     """Main gate logic. Returns (exit_code, output_json)."""
     agent = _parse_hook_agent(stdin_input)
@@ -371,9 +370,8 @@ def main() -> int:
     """Entry point — reads hook input from stdin."""
     stdin_input = sys.stdin.read()
     project_dir = Path.cwd()
-    env_enforcement = os.environ.get("AGENT_TOOLKIT_ENFORCEMENT")
 
-    exit_code, output = run_gate(stdin_input, project_dir, env_enforcement)
+    exit_code, output = run_gate(stdin_input, project_dir)
     if output:
         print(output)
     return exit_code

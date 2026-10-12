@@ -490,6 +490,30 @@ class TestHandleUserPrompt:
 
 
 class TestHandlePostToolUse:
+    def test_post_tool_use_tracks_all_concerns(self, fresh_state, tmp_path):
+        """One call updates bytes, edited files, test-edit window, and error history."""
+        fresh_state.mode = "strict"
+        test_file = str(tmp_path / "tests" / "test_invoice.py")
+        state, warning = handle_post_tool_use(
+            fresh_state, "ok", tool_name="Edit", file_path=test_file,
+        )
+        assert warning is None
+        assert state.cumulative_output_bytes == 2
+        assert state.files_edited == [str(Path(test_file).resolve())]
+        assert state.last_test_edits == [test_file]
+        assert state.last_tool_sequence[-1]["file_path"] == test_file
+
+        state, _ = handle_post_tool_use(
+            state, "FAILED tests/test_invoice.py::test_total - KeyError\n1 failed, 2 passed",
+            tool_name="Bash", command="python3 -m pytest tests/test_invoice.py",
+        )
+        assert len(state.recent_errors) == 1
+        assert state.last_tool_sequence[-1]["was_test"] is True
+        assert state.last_tool_sequence[-1]["failed"] is True
+
+        state, _ = handle_post_tool_use(state, "3 passed", tool_name="Bash", command="ls")
+        assert state.recent_errors == []
+
     def test_tracks_output_bytes(self, fresh_state):
         tool_result = "x" * 5000  # 5KB output
         result_state, _ = handle_post_tool_use(fresh_state, tool_result)

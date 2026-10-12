@@ -16,46 +16,49 @@ Exit codes:
     0 — report written, gate-ready
     1 — report written, BLOCKED (mechanical or finding failures)
     2 — validation error (bad findings.json, unknown skill)
+
+Layout:
+    finalize_checks.py    shared checks + report/gate I/O
+    finalize_precommit.py precommit gate
+    this module           evaluate / reviewer / assess gates + CLI dispatch
 """
 
 from __future__ import annotations
 
-import json
-import re
 import sys
 import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from gate_hook import get_config_value, load_gate_config  # noqa: E402
-from project_root import resolve_project_root  # noqa: E402
-
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from gate.attest import (  # noqa: E402
+import finalize_checks as checks  # noqa: E402
+from finalize_checks import (  # noqa: E402,F401 — re-exported for tests
     CheckResult,
+    DEPTH_CHECK_MODES,
+    SPOT_CHECK_PATTERNS,
+    _check_review_depth,
+    _check_skill_stamp,
+    _check_stamps,
+    _maybe_spot_check,
+    _spot_check_files,
     detect_and_run_lint,
     detect_and_run_tests,
 )
-from compliance import (  # noqa: E402
-    check_diff_for_noqa_in_tests,
-    check_diff_for_ui_without_e2e,
-    check_diff_for_untested_functions,
-    check_execution_plan_compliance,
-    check_test_plan_coverage,
-    format_test_plan_summary,
-    generate_session_summary,
-    validate_execution_plan,
-    validate_test_plan,
+from finalize_common import EVAL_DIMENSION_WEIGHTS, fail  # noqa: E402,F401
+from finalize_precommit import (  # noqa: E402,F401 — re-exported for tests
+    _check_test_plans,
+    _cleanup_test_plans,
+    _compress_test_plans_section,
+    _decide_precommit,
+    _require_test_plan,
+    finalize_precommit,
 )
-from finalize_common import EVAL_DIMENSION_WEIGHTS, fail  # noqa: E402
 from finalize_render import (  # noqa: E402
     compose_assess_markdown,
     compose_evaluate_markdown,
-    compose_precommit_markdown,
     compose_reviewer_markdown,
 )
 from finalize_schema import (  # noqa: E402
@@ -68,7 +71,9 @@ from finalize_schema import (  # noqa: E402
     validate_precommit_findings,
     validate_reviewer_findings,
 )
+from gate_hook import get_config_value, load_gate_config  # noqa: E402
 from mechanical_scorer import score_codebase  # noqa: E402
+from project_root import resolve_project_root  # noqa: E402
 
 SUPPORTED_SKILLS = {"precommit", "evaluate", "reviewer", "assess"}
 
@@ -82,844 +87,65 @@ _grade_letter = grade_letter
 _read_findings = read_findings
 _fail = fail
 
-
-# hosts/<id>.json "stamp_mode": "hook_skill_passed" means the host's Skill hook
-# writes stamps itself (Claude Code). A "cli" stamp there was written through
-# the MCP/CLI tool by the agent — a forgery. On "cli_stamp" hosts (Cursor,
-# Gemini, Codex, Grok, Windsurf, default) the CLI stamp is the only mechanism.
-HOOK_STAMP_MODE = "hook_skill_passed"
+COMPLETENESS_FLOOR_WHEN_GREEN = 90   # tests + lint pass → completeness at least this
+COMPLETENESS_CAP_WHEN_TESTS_FAIL = 50
 
 
-def _host_stamps_via_hook() -> bool:
-    from host_config import resolve_host
-
-    return resolve_host().get("stamp_mode") == HOOK_STAMP_MODE
-
-
-def _read_stamp(stamp_file: Path) -> dict | None:
-    """Parse a stamp file. Returns None when it is not the hook's JSON format."""
-    try:
-        data = json.loads(stamp_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
-        return None
-    return data if isinstance(data, dict) else None
-
-
-def _check_skill_stamp(project_dir: Path, skill: str) -> list[str]:
-    """Verify a genuine skill stamp exists in .gates/stamps/. Returns issues list.
-
-    A stamp counts only if it is the JSON the hook writes, names this skill,
-    and — on hosts where the Skill hook writes stamps — was not written via
-    the CLI/MCP ``stamp_skill`` tool.
-    """
-    stamp_file = project_dir / ".gates" / "stamps" / skill
-    if not stamp_file.is_file():
-        return [
-            f"{skill} stamp missing — skill was not invoked via the Skill tool. "
-            f"Run /{skill} before submitting findings."
-        ]
-
-    data = _read_stamp(stamp_file)
-    if data is None:
-        return [
-            f"{skill} stamp unreadable — not the format written by the Skill hook. "
-            f"Run /{skill} via the Skill tool; do not write stamps by hand."
-        ]
-
-    stamped_skill = str(data.get("skill", ""))
-    if stamped_skill.rsplit(":", 1)[-1] != skill:
-        return [
-            f"{skill} stamp names a different skill ('{stamped_skill}') — "
-            f"stamps cannot be copied between skills. Run /{skill}."
-        ]
-
-    if data.get("source") == "cli" and _host_stamps_via_hook():
-        return [
-            f"{skill} stamp was written via the cli/MCP stamp_skill tool, "
-            "which is not accepted on Claude Code — the Skill hook writes stamps there. "
-            f"Run /{skill} via the Skill tool."
-        ]
-    return []
-
-
-def _check_stamps(project_dir: Path, findings: dict) -> list[str]:
-    """Verify skill stamps match agent claims. Returns issues list.
-
-    Catches three attack vectors:
-    1. Agent claims reviewer_called but never invoked /reviewer
-    2. Agent deleted execution-plan.json to bypass plan compliance
-    3. Agent submitted findings without invoking the skill
-    """
-    issues: list[str] = []
-
-    # Vector 1: reviewer_called claim without a genuine reviewer stamp
-    reviewer_gate = findings.get("reviewer_gate", {})
-    if reviewer_gate.get("reviewer_called"):
-        for issue in _check_skill_stamp(project_dir, "reviewer"):
-            issues.append(f"{issue} (agent claimed reviewer_called: true)")
-
-    # Vector 2: execution plan deleted — implementation stamp exists but plan file gone
-    impl_stamp = project_dir / ".gates" / "stamps" / "implementation"
-    exec_plan = project_dir / ".scratch" / "execution-plan.json"
-    if impl_stamp.is_file() and not exec_plan.is_file():
-        issues.append(
-            "execution plan missing — /implementation was invoked (stamp exists) "
-            "but .scratch/execution-plan.json was deleted. This bypasses plan compliance."
-        )
-
-    return issues
-
-
-DEPTH_CHECK_MODES = {"safe", "standard"}
-
-
-def _check_review_depth(
-    session_audit: dict,
-    mode_name: str,
-    reviewer_stamp: bool = False,
-) -> list[str]:
-    """Verify review depth meets minimum bar. Safe/standard modes only.
-
-    Checks that if a reviewer was invoked, the agent actually did the work:
-    - Spawned role agents (not just submitted findings without review)
-    """
-    if mode_name not in DEPTH_CHECK_MODES:
-        return []
-
-    if not session_audit.get("available"):
-        return []
-
-    issues: list[str] = []
-
-    # If reviewer stamp exists, role agents should have been spawned
-    if reviewer_stamp and session_audit.get("role_agents_spawned", 0) == 0:
-        issues.append(
-            "shallow review — reviewer was invoked but no role review agents "
-            "were spawned. The skill requires per-role agents for code review."
-        )
-
-    return issues
-
-
-SPOT_CHECK_PATTERNS = [
-    (re.compile(r"except\s*:\s*\n\s*(pass|\.\.\.)\s*$", re.MULTILINE),
-     "swallowed exception — bare except:pass hides errors"),
-    (re.compile(r"except\s+\w.*:\s*\n\s*#\s*(TODO|FIXME|HACK)", re.MULTILINE | re.IGNORECASE),
-     "TODO/FIXME in error handling path — error may not be handled"),
-    (re.compile(r"""(password|secret|api_key|token)\s*=\s*["'][^"']{8,}["']""", re.IGNORECASE),
-     "possible hardcoded secret — use environment variable instead"),
-]
-
-SPOT_CHECK_PROBABILITY = 0.2  # 20% chance per finalize
-
-
-def _spot_check_files(file_paths: list[str]) -> list[str]:
-    """Scan files for obvious anti-patterns. Returns warning strings."""
-    warnings: list[str] = []
-    for file_path in file_paths:
-        try:
-            content = Path(file_path).read_text(errors="ignore")
-        except OSError:
-            continue
-        filename = Path(file_path).name
-        for pattern, message in SPOT_CHECK_PATTERNS:
-            if pattern.search(content):
-                warnings.append(f"spot check: {filename} — {message}")
-    return warnings
-
-
-def _maybe_spot_check(
-    changed_files: list[str],
-    mode_name: str,
-    force: bool = False,
-) -> list[str]:
-    """Run spot checks on changed files. Safe/standard modes only.
-
-    20% random chance unless force=True (for testing).
-    """
-    if mode_name not in DEPTH_CHECK_MODES:
-        return []
-    if not changed_files:
-        return []
-
-    import random
-    if not force and random.random() > SPOT_CHECK_PROBABILITY:
-        return []
-
-    # Sample up to 3 files
-    sample = random.sample(changed_files, min(3, len(changed_files)))
-    return _spot_check_files(sample)
-
-
-def _run_mechanical(project_dir: Path, config: dict) -> tuple[CheckResult, CheckResult]:
-    test = detect_and_run_tests(project_dir, config)
-    lint = detect_and_run_lint(project_dir, config)
-    return test, lint
-
-
-def _decide_precommit(
-    findings: dict,
-    test: CheckResult,
-    lint: CheckResult,
-    session_audit: dict | None = None,
-    untested_functions: list[str] | None = None,
-    noqa_in_tests: list[str] | None = None,
-    config: dict | None = None,
-    session_audit_skills: dict | None = None,
-) -> tuple[bool, list[str]]:
-    reasons: list[str] = []
-
-    if not test.passed:
-        reasons.append(f"test re-run failed: {test.name}")
-    if not lint.passed:
-        reasons.append(f"lint re-run failed: {lint.name}")
-
-    instr = findings["instructions"]
-    if instr["addressed"] < instr["total"]:
-        reasons.append(
-            f"instructions: {instr['addressed']}/{instr['total']} addressed"
-        )
-
-    if findings["rules"]["violations"] > 0:
-        reasons.append(
-            f"rules: {findings['rules']['violations']} violation(s)"
-        )
-
-    if not findings["readme"]["passed"]:
-        reasons.append("readme: validation failed")
-
-    if findings["tests_meaningful"]["result"] == "sloppy":
-        reasons.append("test quality: sloppy tests detected")
-
-    if findings["app_verification"]["status"] == "pending":
-        reasons.append("app verification: still pending")
-
-    # Mechanical audit: override agent self-reports with session evidence
-    if session_audit and session_audit.get("available"):
-        # App verification: agent says "done" but no server evidence
-        appv_status = findings["app_verification"]["status"]
-        if appv_status == "done":
-            if not session_audit.get("server_started") and not session_audit.get("http_request_made"):
-                reasons.append(
-                    "app verification: no server/HTTP activity in session — "
-                    "agent claimed 'done' but no server start or HTTP request found"
-                )
-
-        # TDD ordering: source files edited before test files
-        from mode_resolver import resolve_mode_from_config
-        mode = resolve_mode_from_config(config or {})
-        if mode.tdd and not session_audit.get("tdd_order_respected", True):
-            reasons.append(
-                "TDD violation: source files edited before test files — "
-                "write failing tests first"
-            )
-
-        # Test plan ordering: plan must be written before source edits
-        if mode.plan and not session_audit.get("test_plan_before_source", True):
-            reasons.append(
-                "test plan written after source edits — "
-                "write .scratch/test-plan_<slug>.json BEFORE implementing"
-            )
-
-        # Skill adherence: hollow invocations (skill launched but not followed)
-        adherence = session_audit.get("skill_adherence", {})
-        hollow = adherence.get("hollow", [])
-        if hollow:
-            reasons.append(
-                f"hollow skill invocation: {', '.join(hollow)} — "
-                f"skill was launched but SKILL.md was never read"
-            )
-
-    # Skill invocation check: /precommit must appear in session JSONL
-    if session_audit_skills and session_audit_skills.get("available"):
-        skills_invoked = session_audit_skills.get("skills_invoked", [])
-        if "precommit" not in skills_invoked:
-            reasons.append(
-                "precommit skill not invoked — findings.json was hand-written "
-                "without running /precommit via the Skill tool"
-            )
-
-    # Git diff TDD: new functions without tests
-    if untested_functions:
-        reasons.append(
-            f"TDD: {len(untested_functions)} new function(s) without tests — "
-            + "; ".join(untested_functions[:5])
-        )
-
-    # Lint-suppression in test files: sign of fighting the linter
-    if noqa_in_tests:
-        reasons.append(
-            f"noqa in tests: {len(noqa_in_tests)} suppression(s) added to test files — "
-            "fix the lint issue, don't suppress it"
-        )
-
-    return (len(reasons) == 0), reasons
+# --- Decisions ----------------------------------------------------------------
 
 
 def _decide_evaluate(
-    dimensions: dict,
-    test: CheckResult,
-    lint: CheckResult,
-    threshold: int,
+    dimensions: dict, test: CheckResult, lint: CheckResult, threshold: int,
 ) -> tuple[bool, int, list[str]]:
-    reasons: list[str] = []
     score = compute_evaluate_score(dimensions)
-
-    if not test.passed:
-        reasons.append(f"test re-run failed: {test.name}")
-    if not lint.passed:
-        reasons.append(f"lint re-run failed: {lint.name}")
+    reasons = checks.mechanical_reasons(test, lint)
     if score < threshold:
         reasons.append(f"score {score} below threshold {threshold}")
-
     return (len(reasons) == 0), score, reasons
 
 
-def _decide_reviewer(
-    findings: dict,
-    test: CheckResult,
-    lint: CheckResult,
-) -> tuple[bool, list[str]]:
-    reasons: list[str] = []
-
-    if not test.passed:
-        reasons.append(f"test re-run failed: {test.name}")
-    if not lint.passed:
-        reasons.append(f"lint re-run failed: {lint.name}")
-
+def _decide_reviewer(findings: dict, test: CheckResult, lint: CheckResult) -> tuple[bool, list[str]]:
+    reasons = checks.mechanical_reasons(test, lint)
     high = findings["findings"]["high"]
     if high > 0:
         reasons.append(f"high-severity findings: {high}")
-
     return (len(reasons) == 0), reasons
 
 
-def _decide_assess(
-    findings: dict,
-    test: CheckResult,
-    lint: CheckResult,
-) -> tuple[bool, list[str]]:
-    reasons: list[str] = []
-
-    if not test.passed:
-        reasons.append(f"test re-run failed: {test.name}")
-    if not lint.passed:
-        reasons.append(f"lint re-run failed: {lint.name}")
-
+def _decide_assess(findings: dict, test: CheckResult, lint: CheckResult) -> tuple[bool, list[str]]:
+    reasons = checks.mechanical_reasons(test, lint)
     fix_now = findings["findings"]["fix_now"]
     if fix_now > 0:
         reasons.append(f"critical fix_now findings: {fix_now}")
-
     return (len(reasons) == 0), reasons
 
 
-def _report_path(project_dir: Path, skill: str, slug: str, report_id: str) -> Path:
-    target_dir = project_dir / "reports" / skill
-    target_dir.mkdir(parents=True, exist_ok=True)
-    fname_prefix = {
-        "precommit": "pc",
-        "evaluate": "eval",
-        "reviewer": "review",
-        "assess": "assess",
-    }[skill]
-    return target_dir / f"{fname_prefix}_{slug}_{report_id}.md"
+# --- Gates --------------------------------------------------------------------
 
 
-def _write_gate_flag(project_dir: Path, skill: str, *, score: int | None = None) -> Path:
-    gates_dir = project_dir / ".gates"
-    gates_dir.mkdir(parents=True, exist_ok=True)
-    date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    flag = gates_dir / f"{skill}-passed"
-    if skill == "precommit":
-        flag.write_text(f"READY {date}\n", encoding="utf-8")
-    elif skill == "evaluate":
-        flag.write_text(f"PASSED {score}% evaluate {date}\n", encoding="utf-8")
-    elif skill == "reviewer":
-        flag.write_text(f"PASSED reviewer {date}\n", encoding="utf-8")
-    else:
-        flag.write_text(f"PASSED assess {date}\n", encoding="utf-8")
-    return flag
-
-
-def _emit_response(payload: dict, ok: bool) -> int:
-    sys.stdout.write(json.dumps(payload, indent=2) + "\n")
-    return 0 if ok else 1
-
-
-def _check_session_audit() -> dict:
-    """Mechanical check: read session JSONL for skill/role usage.
-
-    Returns audit dict with warnings (not blocking — preferred, not required).
-    """
-    try:
-        from compliance import get_session_skill_usage
-        usage = get_session_skill_usage()
-        if not usage.get("available"):
-            return {"available": False}
-
-        warnings = []
-        if usage.get("skill_count", 0) == 0:
-            warnings.append("No skills invoked this session — consider using /implementation, /debug_tool, or /architecture")
-        if usage.get("agents_without_model", 0) > 0:
-            count = usage["agents_without_model"]
-            warnings.append(f"{count} agent(s) spawned without model parameter — consider setting model for cost efficiency")
-
-        return {
-            "available": True,
-            "skills_invoked": usage.get("skills", []),
-            "skill_count": usage.get("skill_count", 0),
-            "agents_without_model": usage.get("agents_without_model", 0),
-            "warnings": warnings,
-        }
-    except Exception:
-        return {"available": False}
-
-
-def _get_session_action_audit() -> dict:
-    """Run mechanical session audit from the current session JSONL."""
-    try:
-        from compliance import audit_session_actions
-        from hooks.session_log import find_latest_session_log
-
-        log_path = find_latest_session_log()
-        if not log_path:
-            return {"available": False}
-
-        return audit_session_actions(log_path)
-    except Exception:
-        return {"available": False}
-
-
-# Files/dirs exempt from test plan requirement
-_TEST_PLAN_EXEMPT = re.compile(
-    r"(^|/)(hooks|scripts|migrations|\.github|templates|config|docs|static|shared|\.scratch|\.session|\.gates)(/|$)"
-)
-_TEST_FILE_RE = re.compile(
-    r"(test_|_test\.|\.test\.|\.spec\.|tests/|__tests__/|spec/)", re.IGNORECASE
-)
-_NON_SOURCE_EXTENSIONS = re.compile(
-    r"\.(md|txt|json|yml|yaml|toml|cfg|ini|env|lock|gitignore|dockerignore)$", re.IGNORECASE
-)
-
-
-def _require_test_plan(project_dir: Path, diff_text: str) -> dict:
-    """Check that a test plan exists if source files were edited.
-
-    Returns dict with:
-        blocked: bool
-        reasons: list[str]
-    """
-    if not diff_text.strip():
-        return {"blocked": False, "reasons": []}
-
-    # Extract changed files from diff
-    has_source_changes = False
-    for line in diff_text.split("\n"):
-        if not line.startswith("diff --git"):
-            continue
-        match = re.search(r"b/(.+)$", line)
-        if not match:
-            continue
-        filepath = match.group(1)
-
-        # Skip test files, exempt dirs, non-source extensions
-        if _TEST_FILE_RE.search(filepath):
-            continue
-        if _TEST_PLAN_EXEMPT.search(filepath):
-            continue
-        if _NON_SOURCE_EXTENSIONS.search(filepath):
-            continue
-
-        has_source_changes = True
-        break
-
-    if not has_source_changes:
-        return {"blocked": False, "reasons": []}
-
-    # Check 1: test plan file exists in .scratch/
-    scratch = project_dir / ".scratch"
-    if scratch.is_dir() and list(scratch.glob("test-plan_*.json")):
-        return {"blocked": False, "reasons": []}
-
-    # Check 2: test plan summary exists in project-state.md
-    state_file = project_dir / "project-state.md"
-    if state_file.is_file():
-        content = state_file.read_text(encoding="utf-8", errors="replace")
-        if "## Test Plans" in content and "### " in content[content.index("## Test Plans"):]:
-            return {"blocked": False, "reasons": []}
-
-    return {
-        "blocked": True,
-        "reasons": [
-            "test plan required: source files were edited but no test plan found. "
-            "Write .scratch/test-plan_<slug>.json before implementing. "
-            "See /implementation Step 4 for the schema."
-        ],
-    }
-
-
-def _check_test_plans(project_dir: Path) -> dict:
-    """Find and validate test plans in .scratch/test-plan_*.json.
-
-    Returns dict with:
-        blocked: bool — whether any test plan failed coverage
-        reasons: list[str] — blocking reasons
-        plans: list[dict] — validated plans (for cleanup on success)
-    """
-    scratch = project_dir / ".scratch"
-    if not scratch.is_dir():
-        return {"blocked": False, "reasons": [], "plans": []}
-
-    plan_files = sorted(scratch.glob("test-plan_*.json"))
-    if not plan_files:
-        return {"blocked": False, "reasons": [], "plans": []}
-
-    reasons: list[str] = []
-    valid_plans: list[dict] = []
-
-    for plan_file in plan_files:
-        try:
-            plan = json.loads(plan_file.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            reasons.append(f"test plan: cannot read {plan_file.name}")
-            continue
-
-        errors = validate_test_plan(plan)
-        if errors:
-            reasons.append(
-                f"test plan {plan_file.name}: invalid — {'; '.join(errors)}"
-            )
-            continue
-
-        missing = check_test_plan_coverage(plan, project_dir)
-        if missing:
-            reasons.append(
-                f"test plan '{plan['feature']}': {len(missing)} case(s) not covered — "
-                + "; ".join(missing[:5])
-            )
-        else:
-            valid_plans.append(plan)
-
-    return {
-        "blocked": len(reasons) > 0,
-        "reasons": reasons,
-        "plans": valid_plans,
-    }
-
-
-MAX_TEST_PLAN_ENTRIES = 10
-
-
-def _compress_test_plans_section(content: str) -> str:
-    """Keep last N test plan entries in project-state.md.
-
-    Entries start with '### ' under '## Test Plans'. If there are more than
-    MAX_TEST_PLAN_ENTRIES, older ones are replaced with a count summary.
-    """
-    marker = "## Test Plans"
-    if marker not in content:
-        return content
-
-    before, after = content.split(marker, 1)
-
-    # Find where the next ## section starts (if any)
-    next_section = after.find("\n## ", 1)
-    if next_section == -1:
-        plans_text = after
-        remainder = ""
-    else:
-        plans_text = after[:next_section]
-        remainder = after[next_section:]
-
-    # Split into entries by ### headers
-    entries: list[str] = []
-    current: list[str] = []
-    for line in plans_text.split("\n"):
-        if line.startswith("### ") and current:
-            entries.append("\n".join(current))
-            current = [line]
-        else:
-            current.append(line)
-    if current:
-        entries.append("\n".join(current))
-
-    # Filter out empty entries (just whitespace)
-    entries = [e for e in entries if e.strip() and "### " in e]
-
-    if len(entries) <= MAX_TEST_PLAN_ENTRIES:
-        return content
-
-    archived_count = len(entries) - MAX_TEST_PLAN_ENTRIES
-    kept = entries[-MAX_TEST_PLAN_ENTRIES:]
-
-    compressed = (
-        f"{marker}\n\n"
-        f"*({archived_count} older test plan(s) archived)*\n\n"
-        + "\n\n".join(kept)
-        + "\n"
-    )
-
-    return before + compressed + remainder
-
-
-def _append_session_summary(project_dir: Path) -> None:
-    """Generate and append a session summary to project-state.md."""
-    state_file = project_dir / "project-state.md"
-    if not state_file.is_file():
-        return
-
-    # Find latest session JSONL
-    try:
-        from hooks.session_log import find_latest_session_log
-
-        log_path = find_latest_session_log()
-        if not log_path:
-            return
-
-        summary = generate_session_summary(log_path)
-        if "No toolkit activity" in summary or "unavailable" in summary.lower():
-            return
-
-        # Add date to summary header
-        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        summary = summary.replace("## Session Summary", f"## Session Summary ({date})")
-
-        content = state_file.read_text(encoding="utf-8")
-
-        # Replace existing session summary or append
-        if "## Session Summary" in content:
-            # Replace the old summary (keep only latest)
-            import re as _re
-            content = _re.sub(
-                r"## Session Summary[^\n]*\n(?:(?!^## ).)*",
-                summary + "\n\n",
-                content,
-                count=1,
-                flags=_re.MULTILINE | _re.DOTALL,
-            )
-        else:
-            content += "\n\n" + summary + "\n"
-
-        state_file.write_text(content, encoding="utf-8")
-    except Exception as exc:  # Non-critical — don't block the gate, but say so
-        sys.stderr.write(f"finalize_report: session summary not appended to project-state.md: {exc}\n")
-
-
-def _cleanup_test_plans(project_dir: Path, plans: list[dict]) -> None:
-    """Delete test plan files and append summaries to project-state.md."""
-    # Append summaries
-    state_file = project_dir / "project-state.md"
-    summaries: list[str] = []
-    for plan in plans:
-        summaries.append(format_test_plan_summary(plan))
-
-    if summaries and state_file.is_file():
-        content = state_file.read_text(encoding="utf-8")
-        if "## Test Plans" not in content:
-            content += "\n\n## Test Plans\n"
-        content += "\n" + "\n\n".join(summaries) + "\n"
-
-        # Compress: keep last 10 test plan entries, archive the rest
-        content = _compress_test_plans_section(content)
-
-        state_file.write_text(content, encoding="utf-8")
-
-    # Delete plan files
-    scratch = project_dir / ".scratch"
-    for plan_file in scratch.glob("test-plan_*.json"):
-        try:
-            plan_file.unlink()
-        except OSError:
-            pass
-
-
-def _git_output(project_dir: Path, args: list[str]) -> str:
-    """Run a git command in project_dir; empty string on any failure."""
-    import subprocess as _sp
-
-    try:
-        proc = _sp.run(
-            ["git", *args], capture_output=True, text=True, cwd=project_dir, timeout=10,
-        )
-    except Exception as exc:
-        sys.stderr.write(f"finalize_report: git {' '.join(args)} failed: {exc}\n")
-        return ""
-    return proc.stdout if proc.returncode == 0 else ""
-
-
-def _collect_diff_checks(project_dir: Path) -> dict:
-    """Staged diff (or unstaged fallback) plus the TDD/noqa/UI scans over it."""
-    diff_text = _git_output(project_dir, ["diff", "--cached", "--unified=0"])
-    if not diff_text.strip():
-        diff_text = _git_output(project_dir, ["diff", "HEAD", "--unified=0"])
-    return {
-        "diff_text": diff_text,
-        "untested": check_diff_for_untested_functions(diff_text),
-        "noqa_in_tests": check_diff_for_noqa_in_tests(diff_text),
-        "ui_without_e2e": check_diff_for_ui_without_e2e(diff_text),
-    }
-
-
-def _changed_files_for_spot_check(project_dir: Path) -> list[str]:
-    """Absolute paths of changed, non-dot files (input for the random spot check)."""
-    names = _git_output(project_dir, ["diff", "--name-only", "HEAD"])
-    return [
-        str(project_dir / name.strip())
-        for name in names.strip().split("\n")
-        if name.strip() and not name.strip().startswith(".")
-    ]
-
-
-def _apply_execution_plan_check(project_dir: Path, ready: bool, reasons: list[str]) -> bool:
-    """Verify every planned skill ran; delete the plan on a clean pass. Returns ready."""
-    exec_plan_file = project_dir / ".scratch" / "execution-plan.json"
-    if not exec_plan_file.is_file():
-        return ready
-    try:
-        exec_plan = json.loads(exec_plan_file.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        reasons.append("execution plan: cannot read .scratch/execution-plan.json")
-        return ready
-
-    plan_errors = validate_execution_plan(exec_plan)
-    if plan_errors:
-        reasons.append(f"execution plan invalid: {'; '.join(plan_errors)}")
-        return False
-
-    # Skills invoked come from get_session_skill_usage, not the action audit
-    skill_audit = _check_session_audit()
-    skills_from_audit = skill_audit.get("skills_invoked", []) if skill_audit.get("available") else []
-    compliance = check_execution_plan_compliance(exec_plan, skills_from_audit)
-    if compliance["blocked"]:
-        reasons.extend(compliance["reasons"])
-        return False
-
-    if ready:
-        try:
-            exec_plan_file.unlink()
-        except OSError as exc:
-            sys.stderr.write(f"finalize_report: could not remove execution plan: {exc}\n")
-    return ready
-
-
-def _write_precommit_report(
-    project_dir: Path, slug: str, report_id: str, markdown: str, session_audit: dict,
-) -> Path:
-    """Write the precommit report, appending session-audit warnings when present."""
-    if session_audit.get("warnings"):
-        audit_section = "\n\n## Session Audit (automated)\n\n"
-        for w in session_audit["warnings"]:
-            audit_section += f"- ⚠ {w}\n"
-        audit_section += f"\nSkills invoked: {session_audit.get('skills_invoked', [])}\n"
-        markdown += audit_section
-    out_path = _report_path(project_dir, "precommit", slug, report_id)
-    out_path.write_text(markdown, encoding="utf-8")
-    return out_path
-
-
-def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
-    findings = validate_precommit_findings(read_findings(findings_path))
-    config = load_gate_config(project_dir)
-
-    test, lint = _run_mechanical(project_dir, config)
-
-    # Resolve mode early — used by stamp verification, depth checks, spot checks
-    from mode_resolver import resolve_mode_from_config as _resolve_mode
-    current_mode = _resolve_mode(config or {})
-
-    # Mechanical session audit — verifies agent claims against JSONL evidence
-    action_audit = _get_session_action_audit()
-
-    # Git diff checks: new functions need tests, no noqa in tests, UI needs E2E
-    diff = _collect_diff_checks(project_dir)
-    diff_text = diff["diff_text"]
-
-    # Skill invocation audit — did /precommit actually run via Skill tool?
-    skill_audit = _check_session_audit()
-
-    ready, reasons = _decide_precommit(
-        findings, test, lint, session_audit=action_audit,
-        untested_functions=diff["untested"], noqa_in_tests=diff["noqa_in_tests"],
-        config=config,
-        session_audit_skills=skill_audit,
-    )
-
-    # Random spot check — safe/standard modes only, non-blocking warnings
-    spot_warnings = _maybe_spot_check(_changed_files_for_spot_check(project_dir), current_mode.name)
-    for w in spot_warnings:
-        reasons.append(f"SPOT CHECK (non-blocking): {w}")
-
-    # UI regression check — warn (not block) when UI files change without E2E tests
-    for w in diff["ui_without_e2e"]:
-        reasons.append(f"UI WARNING (non-blocking): {w}")
-
-    # Test plan check — verify coverage if a test plan exists
-    test_plan_results = _check_test_plans(project_dir)
-    if test_plan_results.get("blocked"):
-        ready = False
-        reasons.extend(test_plan_results["reasons"])
-
-    # Test plan required — source files edited but no test plan anywhere
-    test_plan_required = _require_test_plan(project_dir, diff_text)
-    if test_plan_required.get("blocked"):
-        ready = False
-        reasons.extend(test_plan_required["reasons"])
-
-    # Stamp verification — check skill stamps match agent claims
-    stamp_issues = _check_stamps(project_dir, findings)
-    if stamp_issues:
-        ready = False
-        reasons.extend(stamp_issues)
-
-    # Review depth check — safe/standard modes only
-    reviewer_stamp_exists = (project_dir / ".gates" / "stamps" / "reviewer").is_file()
-    depth_issues = _check_review_depth(
-        action_audit or {}, current_mode.name, reviewer_stamp=reviewer_stamp_exists,
-    )
-    if depth_issues:
-        ready = False
-        reasons.extend(depth_issues)
-
-    # Execution plan check — verify all planned skills were invoked
-    ready = _apply_execution_plan_check(project_dir, ready, reasons)
-
-    # Session audit — warnings only, not blocking
-    session_audit = _check_session_audit()
-
+def _write_report_and_flag(
+    project_dir: Path, skill: str, slug: str, markdown: str, passed: bool, score: int | None = None,
+) -> tuple[Path, Path | None, str]:
     report_id = uuid.uuid4().hex[:8]
-    markdown = compose_precommit_markdown(
-        findings, test, lint, ready, reasons, report_id
-    )
-    out_path = _write_precommit_report(
-        project_dir, findings["slug"], report_id, markdown, session_audit,
-    )
+    out_path = checks._report_path(project_dir, skill, slug, report_id)
+    out_path.write_text(markdown, encoding="utf-8")
+    gate_flag = checks._write_gate_flag(project_dir, skill, score=score) if passed else None
+    return out_path, gate_flag, report_id
 
-    gate_flag = _write_gate_flag(project_dir, "precommit") if ready else None
 
-    # On success: clean up test plans and append summaries to project-state.md
-    if ready and test_plan_results.get("plans"):
-        _cleanup_test_plans(project_dir, test_plan_results["plans"])
-
-    # Append session summary to project-state.md
-    if ready:
-        _append_session_summary(project_dir)
-
-    return _emit_response(
-        {
-            "skill": "precommit",
-            "ready_to_commit": ready,
-            "report_path": str(out_path.relative_to(project_dir)),
-            "report_id": report_id,
-            "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
-            "mechanical": {
-                "tests_passed": test.passed,
-                "lint_passed": lint.passed,
-            },
-            "blocking_reasons": reasons,
-            "session_audit": session_audit,
-        },
-        ready,
-    )
+def _response(
+    project_dir: Path, skill: str, passed: bool, out_path: Path, gate_flag: Path | None,
+    report_id: str, test: CheckResult, lint: CheckResult, reasons: list[str], **extra,
+) -> int:
+    payload = {"skill": skill, "passed": passed, **extra}
+    payload.update({
+        "report_path": str(out_path.relative_to(project_dir)),
+        "report_id": report_id,
+        "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
+        "mechanical": {"tests_passed": test.passed, "lint_passed": lint.passed},
+        "blocking_reasons": reasons,
+    })
+    return checks._emit_response(payload, passed)
 
 
 def finalize_evaluate(project_dir: Path, findings_path: Path) -> int:
@@ -929,14 +155,11 @@ def finalize_evaluate(project_dir: Path, findings_path: Path) -> int:
 
     # Mechanical scoring — the agent cannot raise these
     mechanical = score_codebase(project_dir)
-
-    test, lint = _run_mechanical(project_dir, config)
-
-    # Adjust completeness based on mechanical test/lint results
+    test, lint = checks._run_mechanical(project_dir, config)
     if test.passed and lint.passed:
-        mechanical["completeness"] = max(mechanical["completeness"], 90)
+        mechanical["completeness"] = max(mechanical["completeness"], COMPLETENESS_FLOOR_WHEN_GREEN)
     elif not test.passed:
-        mechanical["completeness"] = min(mechanical["completeness"], 50)
+        mechanical["completeness"] = min(mechanical["completeness"], COMPLETENESS_CAP_WHEN_TESTS_FAIL)
 
     # Agent findings can only lower a dimension (e.g. a forgeable stamp the
     # grep-based scorer cannot see); they can never raise one.
@@ -946,122 +169,59 @@ def finalize_evaluate(project_dir: Path, findings_path: Path) -> int:
 
     passed, score, reasons = _decide_evaluate(dimensions, test, lint, threshold)
     report_id = uuid.uuid4().hex[:8]
-    markdown = compose_evaluate_markdown(
-        findings, test, lint, passed, score, threshold, reasons, report_id
-    )
-
-    out_path = _report_path(project_dir, "evaluate", findings["slug"], report_id)
+    markdown = compose_evaluate_markdown(findings, test, lint, passed, score, threshold, reasons, report_id)
+    out_path = checks._report_path(project_dir, "evaluate", findings["slug"], report_id)
     out_path.write_text(markdown, encoding="utf-8")
+    gate_flag = checks._write_gate_flag(project_dir, "evaluate", score=score) if passed else None
 
-    gate_flag = (
-        _write_gate_flag(project_dir, "evaluate", score=score) if passed else None
-    )
-
-    return _emit_response(
-        {
-            "skill": "evaluate",
-            "passed": passed,
-            "score": score,
-            "threshold": threshold,
-            "dimensions": dimensions,
-            "mechanical_dimensions": mechanical,
-            "agent_dimensions": agent_dimensions,
-            "report_path": str(out_path.relative_to(project_dir)),
-            "report_id": report_id,
-            "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
-            "mechanical": {
-                "tests_passed": test.passed,
-                "lint_passed": lint.passed,
-            },
-            "blocking_reasons": reasons,
-        },
-        passed,
+    return _response(
+        project_dir, "evaluate", passed, out_path, gate_flag, report_id, test, lint, reasons,
+        score=score, threshold=threshold, dimensions=dimensions,
+        mechanical_dimensions=mechanical, agent_dimensions=agent_dimensions,
     )
 
 
 def finalize_reviewer(project_dir: Path, findings_path: Path) -> int:
     findings = validate_reviewer_findings(read_findings(findings_path))
     config = load_gate_config(project_dir)
-
-    test, lint = _run_mechanical(project_dir, config)
+    test, lint = checks._run_mechanical(project_dir, config)
     passed, reasons = _decide_reviewer(findings, test, lint)
 
-    # Stamp verification — reviewer must have been invoked via Skill tool
-    stamp_issues = _check_skill_stamp(project_dir, "reviewer")
-    if stamp_issues:
-        passed = False
-        reasons.extend(stamp_issues)
+    # Reviewer must have been invoked via the Skill tool (genuine stamp)
+    stamp_issues = checks._check_skill_stamp(project_dir, "reviewer")
+    reasons.extend(stamp_issues)
 
-    # Review depth check — safe/standard modes only
-    from mode_resolver import resolve_mode_from_config as _resolve_mode
-    current_mode = _resolve_mode(config or {})
-    action_audit = _get_session_action_audit()
-    reviewer_stamp_exists = not bool(stamp_issues)  # stamp exists if no issues
-    depth_issues = _check_review_depth(
-        action_audit, current_mode.name, reviewer_stamp=reviewer_stamp_exists,
-    )
-    if depth_issues:
-        passed = False
-        reasons.extend(depth_issues)
+    # Review depth — safe/standard modes only
+    from mode_resolver import resolve_mode_from_config
+    current_mode = resolve_mode_from_config(config or {})
+    reasons.extend(checks._check_review_depth(
+        checks._get_session_action_audit(), current_mode.name, reviewer_stamp=not stamp_issues,
+    ))
+    passed = passed and not stamp_issues and len(reasons) == 0
 
     report_id = uuid.uuid4().hex[:8]
-    markdown = compose_reviewer_markdown(
-        findings, test, lint, passed, reasons, report_id
-    )
-
-    out_path = _report_path(project_dir, "reviewer", findings["slug"], report_id)
+    markdown = compose_reviewer_markdown(findings, test, lint, passed, reasons, report_id)
+    out_path = checks._report_path(project_dir, "reviewer", findings["slug"], report_id)
     out_path.write_text(markdown, encoding="utf-8")
-
-    gate_flag = _write_gate_flag(project_dir, "reviewer") if passed else None
-
-    return _emit_response(
-        {
-            "skill": "reviewer",
-            "passed": passed,
-            "report_path": str(out_path.relative_to(project_dir)),
-            "report_id": report_id,
-            "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
-            "mechanical": {
-                "tests_passed": test.passed,
-                "lint_passed": lint.passed,
-            },
-            "blocking_reasons": reasons,
-        },
-        passed,
-    )
+    gate_flag = checks._write_gate_flag(project_dir, "reviewer") if passed else None
+    return _response(project_dir, "reviewer", passed, out_path, gate_flag, report_id, test, lint, reasons)
 
 
 def finalize_assess(project_dir: Path, findings_path: Path) -> int:
     findings = validate_assess_findings(read_findings(findings_path))
     config = load_gate_config(project_dir)
-
-    test, lint = _run_mechanical(project_dir, config)
+    test, lint = checks._run_mechanical(project_dir, config)
     passed, reasons = _decide_assess(findings, test, lint)
+
     report_id = uuid.uuid4().hex[:8]
-    markdown = compose_assess_markdown(
-        findings, test, lint, passed, reasons, report_id
-    )
-
-    out_path = _report_path(project_dir, "assess", findings["slug"], report_id)
+    markdown = compose_assess_markdown(findings, test, lint, passed, reasons, report_id)
+    out_path = checks._report_path(project_dir, "assess", findings["slug"], report_id)
     out_path.write_text(markdown, encoding="utf-8")
+    gate_flag = checks._write_gate_flag(project_dir, "assess") if passed else None
+    return _response(project_dir, "assess", passed, out_path, gate_flag, report_id, test, lint, reasons)
 
-    gate_flag = _write_gate_flag(project_dir, "assess") if passed else None
 
-    return _emit_response(
-        {
-            "skill": "assess",
-            "passed": passed,
-            "report_path": str(out_path.relative_to(project_dir)),
-            "report_id": report_id,
-            "gate_flag": str(gate_flag.relative_to(project_dir)) if gate_flag else None,
-            "mechanical": {
-                "tests_passed": test.passed,
-                "lint_passed": lint.passed,
-            },
-            "blocking_reasons": reasons,
-        },
-        passed,
-    )
+# --- CLI ----------------------------------------------------------------------
 
 
 def main(argv: list[str]) -> int:
@@ -1070,7 +230,6 @@ def main(argv: list[str]) -> int:
 
     skill = argv[1]
     findings_path = Path(argv[2]).resolve()
-
     if skill not in SUPPORTED_SKILLS:
         fail(
             f"skill '{skill}' not yet supported by finalize_report.py. "

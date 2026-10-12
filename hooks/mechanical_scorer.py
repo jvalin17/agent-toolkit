@@ -2,7 +2,10 @@
 
 Scans the project for objective, measurable quality signals.
 Called by finalize_report.py to compute evaluate dimension scores.
-The agent cannot influence these scores — they come from the code itself.
+The agent cannot raise these scores — they come from the code itself.
+
+Every threshold and penalty is a named constant below so the scoring policy
+can be read (and tuned) in one place.
 """
 
 from __future__ import annotations
@@ -11,6 +14,43 @@ import ast
 import re
 from pathlib import Path
 from typing import List
+
+# --- Thresholds ---------------------------------------------------------------
+LONG_FUNCTION_LINES = 30        # code_quality: a function longer than this is "long"
+VERY_LONG_FUNCTION_LINES = 50   # efficiency: longer than this is "very long"
+LARGE_FILE_LINES = 500          # code_quality: a module longer than this is "large"
+
+# --- Code quality penalties (start at 100) ------------------------------------
+PENALTY_PER_LONG_FUNCTION = 3
+MAX_PENALTY_LONG_FUNCTIONS = 30
+PENALTY_PER_LARGE_FILE = 10
+MAX_PENALTY_LARGE_FILES = 20
+PENALTY_PER_BARE_EXCEPT = 5
+MAX_PENALTY_BARE_EXCEPTS = 15
+
+# --- Security penalties (start at 100) ----------------------------------------
+PENALTY_PER_SHELL_TRUE = 15
+MAX_PENALTY_SHELL_TRUE = 40
+PENALTY_PER_HARDCODED_SECRET = 20
+MAX_PENALTY_HARDCODED_SECRETS = 40
+
+# --- Test quality (start at TEST_BASE_SCORE, add bonuses, subtract penalties) --
+TEST_BASE_SCORE = 50            # for having any tests at all
+DENSITY_POINTS_PER_TEST_PER_FILE = 15
+MAX_DENSITY_BONUS = 35
+TESTS_PER_COUNT_BONUS_POINT = 5
+MAX_COUNT_BONUS = 10
+PENALTY_PER_SLOPPY_ASSERTION = 5
+MAX_PENALTY_SLOPPY_ASSERTIONS = 20
+
+# --- Efficiency (start at 100) -------------------------------------------------
+PENALTY_PER_VERY_LONG_FUNCTION = 5
+MAX_PENALTY_VERY_LONG_FUNCTIONS = 30
+EFFICIENCY_SCORE_NO_SOURCE = 90  # nothing to measure; not a perfect 100
+
+# --- Completeness proxy ---------------------------------------------------------
+COMPLETENESS_WITH_TESTS = 100
+COMPLETENESS_WITHOUT_TESTS = 30
 
 # Patterns that indicate security problems
 SHELL_TRUE_PATTERN = re.compile(r"shell\s*=\s*True")
@@ -28,6 +68,8 @@ SLOPPY_ASSERTIONS = re.compile(
 
 # Test function detection
 TEST_FUNCTION = re.compile(r"^\s*def\s+(test_\w+)", re.MULTILINE)
+
+BARE_EXCEPT = re.compile(r"except\s*:")
 
 
 def _python_files(project_dir: Path) -> List[Path]:
@@ -51,7 +93,14 @@ def _is_test_file(path: Path) -> bool:
     )
 
 
-def _count_long_functions(path: Path, threshold: int = 30) -> int:
+def _read_source(path: Path) -> str | None:
+    try:
+        return path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+def _count_long_functions(path: Path, threshold: int = LONG_FUNCTION_LINES) -> int:
     """Count functions longer than threshold lines using AST."""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
@@ -60,44 +109,37 @@ def _count_long_functions(path: Path, threshold: int = 30) -> int:
     count = 0
     for node in ast.walk(tree):
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            length = node.end_lineno - node.lineno + 1
-            if length > threshold:
+            if node.end_lineno - node.lineno + 1 > threshold:
                 count += 1
     return count
 
 
+def _capped(count: int, per_item: int, cap: int) -> int:
+    """Penalty or bonus for `count` items at `per_item` each, capped at `cap`."""
+    return min(count * per_item, cap)
+
+
 def check_code_quality(project_dir: Path) -> dict:
     """Scan for code quality signals. Returns score and details."""
-    files = _python_files(project_dir)
-    source_files = [f for f in files if not _is_test_file(f)]
-
+    source_files = [f for f in _python_files(project_dir) if not _is_test_file(f)]
     if not source_files:
         return {"score": 100, "long_functions": 0, "large_files": 0,
                 "bare_excepts": 0, "source_files": 0}
 
-    long_functions = 0
-    large_files = 0
-    bare_excepts = 0
-
+    long_functions = large_files = bare_excepts = 0
     for path in source_files:
         long_functions += _count_long_functions(path)
-
-        try:
-            content = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
+        content = _read_source(path)
+        if content is None:
             continue
-
-        line_count = content.count("\n")
-        if line_count > 500:
+        if content.count("\n") > LARGE_FILE_LINES:
             large_files += 1
+        bare_excepts += len(BARE_EXCEPT.findall(content))
 
-        bare_excepts += len(re.findall(r"except\s*:", content))
-
-    # Score: start at 100, deduct for issues
     score = 100
-    score -= min(long_functions * 3, 30)   # -3 per long function, max -30
-    score -= min(large_files * 10, 20)     # -10 per large file, max -20
-    score -= min(bare_excepts * 5, 15)     # -5 per bare except, max -15
+    score -= _capped(long_functions, PENALTY_PER_LONG_FUNCTION, MAX_PENALTY_LONG_FUNCTIONS)
+    score -= _capped(large_files, PENALTY_PER_LARGE_FILE, MAX_PENALTY_LARGE_FILES)
+    score -= _capped(bare_excepts, PENALTY_PER_BARE_EXCEPT, MAX_PENALTY_BARE_EXCEPTS)
 
     return {
         "score": max(0, score),
@@ -110,25 +152,19 @@ def check_code_quality(project_dir: Path) -> dict:
 
 def check_security(project_dir: Path) -> dict:
     """Scan for security issues. Returns score and details."""
-    files = _python_files(project_dir)
-
-    shell_true_count = 0
-    hardcoded_secrets = 0
-
-    for path in files:
+    shell_true_count = hardcoded_secrets = 0
+    for path in _python_files(project_dir):
         if _is_test_file(path):
             continue
-        try:
-            content = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
+        content = _read_source(path)
+        if content is None:
             continue
-
         shell_true_count += len(SHELL_TRUE_PATTERN.findall(content))
         hardcoded_secrets += len(SECRET_PATTERNS.findall(content))
 
     score = 100
-    score -= min(shell_true_count * 15, 40)   # -15 each, max -40
-    score -= min(hardcoded_secrets * 20, 40)   # -20 each, max -40
+    score -= _capped(shell_true_count, PENALTY_PER_SHELL_TRUE, MAX_PENALTY_SHELL_TRUE)
+    score -= _capped(hardcoded_secrets, PENALTY_PER_HARDCODED_SECRET, MAX_PENALTY_HARDCODED_SECRETS)
 
     return {
         "score": max(0, score),
@@ -147,31 +183,20 @@ def check_test_quality(project_dir: Path) -> dict:
         return {"score": 0, "test_count": 0, "test_files": 0,
                 "sloppy_assertions": 0, "source_files": len(source_files)}
 
-    test_count = 0
-    sloppy_assertions = 0
-
+    test_count = sloppy_assertions = 0
     for path in test_files:
-        try:
-            content = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
+        content = _read_source(path)
+        if content is None:
             continue
-
         test_count += len(TEST_FUNCTION.findall(content))
         sloppy_assertions += len(SLOPPY_ASSERTIONS.findall(content))
 
-    # Score based on: having tests, test count, no sloppy assertions
-    score = 50  # base for having any tests
-
-    # Bonus for test density (tests per source file)
+    score = TEST_BASE_SCORE
     if source_files:
-        density = test_count / max(len(source_files), 1)
-        score += min(int(density * 15), 35)  # up to +35 for good density
-
-    # Bonus for many tests
-    score += min(test_count // 5, 10)  # +1 per 5 tests, max +10
-
-    # Penalty for sloppy assertions
-    score -= min(sloppy_assertions * 5, 20)
+        density = test_count / len(source_files)
+        score += min(int(density * DENSITY_POINTS_PER_TEST_PER_FILE), MAX_DENSITY_BONUS)
+    score += min(test_count // TESTS_PER_COUNT_BONUS_POINT, MAX_COUNT_BONUS)
+    score -= _capped(sloppy_assertions, PENALTY_PER_SLOPPY_ASSERTION, MAX_PENALTY_SLOPPY_ASSERTIONS)
 
     return {
         "score": max(0, min(100, score)),
@@ -184,18 +209,16 @@ def check_test_quality(project_dir: Path) -> dict:
 
 def check_efficiency(project_dir: Path) -> dict:
     """Check for efficiency issues. Returns score and details."""
-    files = _python_files(project_dir)
-    source_files = [f for f in files if not _is_test_file(f)]
-
+    source_files = [f for f in _python_files(project_dir) if not _is_test_file(f)]
     if not source_files:
-        return {"score": 90, "very_long_functions": 0, "source_files": 0}
+        return {"score": EFFICIENCY_SCORE_NO_SOURCE, "very_long_functions": 0, "source_files": 0}
 
-    very_long_functions = 0  # > 50 lines
-    for path in source_files:
-        very_long_functions += _count_long_functions(path, threshold=50)
-
-    score = 100
-    score -= min(very_long_functions * 5, 30)
+    very_long_functions = sum(
+        _count_long_functions(path, threshold=VERY_LONG_FUNCTION_LINES) for path in source_files
+    )
+    score = 100 - _capped(
+        very_long_functions, PENALTY_PER_VERY_LONG_FUNCTION, MAX_PENALTY_VERY_LONG_FUNCTIONS
+    )
 
     return {
         "score": max(0, score),
@@ -209,17 +232,14 @@ def score_codebase(project_dir: Path) -> dict:
 
     Returns dict with keys matching EVAL_DIMENSION_WEIGHTS:
     completeness, code_quality, security, test_quality, efficiency.
-    All values are integers 0-100.
+    All values are integers 0-100. Completeness here is only a proxy
+    (tests exist); finalize_report adjusts it from the real test/lint re-run.
     """
     quality = check_code_quality(project_dir)
     security = check_security(project_dir)
     tests = check_test_quality(project_dir)
     efficiency = check_efficiency(project_dir)
-
-    # Completeness is binary: do tests and lint pass?
-    # This is handled separately by finalize_report (mechanical re-run).
-    # Here we use test_quality as a proxy — having tests = complete.
-    completeness = 100 if tests["test_count"] > 0 else 30
+    completeness = COMPLETENESS_WITH_TESTS if tests["test_count"] > 0 else COMPLETENESS_WITHOUT_TESTS
 
     return {
         "completeness": completeness,

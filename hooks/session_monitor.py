@@ -271,6 +271,89 @@ def _check_edit_failure(tool_name: str, tool_result: str, file_path: str) -> Opt
     return None
 
 
+EDIT_TOOLS = ("Edit", "Write")
+BASH_ERROR_MARKERS = ("error", "traceback", "failed", "exit code")
+
+
+def _resolved(path: str) -> str:
+    return str(Path(path).resolve()) if path else ""
+
+
+def _track_edit_failure(
+    state: SessionState, tool_name: str, tool_result: str, file_path: str,
+) -> Optional[str]:
+    """Record a failed edit (blocks until the file is re-read); clear it on success/read."""
+    edit_warning = _check_edit_failure(tool_name, tool_result, file_path)
+    same_file = _resolved(state.pending_failed_edit) == _resolved(file_path)
+    if edit_warning and file_path:
+        state.pending_failed_edit = _resolved(file_path)
+    elif file_path and same_file and (tool_name in EDIT_TOOLS or tool_name == "Read"):
+        state.pending_failed_edit = ""
+    return edit_warning
+
+
+def _track_edited_files(state: SessionState, tool_name: str, file_path: str) -> None:
+    """Recent test edits (TDD window) and unique files edited (damage radius)."""
+    if tool_name not in EDIT_TOOLS or not file_path:
+        return
+    if is_test_file(file_path):
+        state.last_test_edits.append(file_path)
+        state.last_test_edits = state.last_test_edits[-LAST_TEST_EDITS_MAX:]
+    resolved = _resolved(file_path)
+    if resolved not in state.files_edited:
+        state.files_edited.append(resolved)
+
+
+def _track_bash_errors(state: SessionState, tool_name: str, tool_result: str) -> None:
+    """Keep the last few Bash error signatures for retry-loop detection."""
+    if tool_name != "Bash" or not tool_result:
+        return
+    result_lower = tool_result.lower()
+    if any(marker in result_lower for marker in BASH_ERROR_MARKERS):
+        state.recent_errors.append(tool_result.strip()[:ERROR_MATCH_LENGTH])
+        state.recent_errors = state.recent_errors[-MAX_RECENT_ERRORS:]
+    else:
+        state.recent_errors = []  # success clears history — agent is making progress
+
+
+def _strict_sequence_entry(
+    state: SessionState, tool_name: str, command: str, tool_result: str, file_path: str,
+) -> dict:
+    entry: dict = {"tool": tool_name, "was_test": False}
+    if tool_name == "Bash" and command:
+        entry["command"] = command
+        entry["was_test"] = is_test_command(command)
+        if entry["was_test"]:
+            entry["failed"] = is_test_failure(tool_result)
+        if is_real_system_query(command):
+            entry["was_query"] = True
+            state.exchanges_since_query = 0
+            state.slabs_without_data = 0
+            state.has_queried_this_slab = True
+    elif tool_name in EDIT_TOOLS:
+        entry["file_path"] = file_path
+    return entry
+
+
+def _track_strict_mode(
+    state: SessionState, tool_name: str, command: str, tool_result: str, file_path: str,
+) -> None:
+    """Strict mode: tool sequence, patch-forward and slabs-without-data drift signals."""
+    state.last_tool_sequence.append(
+        _strict_sequence_entry(state, tool_name, command, tool_result, file_path)
+    )
+    state.last_tool_sequence = state.last_tool_sequence[-MAX_TOOL_SEQUENCE_LENGTH:]
+
+    if tool_name in EDIT_TOOLS and not is_test_file(file_path):
+        if detect_patch_forward(state.last_tool_sequence):
+            state.patch_forward_count += 1
+
+    if tool_name == "Skill":
+        if not state.has_queried_this_slab:
+            state.slabs_without_data += 1
+        state.has_queried_this_slab = False
+
+
 def handle_post_tool_use(
     state: SessionState,
     tool_result: str,
@@ -278,88 +361,13 @@ def handle_post_tool_use(
     command: str = "",
     file_path: str = "",
 ) -> tuple:
-    """Handle PostToolUse event. Tracks bytes, drift, and edit failures."""
+    """Handle PostToolUse event. Tracks bytes, edits, errors, and strict-mode drift."""
     state.cumulative_output_bytes += len(tool_result)
-
-    # Detect failed edits — block until agent re-reads the file
-    edit_warning = _check_edit_failure(tool_name, tool_result, file_path)
-    _resolved_fp = str(Path(file_path).resolve()) if file_path else ""
-    _resolved_pending = str(Path(state.pending_failed_edit).resolve()) if state.pending_failed_edit else ""
-    if edit_warning and file_path:
-        state.pending_failed_edit = str(Path(file_path).resolve())
-    elif tool_name in ("Edit", "Write") and not edit_warning and file_path:
-        # Successful edit clears any pending failure on this file
-        if _resolved_pending == _resolved_fp:
-            state.pending_failed_edit = ""
-
-    # Reading the failed file clears the pending state
-    if tool_name == "Read" and file_path and _resolved_pending == _resolved_fp:
-        state.pending_failed_edit = ""
-
-    if tool_name in ("Edit", "Write") and is_test_file(file_path):
-        state.last_test_edits.append(file_path)
-        state.last_test_edits = state.last_test_edits[-LAST_TEST_EDITS_MAX:]
-
-    # Track unique files edited (blast radius)
-    if tool_name in ("Edit", "Write") and file_path:
-        resolved = str(Path(file_path).resolve())
-        if resolved not in state.files_edited:
-            state.files_edited.append(resolved)
-
-    # Track errors for retry loop detection
-    if tool_name == "Bash" and tool_result:
-        result_lower = tool_result.lower()
-        has_error = (
-            "error" in result_lower
-            or "traceback" in result_lower
-            or "failed" in result_lower
-            or "exit code" in result_lower
-        )
-        if has_error:
-            error_key = tool_result.strip()[:ERROR_MATCH_LENGTH]
-            state.recent_errors.append(error_key)
-            state.recent_errors = state.recent_errors[-MAX_RECENT_ERRORS:]
-        else:
-            # Success clears error history — agent is making progress
-            state.recent_errors = []
-
+    edit_warning = _track_edit_failure(state, tool_name, tool_result, file_path)
+    _track_edited_files(state, tool_name, file_path)
+    _track_bash_errors(state, tool_name, tool_result)
     if state.mode == "strict":
-        entry = {"tool": tool_name}
-
-        if tool_name == "Bash" and command:
-            was_test = is_test_command(command)
-            was_query = is_real_system_query(command)
-            entry["was_test"] = was_test
-            entry["command"] = command
-            if was_test:
-                entry["failed"] = is_test_failure(tool_result)
-            if was_query:
-                entry["was_query"] = True
-                state.exchanges_since_query = 0
-                state.slabs_without_data = 0
-                state.has_queried_this_slab = True
-        elif tool_name in ("Edit", "Write"):
-            entry["file_path"] = file_path
-            entry["was_test"] = False
-        else:
-            entry["was_test"] = False
-
-        state.last_tool_sequence.append(entry)
-
-        if len(state.last_tool_sequence) > MAX_TOOL_SEQUENCE_LENGTH:
-            state.last_tool_sequence = state.last_tool_sequence[
-                -MAX_TOOL_SEQUENCE_LENGTH:
-            ]
-
-        if tool_name in ("Edit", "Write") and not is_test_file(file_path):
-            if detect_patch_forward(state.last_tool_sequence):
-                state.patch_forward_count += 1
-
-        if tool_name == "Skill":
-            if not state.has_queried_this_slab:
-                state.slabs_without_data += 1
-            state.has_queried_this_slab = False
-
+        _track_strict_mode(state, tool_name, command, tool_result, file_path)
     return state, edit_warning
 
 

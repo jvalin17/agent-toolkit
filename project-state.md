@@ -17,8 +17,8 @@
 |---------|--------|------|-------|
 | ~~LLM-agnostic modular (Option B)~~ | ~~done~~ | ~~2026-10-12~~ | hosts/*.json, pull API, stub implementation/precommit, generate-project-rules |
 | ~~Evaluate fix plan (65% → re-score)~~ | ~~done~~ | ~~2026-10-12~~ | Stamp forgery, fail-closed config, hook_io consolidation, docs drift, evaluate min-merge, PostCompact migration |
+| ~~Evaluate fix plan round 2~~ | ~~done~~ | ~~2026-10-12~~ | finalize split into 3 modules, long functions split, scorer constants, README routing claim, signed profile→mode fallback, .env.example |
 | Stubify remaining skills | remaining | | Same pattern as implementation/precommit |
-| gate/core profiles vs mode_resolver | remaining | | Signed mode still reads `profile`/`profiles`; legacy reads `mode`. Unify or document as two axes (currently documented in gate-unlock.md) |
 
 ## Recently shipped
 
@@ -31,6 +31,11 @@
 | PostCompact → SessionStart/compact | `PostCompact` is not a Claude Code hook event (settings.json rejected it). Canonical `Compaction` event in `config_generator` maps per host (Claude/Grok/Codex: SessionStart+compact, Cursor: preCompact, Windsurf: post-compact); `install.sh` migrates old settings; `session_monitor.COMPACTION_EVENTS` |
 | Docs drift | README skills table (`/agent-toolkit-mode`, no `/readme`), Aider via default host, plugin.json 14 skills, `enforcement: warn` removed everywhere (never implemented — resolver always blocked), `hooks/gates.json` matches template, configuration.md/gate-unlock.md describe `mode` (legacy) vs `profile` (signed) |
 | finalize_precommit split | `_collect_diff_checks`, `_changed_files_for_spot_check`, `_apply_execution_plan_check`, `_write_precommit_report`; silent passes now log to stderr |
+| finalize module split | `finalize_checks.py` (stamps, depth, spot checks, mechanical re-run, audits, report/flag I/O), `finalize_precommit.py` (decision helpers `_findings_reasons` / `_session_audit_reasons` / `_skill_invocation_reasons` / `_diff_reasons`, test plans, report), `finalize_report.py` (evaluate/reviewer/assess + CLI). All three under 500 lines. Tests patch `finalize_checks.detect_and_run_*` |
+| session_monitor post-tool split | `_track_edit_failure`, `_track_edited_files`, `_track_bash_errors`, `_track_strict_mode` |
+| mechanical_scorer constants | Every threshold/penalty is a named module constant; `tests/test_mechanical_scorer_constants.py` pins them |
+| Signed mode honours `mode` | `gate/core.DEFAULT_PROFILES` built in; `required_skills`: profile → mode (via mode_resolver) → `<action>_requires` → standard. Signed template no longer ships a profiles block |
+| `.env.example` | Every `AGENT_TOOLKIT_*` variable documented; `tests/test_env_example.py` scans hooks/gate/scripts and fails on an undocumented one. Dead `AGENT_TOOLKIT_ENFORCEMENT` read removed |
 | LLM-agnostic modular toolkit (Option B) | `hosts/*.json`, `hooks/host_config.py`, `hooks/skill_pull.py`, MCP pull tools, `functions/*`, stub skills, `generate-project-rules.sh`, orchestrator host+pull_policy. Tests: 1106 passed |
 | Anti-fake: G-REPORT-1 (`report_protect`) | `session_monitor` blocks agent writes to `reports/` |
 | Hook-owned gated skill reports | `finalize_report.py` (+ `finalize_schema.py`, `finalize_render.py`) — precommit, evaluate, reviewer, assess |
@@ -167,7 +172,7 @@ bash tests/test-hooks.sh            # 33 passed
 
 ## Session Summary (2026-10-12)
 
-**Skills used:** /evaluate, /implementation, /precommit
-**Files changed:** README.md, SKILL.md, atk.py, canary_check.py, ci-generate-reports.py, config.py, config_generator.py, configuration.md, core.py, deferral_detect.py, demo-modes.sh, execution-plan.json, finalize_report...
-**Tests:** 1131 passed
+**Skills used:** /evaluate, /implementation, /precommit, /verify
+**Files changed:** .env.example, README.md, SKILL.md, atk.py, canary_check.py, ci-generate-reports.py, config.py, config_generator.py, configuration.md, core.py, deferral_detect.py, demo-modes.sh, execution-plan.json, f...
+**Tests:** 130 passed
 

@@ -42,7 +42,7 @@ Enforcement is always block. A `gates.json` that exists but cannot be parsed blo
 | `gate_mode: signed` | Team `main`, branch protection, JWT attestation |
 | `profile: strict` / `paranoid` | Signed mode only — extra push gates |
 | `AGENT_TOOLKIT_MODE=safe` | One-session mode override |
-| Env overrides | Maintainer/CI — any key as `AGENT_TOOLKIT_<KEY>` |
+| Env overrides | Maintainer/CI — any key as `AGENT_TOOLKIT_<KEY>`; full list in [`.env.example`](../.env.example) |
 
 Full reference: [gate-unlock.md](../shared/gate-unlock.md)
 

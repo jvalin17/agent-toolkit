@@ -26,6 +26,7 @@ HOOK_PATH = REPO_ROOT / "hooks" / "finalize_report.py"
 sys.path.insert(0, str(REPO_ROOT / "hooks"))
 sys.path.insert(0, str(REPO_ROOT))
 
+import finalize_checks as fc
 import finalize_report as fr  # noqa: E402
 from gate.attest import CheckResult  # noqa: E402
 
@@ -544,10 +545,10 @@ class TestEndToEnd:
 
         # Stub mechanical checks to pass without invoking real subprocesses
         with patch.object(
-            fr, "detect_and_run_tests",
+            fc, "detect_and_run_tests",
             return_value=CheckResult("tests", True, "all pass"),
         ), patch.object(
-            fr, "detect_and_run_lint",
+            fc, "detect_and_run_lint",
             return_value=CheckResult("lint", True, "clean"),
         ):
             exit_code = fr.finalize_precommit(project_dir, findings_path)
@@ -572,10 +573,10 @@ class TestEndToEnd:
         monkeypatch.chdir(project_dir)
 
         with patch.object(
-            fr, "detect_and_run_tests",
+            fc, "detect_and_run_tests",
             return_value=CheckResult("python3 -m pytest", False, "1 failed"),
         ), patch.object(
-            fr, "detect_and_run_lint",
+            fc, "detect_and_run_lint",
             return_value=CheckResult("lint", True, "clean"),
         ):
             exit_code = fr.finalize_precommit(project_dir, findings_path)
@@ -590,10 +591,10 @@ class TestEndToEnd:
         monkeypatch.chdir(project_dir)
 
         with patch.object(
-            fr, "detect_and_run_tests",
+            fc, "detect_and_run_tests",
             return_value=CheckResult("python3 -m pytest", False, "1 failed"),
         ), patch.object(
-            fr, "detect_and_run_lint",
+            fc, "detect_and_run_lint",
             return_value=CheckResult("lint", True, "clean"),
         ):
             exit_code = fr.finalize_precommit(project_dir, findings_path)
@@ -629,10 +630,10 @@ class TestEndToEnd:
         monkeypatch.chdir(elsewhere)
 
         with patch.object(
-            fr, "detect_and_run_tests",
+            fc, "detect_and_run_tests",
             return_value=CheckResult("tests", True, "ok"),
         ) as mock_tests, patch.object(
-            fr, "detect_and_run_lint",
+            fc, "detect_and_run_lint",
             return_value=CheckResult("lint", True, "ok"),
         ):
             exit_code = fr.main(
@@ -713,6 +714,74 @@ def _write_evaluate_findings(project_dir: Path, slug: str, findings: dict) -> Pa
     path = scratch / "findings.json"
     path.write_text(json.dumps(findings))
     return path
+
+
+class TestDecidePrecommitHelpers:
+    """The precommit decision is the sum of independent reason lists."""
+
+    def test_findings_reasons_each_field(self, valid_findings):
+        import finalize_precommit as fp
+
+        assert fp._findings_reasons(valid_findings) == []
+        valid_findings["instructions"] = {"addressed": 2, "total": 3}
+        valid_findings["rules"]["violations"] = 1
+        valid_findings["readme"]["passed"] = False
+        valid_findings["tests_meaningful"]["result"] = "sloppy"
+        valid_findings["app_verification"]["status"] = "pending"
+        reasons = fp._findings_reasons(valid_findings)
+        assert reasons == [
+            "instructions: 2/3 addressed",
+            "rules: 1 violation(s)",
+            "readme: validation failed",
+            "test quality: sloppy tests detected",
+            "app verification: still pending",
+        ]
+
+    def test_session_audit_reasons(self, valid_findings):
+        import finalize_precommit as fp
+
+        assert fp._session_audit_reasons(valid_findings, None, {}) == []
+        assert fp._session_audit_reasons(valid_findings, {"available": False}, {}) == []
+
+        valid_findings["app_verification"]["status"] = "done"
+        audit = {"available": True, "server_started": False, "http_request_made": False,
+                 "tdd_order_respected": False, "skill_adherence": {"hollow": ["implementation"]}}
+        reasons = fp._session_audit_reasons(valid_findings, audit, {"mode": "default"})
+        assert any(r.startswith("app verification: no server/HTTP activity") for r in reasons)
+        assert any(r.startswith("TDD violation") for r in reasons)
+        assert any("hollow skill invocation: implementation" in r for r in reasons)
+
+    def test_mode_minimal_skips_tdd_and_plan_reasons(self, valid_findings):
+        import finalize_precommit as fp
+
+        audit = {"available": True, "server_started": True,
+                 "tdd_order_respected": False, "test_plan_before_source": False}
+        assert fp._session_audit_reasons(valid_findings, audit, {"mode": "minimal"}) == []
+
+    def test_skill_invocation_and_diff_reasons(self):
+        import finalize_precommit as fp
+
+        assert fp._skill_invocation_reasons({"available": True, "skills_invoked": ["precommit"]}) == []
+        assert fp._skill_invocation_reasons({"available": True, "skills_invoked": ["explore"]})[0].startswith(
+            "precommit skill not invoked"
+        )
+        reasons = fp._diff_reasons(["src/billing.py: compute_total"], ["tests/test_billing.py:12"])
+        assert reasons[0].startswith("TDD: 1 new function(s) without tests")
+        assert reasons[1].startswith("noqa in tests: 1 suppression(s)")
+
+
+class TestModuleLayout:
+    def test_finalize_modules_under_500_lines(self):
+        for name in ("finalize_report.py", "finalize_precommit.py", "finalize_checks.py"):
+            lines = (REPO_ROOT / "hooks" / name).read_text().count("\n")
+            assert lines < 500, f"{name} has {lines} lines"
+
+    def test_test_facing_names_still_resolve(self):
+        for name in ("_decide_precommit", "finalize_precommit", "_check_test_plans",
+                     "_check_skill_stamp", "_check_stamps", "_check_review_depth",
+                     "_maybe_spot_check", "_spot_check_files", "_require_test_plan",
+                     "_cleanup_test_plans", "_decide_evaluate", "_decide_reviewer", "_decide_assess"):
+            assert callable(getattr(fr, name)), name
 
 
 class TestEvaluateSchemaValidation:
@@ -806,9 +875,9 @@ class TestEvaluateEndToEnd:
         monkeypatch.chdir(project_dir)
 
         with patch.object(
-            fr, "detect_and_run_tests", return_value=CheckResult("tests", True)
+            fc, "detect_and_run_tests", return_value=CheckResult("tests", True)
         ), patch.object(
-            fr, "detect_and_run_lint", return_value=CheckResult("lint", True)
+            fc, "detect_and_run_lint", return_value=CheckResult("lint", True)
         ), patch.object(
             fr, "score_codebase", return_value=dict(self.HIGH_SCORES)
         ):
@@ -838,9 +907,9 @@ class TestEvaluateEndToEnd:
         monkeypatch.chdir(project_dir)
 
         with patch.object(
-            fr, "detect_and_run_tests", return_value=CheckResult("tests", True)
+            fc, "detect_and_run_tests", return_value=CheckResult("tests", True)
         ), patch.object(
-            fr, "detect_and_run_lint", return_value=CheckResult("lint", True)
+            fc, "detect_and_run_lint", return_value=CheckResult("lint", True)
         ), patch.object(
             fr, "score_codebase", return_value=low_scores
         ):
@@ -856,9 +925,9 @@ class TestEvaluateEndToEnd:
         findings_path = _write_evaluate_findings(project_dir, findings["slug"], findings)
         monkeypatch.chdir(project_dir)
         with patch.object(
-            fr, "detect_and_run_tests", return_value=CheckResult("tests", True)
+            fc, "detect_and_run_tests", return_value=CheckResult("tests", True)
         ), patch.object(
-            fr, "detect_and_run_lint", return_value=CheckResult("lint", True)
+            fc, "detect_and_run_lint", return_value=CheckResult("lint", True)
         ), patch.object(
             fr, "score_codebase", return_value=dict(mechanical)
         ):
@@ -1011,9 +1080,9 @@ class TestReviewerEndToEnd:
         monkeypatch.chdir(project_dir)
 
         with patch.object(
-            fr, "detect_and_run_tests", return_value=CheckResult("tests", True)
+            fc, "detect_and_run_tests", return_value=CheckResult("tests", True)
         ), patch.object(
-            fr, "detect_and_run_lint", return_value=CheckResult("lint", True)
+            fc, "detect_and_run_lint", return_value=CheckResult("lint", True)
         ):
             exit_code = fr.finalize_reviewer(project_dir, findings_path)
 
@@ -1038,9 +1107,9 @@ class TestReviewerEndToEnd:
         monkeypatch.chdir(project_dir)
 
         with patch.object(
-            fr, "detect_and_run_tests", return_value=CheckResult("tests", True)
+            fc, "detect_and_run_tests", return_value=CheckResult("tests", True)
         ), patch.object(
-            fr, "detect_and_run_lint", return_value=CheckResult("lint", True)
+            fc, "detect_and_run_lint", return_value=CheckResult("lint", True)
         ):
             exit_code = fr.finalize_reviewer(project_dir, findings_path)
 
@@ -1120,9 +1189,9 @@ class TestAssessEndToEnd:
         monkeypatch.chdir(project_dir)
 
         with patch.object(
-            fr, "detect_and_run_tests", return_value=CheckResult("tests", True)
+            fc, "detect_and_run_tests", return_value=CheckResult("tests", True)
         ), patch.object(
-            fr, "detect_and_run_lint", return_value=CheckResult("lint", True)
+            fc, "detect_and_run_lint", return_value=CheckResult("lint", True)
         ):
             exit_code = fr.finalize_assess(project_dir, findings_path)
 
@@ -1147,9 +1216,9 @@ class TestAssessEndToEnd:
         monkeypatch.chdir(project_dir)
 
         with patch.object(
-            fr, "detect_and_run_tests", return_value=CheckResult("tests", True)
+            fc, "detect_and_run_tests", return_value=CheckResult("tests", True)
         ), patch.object(
-            fr, "detect_and_run_lint", return_value=CheckResult("lint", True)
+            fc, "detect_and_run_lint", return_value=CheckResult("lint", True)
         ):
             exit_code = fr.finalize_assess(project_dir, findings_path)
 

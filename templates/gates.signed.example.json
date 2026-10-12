@@ -1,24 +1,6 @@
 {
-  "_comment": "Copy to gates.json or run: scripts/setup-signed-gates.sh",
+  "_comment": "Copy to gates.json or run: scripts/setup-signed-gates.sh. Profiles minimal/standard/strict/paranoid are built into gate/core.py; add a \"profiles\" block only to override them. Omit \"profile\" to derive gates from \"mode\" like legacy.",
   "gate_mode": "signed",
   "profile": "standard",
-  "eval_threshold": 95,
-  "profiles": {
-    "minimal": {
-      "commit_requires": ["precommit"],
-      "push_requires": []
-    },
-    "standard": {
-      "commit_requires": ["precommit"],
-      "push_requires": ["evaluate"]
-    },
-    "strict": {
-      "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["evaluate", "reviewer"]
-    },
-    "paranoid": {
-      "commit_requires": ["precommit", "evaluate"],
-      "push_requires": ["evaluate", "reviewer", "assess"]
-    }
-  }
+  "eval_threshold": 95
 }

@@ -122,6 +122,63 @@ def test_required_skills_standard_profile(gate_env: Path):
     assert required_skills(config, "push") == ["evaluate"]
 
 
+def test_required_skills_builtin_profile():
+    """No profiles block in gates.json — the built-in table applies."""
+    config = {"gate_mode": "signed", "profile": "paranoid"}
+    assert required_skills(config, "commit") == ["precommit", "evaluate"]
+    assert required_skills(config, "push") == ["evaluate", "reviewer", "assess"]
+
+
+def test_required_skills_file_profiles_override_builtin():
+    config = {
+        "gate_mode": "signed",
+        "profile": "standard",
+        "profiles": {"standard": {"commit_requires": ["precommit", "reviewer"], "push_requires": []}},
+    }
+    assert required_skills(config, "commit") == ["precommit", "reviewer"]
+    assert required_skills(config, "push") == []
+
+
+def test_required_skills_falls_back_to_mode():
+    """Signed mode without a profile honours the legacy `mode` field."""
+    config = {"gate_mode": "signed", "mode": "safe"}
+    assert required_skills(config, "commit") == ["precommit"]
+    assert required_skills(config, "push") == ["reviewer"]
+    assert required_skills({"gate_mode": "signed", "mode": "minimal"}, "commit") == []
+
+
+def test_mode_requires_uses_mode_resolver():
+    from gate.core import _mode_requires
+
+    assert _mode_requires({"mode": "safe"}, "commit") == ["precommit"]
+    assert _mode_requires({"mode": "safe"}, "push") == ["reviewer"]
+    assert _mode_requires({"mode": "minimal"}, "push") == []
+
+
+def test_mode_requires_env_override(monkeypatch):
+    from gate.core import _mode_requires
+
+    monkeypatch.setenv("AGENT_TOOLKIT_MODE", "safe")
+    assert _mode_requires({"mode": "minimal"}, "push") == ["reviewer"]
+
+
+def test_explicit_profile_wins_over_mode():
+    config = {"gate_mode": "signed", "profile": "strict", "mode": "minimal"}
+    assert required_skills(config, "commit") == ["precommit", "evaluate"]
+
+
+def test_required_skills_defaults_to_standard_without_profile_or_mode():
+    assert required_skills({"gate_mode": "signed"}, "push") == ["evaluate"]
+
+
+def test_resolve_profile_records_mode_when_no_profile():
+    from gate.core import resolve_profile
+
+    assert resolve_profile({"profile": "strict"}) == "strict"
+    assert resolve_profile({"mode": "safe"}) == "mode:safe"
+    assert resolve_profile({}) == "standard"
+
+
 def test_push_token_does_not_satisfy_commit(gate_env: Path):
     """Push-scoped tokens no longer duplicate precommit (commit-only gate)."""
     att = _attestation_all_passed()

@@ -35,7 +35,7 @@ Review `gates.json` after switching.
 
 **Legacy mode** reads the `mode` field (`minimal` … `safe`); see the mode table in the README [Configuration](../README.md#configuration) section and `hooks/mode_resolver.py`.
 
-**Signed mode** reads a `profile` (used by `gate/core.py` when issuing and verifying tokens):
+**Signed mode** (`gate/core.py`, when issuing and verifying tokens) resolves in this order: an explicit `profile` → the legacy `mode` field → `<action>_requires` keys → the built-in `standard` profile. So a project that only sets `mode` gets the same gates in both modes; set `profile` only when you want the push-time `evaluate` gate that profiles add. The four profiles are built in; a `profiles` block in `gates.json` overrides them.
 
 | Profile | Commit needs | Push needs |
 |---------|-------------|------------|
