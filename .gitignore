@@ -48,3 +48,8 @@ roles/.learn-cache/
 roles/conversation-prompts.md
 roles/*/books/
 .agent-toolkit/
+
+# Local environment — never commit; .env.example is the committed template
+.env
+.env.*
+!.env.example
