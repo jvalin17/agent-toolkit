@@ -202,7 +202,7 @@ def _verify_jwt(
 ) -> tuple[bool, str]:
     try:
         secret = load_signing_secret(project_root, signing_key_path)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, ValueError) as exc:
         return False, str(exc)
 
     try:
@@ -211,19 +211,15 @@ def _verify_jwt(
             secret,
             algorithms=[ALGORITHM],
             issuer=ISSUER,
-            options={"require": ["exp", "iat"], "verify_aud": False},
+            leeway=0,
+            options={"require": ["exp", "iat", "action", "gates"], "verify_aud": False},
         )
     except jwt.PyJWTError as exc:
         return False, f"token invalid: {exc}"
 
-    if commit_sha and payload.get("commit_sha") != commit_sha:
-        return (
-            False,
-            f"token commit_sha mismatch (token={payload.get('commit_sha')}, head={commit_sha})",
-        )
-
-    if "gates" not in payload:
-        return False, "token missing gates claim"
+    claim_error = _check_binding_claims(payload, project_root, action, commit_sha)
+    if claim_error:
+        return False, claim_error
 
     required = required_skills(config, action)
     threshold = eval_threshold(config)
@@ -245,15 +241,38 @@ def _verify_jwt(
     return True, "ok"
 
 
+def _check_binding_claims(
+    payload: dict[str, Any], project_root: Path, action: str, commit_sha: str | None,
+) -> str | None:
+    """A token is bound to one action, one repo, one ref and one commit."""
+    from gate.attest import git_ref, git_repo_slug
+
+    if payload.get("action") != action:
+        return f"token action mismatch (token={payload.get('action')}, requested={action})"
+    if commit_sha and payload.get("commit_sha") != commit_sha:
+        return f"token commit_sha mismatch (token={payload.get('commit_sha')}, head={commit_sha})"
+
+    expected_repo = git_repo_slug(project_root)
+    if expected_repo != "local/unknown" and payload.get("aud") != expected_repo:
+        return f"token aud mismatch (token={payload.get('aud')}, repo={expected_repo})"
+
+    current_ref = git_ref(project_root)
+    token_ref = payload.get("ref")
+    if token_ref and current_ref not in ("unknown", "") and token_ref != current_ref:
+        return f"token ref mismatch (token={token_ref}, head={current_ref})"
+    return None
+
+
 def _verify_legacy(project_root: Path, action: str, config: dict[str, Any]) -> tuple[bool, str]:
+    from gate.flags import verify_flag
+
     required = required_skills(config, action)
     missing = []
     for skill in required:
-        flag = project_root / ".gates" / f"{skill}-passed"
-        if not flag.is_file():
-            missing.append(skill)
+        ok, text, reason = verify_flag(project_root, skill)
+        if not ok:
+            missing.append(skill if reason == "missing" else f"{skill}(unverified: {reason})")
             continue
-        text = flag.read_text(encoding="utf-8")
         if skill == "precommit" and "READY" not in text:
             missing.append(f"{skill}(no READY)")
         elif skill == "evaluate":

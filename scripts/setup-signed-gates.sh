@@ -85,18 +85,18 @@ jq --arg profile "$PROFILE" \
   "$GATES_FILE" > "$TMP" && mv "$TMP" "$GATES_FILE"
 echo "[2/5] gates.json → gate_mode=signed, profile=$PROFILE"
 
-# 3. Signing key
-KEY_FILE="$PROJECT_ROOT/.gate/signing.key"
-if [ ! -f "$KEY_FILE" ]; then
-  (cd "$PROJECT_ROOT" && python3 -c "
+# 3. Signing key — outside the worktree (see gate/keys.py); bootstrap created it.
+KEY_FILE="$(cd "$PROJECT_ROOT" && python3 -c "
 import sys
 from pathlib import Path
 sys.path.insert(0, '.agent-toolkit')
-from gate.keys import generate_signing_secret
-generate_signing_secret(Path('.gate/signing.key'), Path('.gate/signing.meta.json'))
-")
+from gate.keys import default_key_path
+print(default_key_path(Path('.').resolve()))
+")"
+if [ ! -f "$KEY_FILE" ] && [ -f "$PROJECT_ROOT/.gate/signing.key" ]; then
+  KEY_FILE="$PROJECT_ROOT/.gate/signing.key"   # legacy in-repo key still honoured
 fi
-echo "[3/5] Signing key: $KEY_FILE (gitignored — back this up if you use multiple machines)"
+echo "[3/5] Signing key: $KEY_FILE (0600, outside the repo — back it up if you use multiple machines)"
 
 # 4. Optional GitHub secret
 if [ "$UPLOAD_SECRET" -eq 1 ]; then

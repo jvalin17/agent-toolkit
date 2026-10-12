@@ -112,15 +112,19 @@ def detect_and_run_tests(cwd: Path, config: dict) -> CheckResult:
     # Recursion guard: if we're already inside a pytest run, do not re-invoke
     # pytest from attestation/finalize. Tests that exercise the real flow
     # should mock this function.
+    custom = config.get("test_command")
+    if custom:
+        refusal = _refuse_untrusted(custom, "test_command")
+        if refusal:
+            return refusal
     if os.environ.get("PYTEST_CURRENT_TEST"):
         return CheckResult(
             name="tests",
             passed=True,
             detail="skipped inside pytest to avoid recursive invocation",
         )
-    custom = config.get("test_command")
     if custom:
-        return run_command(custom if isinstance(custom, list) else custom.split(), cwd)
+        return _run_repo_command(custom, cwd, "test_command")
 
     if (cwd / "pytest.ini").exists() or (cwd / "pyproject.toml").exists() or list(cwd.glob("**/test_*.py")):
         if (cwd / "pyproject.toml").exists() or (cwd / "requirements.txt").exists():
@@ -133,13 +137,42 @@ def detect_and_run_tests(cwd: Path, config: dict) -> CheckResult:
 def detect_and_run_lint(cwd: Path, config: dict) -> CheckResult:
     custom = config.get("lint_command")
     if custom:
-        return run_command(custom if isinstance(custom, list) else custom.split(), cwd)
+        return _run_repo_command(custom, cwd, "lint_command")
 
     if (cwd / "pyproject.toml").exists() or (cwd / "ruff.toml").exists():
         return run_command([sys.executable, "-m", "ruff", "check", "."], cwd)
     if (cwd / "package.json").exists():
         return run_command(["npm", "run", "lint", "--if-present"], cwd)
     return CheckResult(name="lint", passed=True, detail="no linter configured — skipped")
+
+
+def _argv(custom) -> list[str]:
+    argv = list(custom) if isinstance(custom, list) else str(custom).split()
+    return [str(a) for a in argv]
+
+
+def _refuse_untrusted(custom, key: str) -> CheckResult | None:
+    """gates.json is repository-controlled; a hostile clone must not get code
+    execution through the gate (see gate/command_policy.py). None = trusted."""
+    from gate.command_policy import check_command
+
+    argv = _argv(custom)
+    ok, reason = check_command(argv)
+    if ok:
+        return None
+    return CheckResult(
+        name=" ".join(argv) or key,
+        passed=False,
+        detail=f"{key} not allowlisted — {reason}. Run it yourself or use a trusted runner.",
+    )
+
+
+def _run_repo_command(custom, cwd: Path, key: str) -> CheckResult:
+    """Run a gates.json-supplied command only if gate.command_policy trusts it."""
+    refusal = _refuse_untrusted(custom, key)
+    if refusal:
+        return refusal
+    return run_command(_argv(custom), cwd)
 
 
 def _normalize_python_cmd(cmd: list[str]) -> list[str]:

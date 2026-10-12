@@ -7,7 +7,8 @@ are enforced the same way as Claude Code.
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, Optional, Tuple
+import sys
+from typing import Any, Callable, Dict, Optional, Tuple
 
 from agent_detect import detect_agent, detect_from_stdin
 from stdin_adapter import normalize_input, normalize_output
@@ -103,6 +104,29 @@ def make_block_json(reason: str, agent: str = "claude-code", event: str = "PreTo
         },
     }
     return json.dumps(payload)
+
+
+def run_guarded(main: Callable[[], int], hook_name: str) -> int:
+    """Run a hook's main(); on an internal error emit a block and exit 2.
+
+    Claude Code treats a hook that exits 1 (an uncaught exception) as a
+    non-blocking error and lets the tool call proceed. For gate and
+    path-protection hooks that is fail-open, so a crash must deny instead.
+    """
+    try:
+        return main()
+    except SystemExit as exc:  # a hook may already sys.exit() with a code
+        code = exc.code if isinstance(exc.code, int) else 1
+        return code
+    except Exception as exc:  # noqa: BLE001 — any crash fails closed
+        reason = (
+            f"{hook_name} crashed ({type(exc).__name__}: {exc}); gates fail closed. "
+            f"Run `python3 hooks/{hook_name}.py` on the same input to debug, "
+            "or fix gates.json."
+        )
+        sys.stderr.write(f"{hook_name}: {reason}\n")
+        print(make_block_json(reason))
+        return 2
 
 
 def make_context_json(

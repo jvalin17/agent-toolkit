@@ -4,8 +4,10 @@
 #   - SessionStart (session_init.py) when a session loads
 #   - PreToolUse on Skill before every skill invocation
 #
-# Runs git pull (default on) then install.sh --sync-only.
-# Disable pull: AGENT_TOOLKIT_AUTO_PULL=0
+# Runs install.sh --sync-only. Pulling from the network is OPT-IN:
+#   AGENT_TOOLKIT_AUTO_PULL=1   also git pull --ff-only first (prints what changed)
+# Default is no pull: a push to the upstream repo must not become code that
+# runs as hooks on every machine at the next session without anyone looking.
 #
 # Exit 0 on success; exit 1 if pull or sync fails after retries.
 # Callers that must not block the session should handle non-zero exit explicitly.
@@ -47,14 +49,24 @@ _retry() {
 
 SYNC_VERBOSE="${AGENT_TOOLKIT_SYNC_VERBOSE:-}"
 
-# Auto-pull latest toolkit (default on; set AGENT_TOOLKIT_AUTO_PULL=0 to disable)
-if [ "${AGENT_TOOLKIT_AUTO_PULL:-1}" != "0" ] && \
-   [ "${AGENT_TOOLKIT_AUTO_PULL:-1}" != "false" ] && \
-   [ "${AGENT_TOOLKIT_AUTO_PULL:-1}" != "no" ]; then
-  if ! _retry "git pull" git -C "$SCRIPT_DIR" pull --ff-only; then
-    PULL_OK=0
-  fi
-fi
+# Auto-pull latest toolkit — opt-in only (supply-chain: see header)
+case "${AGENT_TOOLKIT_AUTO_PULL:-}" in
+  1|true|yes)
+    BEFORE="$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+    if _retry "git pull" git -C "$SCRIPT_DIR" pull --ff-only; then
+      AFTER="$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)"
+      if [ "$BEFORE" != "$AFTER" ]; then
+        _log "toolkit updated $BEFORE -> $AFTER; changes:"
+        git -C "$SCRIPT_DIR" log --oneline "$BEFORE..$AFTER" 2>/dev/null >&2 || true
+      fi
+    else
+      PULL_OK=0
+    fi
+    ;;
+  *)
+    _log "skipping git pull (set AGENT_TOOLKIT_AUTO_PULL=1 to pull on session start, or run: git -C $SCRIPT_DIR pull)"
+    ;;
+esac
 
 # Full idempotent sync (symlinks + hooks + bootstrap + bin entrypoints)
 if [ "$SYNC_VERBOSE" = "1" ]; then

@@ -31,7 +31,7 @@ DUNDER_RE = re.compile(r"^__\w+__$")
 
 # Files/dirs exempt from TDD diff check
 DIFF_TDD_EXEMPT_DIRS = re.compile(
-    r"(^|/)(hooks|scripts|migrations|\.github|templates|config|docs|static|demos)(/|$)"
+    r"(^|/)(hooks|scripts|migrations|\.github|\.agent-toolkit|templates|config|docs|static|demos)(/|$)"
 )
 
 DIFF_TEST_FILE_PATTERN = re.compile(

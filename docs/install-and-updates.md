@@ -36,13 +36,17 @@ Day-to-day updates are automatic (see below).
 | Session start / after compact | `session_init.py` → `update.sh` |
 | Every skill (`/precommit`, …) | `update.sh` |
 
-`update.sh` runs `git pull` + `install.sh --sync-only` (retries twice, logs failures to stderr, **exits 1** if either step fails after retries), which:
+`update.sh` runs `install.sh --sync-only` (retries twice, logs failures to stderr, **exits 1** if it fails after retries), which:
 - Symlinks new skills/agents/shared
 - Merges new hooks into `settings.json`
 - Refreshes hook paths if you moved the clone
 - Re-syncs `.agent-toolkit/gate/` and merges missing `gates.json` keys
 
-Disable auto-pull: `AGENT_TOOLKIT_AUTO_PULL=0`
+**Pulling from GitHub is opt-in.** Hooks run as you on every machine, so a push to the upstream repo must not silently become running code at your next session. Enable the pull deliberately:
+
+```bash
+export AGENT_TOOLKIT_AUTO_PULL=1    # update.sh then runs git pull --ff-only and prints what changed
+```
 
 ## Manual update
 

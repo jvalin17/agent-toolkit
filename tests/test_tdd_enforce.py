@@ -184,14 +184,23 @@ class TestTDDModeToggle:
         data = json.loads(output)
         assert data["decision"] == "block"
 
-    def test_env_var_mode_override(self, tmp_path, monkeypatch):
-        """AGENT_TOOLKIT_MODE overrides gates.json mode."""
+    def test_env_var_cannot_disable_tdd(self, tmp_path, monkeypatch):
+        """AGENT_TOOLKIT_MODE=minimal is ignored when gates.json enables TDD."""
         (tmp_path / "gates.json").write_text(json.dumps({"mode": "default"}))
         monkeypatch.setenv("AGENT_TOOLKIT_MODE", "minimal")
         stdin = make_input(str(tmp_path / "main.py"))
         exit_code, output = run_tdd_enforce(stdin, tmp_path)
         assert exit_code == 0
-        assert output == ""
+        assert output != ""  # still enforced
+
+    def test_env_var_can_enable_tdd(self, tmp_path, monkeypatch):
+        """AGENT_TOOLKIT_MODE=default strengthens a minimal gates.json."""
+        (tmp_path / "gates.json").write_text(json.dumps({"mode": "minimal"}))
+        monkeypatch.setenv("AGENT_TOOLKIT_MODE", "default")
+        stdin = make_input(str(tmp_path / "main.py"))
+        exit_code, output = run_tdd_enforce(stdin, tmp_path)
+        assert exit_code == 0
+        assert output != ""
 
     def test_no_config_defaults_to_tdd_enabled(self, tmp_path):
         """Without gates.json, defaults to 'default' mode which has TDD."""

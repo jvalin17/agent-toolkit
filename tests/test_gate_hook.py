@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from gate.flags import sign_flag_file
 from hooks.gate_hook import (
     detect_git_action,
     check_gate_flags,
@@ -81,38 +82,38 @@ class TestCheckGateFlags:
         assert "precommit" in missing
 
     def test_valid_precommit(self, project_dir, gates_dir):
-        (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
+        sign_flag_file(gates_dir / "precommit-passed", "READY 2026-05-20")
         missing = check_gate_flags(["precommit"], project_dir)
         assert missing == []
 
     def test_precommit_without_ready(self, project_dir, gates_dir):
-        (gates_dir / "precommit-passed").write_text("")
+        sign_flag_file(gates_dir / "precommit-passed", "")
         missing = check_gate_flags(["precommit"], project_dir)
         assert len(missing) == 1
         assert "READY" in missing[0] or "precommit" in missing[0]
 
     def test_evaluate_below_threshold(self, project_dir, gates_dir):
-        (gates_dir / "evaluate-passed").write_text("PASSED 40% 2026-05-20")
+        sign_flag_file(gates_dir / "evaluate-passed", "PASSED 40% 2026-05-20")
         missing = check_gate_flags(["evaluate"], project_dir, eval_threshold=95)
         assert len(missing) == 1
 
     def test_evaluate_at_threshold(self, project_dir, gates_dir):
-        (gates_dir / "evaluate-passed").write_text("PASSED 95% 2026-05-20")
+        sign_flag_file(gates_dir / "evaluate-passed", "PASSED 95% 2026-05-20")
         missing = check_gate_flags(["evaluate"], project_dir, eval_threshold=95)
         assert missing == []
 
     def test_evaluate_below_94(self, project_dir, gates_dir):
-        (gates_dir / "evaluate-passed").write_text("PASSED 94% 2026-05-20")
+        sign_flag_file(gates_dir / "evaluate-passed", "PASSED 94% 2026-05-20")
         missing = check_gate_flags(["evaluate"], project_dir, eval_threshold=95)
         assert len(missing) == 1
 
     def test_reviewer_without_passed(self, project_dir, gates_dir):
-        (gates_dir / "reviewer-passed").write_text("")
+        sign_flag_file(gates_dir / "reviewer-passed", "")
         missing = check_gate_flags(["reviewer"], project_dir)
         assert len(missing) == 1
 
     def test_reviewer_with_passed(self, project_dir, gates_dir):
-        (gates_dir / "reviewer-passed").write_text("PASSED 2026-05-20")
+        sign_flag_file(gates_dir / "reviewer-passed", "PASSED 2026-05-20")
         missing = check_gate_flags(["reviewer"], project_dir)
         assert missing == []
 
@@ -146,6 +147,103 @@ class TestLoadGateConfig:
         assert config["mode"] == "safe"
         assert "gates.json" in config["_config_error"]
         assert "_no_config" not in config
+
+
+class TestMissingConfigFailsClosed:
+    """No gates.json is fine for a plain repo, not for a repo that had one."""
+
+    COMMIT = '{"tool_name":"Bash","tool_input":{"command":"git commit -m \\"add invoice export\\""}}'
+
+    def _git(self, cwd, *args):
+        import subprocess
+        subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True)
+
+    def test_plain_repo_without_config_is_allowed(self, tmp_path):
+        exit_code, output = run_gate(self.COMMIT, tmp_path)
+        assert (exit_code, output) == (0, "")
+
+    def test_deleted_gates_json_blocks(self, tmp_path):
+        self._git(tmp_path, "init", "-q")
+        self._git(tmp_path, "config", "user.email", "ana@acme.dev")
+        self._git(tmp_path, "config", "user.name", "Ana")
+        (tmp_path / "gates.json").write_text('{"gate_mode":"legacy","mode":"default"}')
+        self._git(tmp_path, "add", "gates.json")
+        self._git(tmp_path, "commit", "-q", "-m", "add gates")
+        (tmp_path / "gates.json").unlink()
+
+        _, output = run_gate(self.COMMIT, tmp_path)
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert "gates.json" in data["reason"]
+        assert "deleted" in data["reason"] or "missing" in data["reason"]
+
+    def test_toolkit_marker_without_config_blocks(self, tmp_path):
+        (tmp_path / ".agent-toolkit").mkdir()
+        _, output = run_gate(self.COMMIT, tmp_path)
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert ".agent-toolkit" in data["reason"]
+
+
+class TestMultipleActions:
+    def test_commit_and_push_in_one_command_checks_both_gates(self, project_dir, gates_dir):
+        """Safe mode: precommit present but reviewer missing → the push half blocks."""
+        (project_dir / "gates.json").write_text(json.dumps({"gate_mode": "legacy", "mode": "safe"}))
+        sign_flag_file(gates_dir / "precommit-passed", "READY 2026-10-12")
+        event = '{"tool_name":"Bash","tool_input":{"command":"git commit -m x && git push origin main"}}'
+        _, output = run_gate(event, project_dir)
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert "push" in data["reason"]
+        assert "reviewer" in data["reason"]
+
+    def test_wrapped_commit_is_gated(self, project_dir):
+        event = '{"tool_name":"Bash","tool_input":{"command":"bash -c \\"git commit -m x\\""}}'
+        _, output = run_gate(event, project_dir)
+        assert json.loads(output)["decision"] == "block"
+
+    def test_unsigned_flag_does_not_unlock(self, project_dir, gates_dir):
+        (gates_dir / "precommit-passed").write_text("READY 2026-10-12\n")
+        _, output = run_gate(self_commit(), project_dir)
+        data = json.loads(output)
+        assert data["decision"] == "block"
+        assert "unverified" in data["reason"]
+        assert "unsigned" in data["reason"]
+
+
+class TestSignedVerifyPath:
+    def test_signed_verify_uses_toolkit_script(self, project_dir, monkeypatch):
+        """A project copy of verify_gate.py (agent-editable) must never be the verifier."""
+        from unittest.mock import patch
+        import hooks.gate_hook as gh
+
+        (project_dir / "gates.json").write_text(json.dumps({"gate_mode": "signed", "mode": "default"}))
+        evil = project_dir / ".agent-toolkit" / "gate" / "scripts"
+        evil.mkdir(parents=True)
+        (evil / "verify_gate.py").write_text("import sys; sys.exit(0)\n")
+        calls = []
+
+        def fake_run(argv, **kwargs):
+            calls.append(argv)
+
+            class R:
+                returncode = 0
+                stdout = "abc123\n"
+                stderr = ""
+            return R()
+
+        with patch.object(gh.subprocess, "run", side_effect=fake_run):
+            exit_code, output = run_gate(self_commit(), project_dir)
+
+        verify_calls = [c for c in calls if any("verify_gate.py" in str(a) for a in c)]
+        assert len(verify_calls) == 1
+        script = next(a for a in verify_calls[0] if str(a).endswith("verify_gate.py"))
+        assert str(script).startswith(str(gh._TOOLKIT_ROOT))
+        assert ".agent-toolkit" not in str(script)
+
+
+def self_commit() -> str:
+    return '{"tool_name":"Bash","tool_input":{"command":"git commit -m \\"x\\""}}'
 
 
 class TestCorruptConfigBlocksGit:
@@ -194,7 +292,7 @@ class TestRunGate:
         assert "block" in output
 
     def test_commit_allowed_with_precommit_in_default_mode(self, project_dir, gates_dir):
-        (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
+        sign_flag_file(gates_dir / "precommit-passed", "READY 2026-05-20")
         exit_code, output = run_gate(
             '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
@@ -219,7 +317,7 @@ class TestRunGate:
         (project_dir / "gates.json").write_text(json.dumps({
             "gate_mode": "legacy", "mode": "safe",
         }))
-        (gates_dir / "precommit-passed").write_text("READY 2026-05-20")
+        sign_flag_file(gates_dir / "precommit-passed", "READY 2026-05-20")
         exit_code, output = run_gate(
             '{"tool_input":{"command":"git push origin main"}}',
             project_dir,
@@ -232,7 +330,7 @@ class TestRunGate:
         (project_dir / "gates.json").write_text(json.dumps({
             "gate_mode": "legacy", "mode": "safe",
         }))
-        (gates_dir / "reviewer-passed").write_text("PASSED 2026-05-20")
+        sign_flag_file(gates_dir / "reviewer-passed", "PASSED 2026-05-20")
         exit_code, output = run_gate(
             '{"tool_input":{"command":"git push origin main"}}',
             project_dir,
@@ -256,7 +354,8 @@ class TestRunGate:
         )
         assert exit_code == 0
 
-    def test_signed_mode_blocks_when_verify_script_missing(self, project_dir):
+    def test_signed_mode_blocks_outside_git_repo(self, project_dir):
+        """Signed mode always uses the toolkit verifier; with no repo it fails closed."""
         gates = {
             "gate_mode": "signed",
             "mode": "default",
@@ -269,7 +368,7 @@ class TestRunGate:
         )
         assert exit_code == 0
         assert "block" in output
-        assert "verify_gate.py not found" in output
+        assert "signed mode" in output
 
     def test_signed_mode_blocks_on_verify_oserror(
         self, project_dir, monkeypatch
@@ -296,15 +395,40 @@ class TestRunGate:
         assert "block" in output
         assert "verification unavailable" in output
 
-    def test_env_mode_override(self, project_dir, monkeypatch):
-        """AGENT_TOOLKIT_MODE env var overrides gates.json mode."""
+    def test_env_mode_override_cannot_weaken(self, project_dir, monkeypatch):
+        """AGENT_TOOLKIT_MODE=minimal is ignored when gates.json says default (still gated)."""
         monkeypatch.setenv("AGENT_TOOLKIT_MODE", "minimal")
         exit_code, output = run_gate(
             '{"tool_input":{"command":"git commit -m \\"test\\""}}',
             project_dir,
         )
         assert exit_code == 0
-        assert output == ""
+        assert json.loads(output)["decision"] == "block"
+
+    def test_env_mode_override_can_strengthen(self, project_dir, gates_dir, monkeypatch):
+        """AGENT_TOOLKIT_MODE=safe on a default project adds the reviewer push gate."""
+        monkeypatch.setenv("AGENT_TOOLKIT_MODE", "safe")
+        _, output = run_gate(
+            '{"tool_input":{"command":"git push origin main"}}',
+            project_dir,
+        )
+        assert "reviewer" in json.loads(output)["reason"]
+
+    def test_protect_env_cannot_switch_off(self, monkeypatch):
+        monkeypatch.setenv("AGENT_TOOLKIT_GATE_PROTECT", "false")
+        monkeypatch.setenv("AGENT_TOOLKIT_EVAL_THRESHOLD", "10")
+        monkeypatch.setenv("AGENT_TOOLKIT_SKILL_ENFORCE", "off")
+        config = {"gate_protect": True, "eval_threshold": 95, "skill_enforce": "block"}
+        assert get_config_value(config, "gate_protect", True) is True
+        assert get_config_value(config, "eval_threshold", 95) == 95
+        assert get_config_value(config, "skill_enforce", "remind") == "block"
+
+    def test_protect_env_can_switch_on(self, monkeypatch):
+        monkeypatch.setenv("AGENT_TOOLKIT_GATE_PROTECT", "true")
+        monkeypatch.setenv("AGENT_TOOLKIT_EVAL_THRESHOLD", "99")
+        config = {"gate_protect": False, "eval_threshold": 95}
+        assert get_config_value(config, "gate_protect", True) is True
+        assert get_config_value(config, "eval_threshold", 95) == 99
 
 
 class TestGetConfigValue:
@@ -360,7 +484,7 @@ class TestStalePrecommitBlock:
 
     def test_blocks_commit_when_impl_stamp_newer_than_precommit(self, project_dir, gates_dir):
         """Commit blocked when implementation stamp is newer than precommit."""
-        (gates_dir / "precommit-passed").write_text("READY")
+        sign_flag_file(gates_dir / "precommit-passed", "READY")
         self._make_stamp(gates_dir, "precommit", offset_seconds=0)
         self._make_stamp(gates_dir, "implementation", offset_seconds=1)
         (project_dir / "gates.json").write_text(json.dumps({"gate_mode": "legacy", "mode": "default"}))
@@ -373,7 +497,7 @@ class TestStalePrecommitBlock:
 
     def test_allows_commit_when_precommit_is_latest(self, project_dir, gates_dir):
         """Commit allowed when precommit stamp is the most recent."""
-        (gates_dir / "precommit-passed").write_text("READY")
+        sign_flag_file(gates_dir / "precommit-passed", "READY")
         self._make_stamp(gates_dir, "implementation", offset_seconds=0)
         self._make_stamp(gates_dir, "precommit", offset_seconds=1)
         (project_dir / "gates.json").write_text(json.dumps({"gate_mode": "legacy", "mode": "default"}))

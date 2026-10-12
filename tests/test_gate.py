@@ -179,6 +179,63 @@ def test_resolve_profile_records_mode_when_no_profile():
     assert resolve_profile({}) == "standard"
 
 
+def test_key_outside_worktree_and_min_length(tmp_path, monkeypatch):
+    """The signing key lives under HOME, never in the repo the agent works in."""
+    import stat
+    from gate.keys import MIN_SECRET_CHARS, default_key_path, generate_signing_secret, load_signing_secret
+
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.delenv("AGENT_TOOLKIT_GATE_SECRET", raising=False)
+    monkeypatch.delenv("AGENT_TOOLKIT_GATE_PRIVATE_KEY", raising=False)
+    project = tmp_path / "billing-app"
+    project.mkdir()
+
+    key_path = generate_signing_secret(project_root=project)
+    assert key_path == default_key_path(project)
+    assert str(key_path).startswith(str(tmp_path / "home"))
+    assert not str(key_path).startswith(str(project))
+    assert stat.S_IMODE(key_path.stat().st_mode) == 0o600
+    assert load_signing_secret(project) == key_path.read_text().strip()
+
+    key_path.write_text("short\n")
+    with pytest.raises(ValueError, match=str(MIN_SECRET_CHARS)):
+        load_signing_secret(project)
+
+
+def test_legacy_project_key_still_accepted(gate_env: Path):
+    from gate.keys import load_signing_secret
+
+    assert len(load_signing_secret(gate_env)) >= 32
+
+
+def test_rejects_wrong_aud_action_ref(gate_env: Path):
+    def git(*args):
+        subprocess.run(["git", *args], cwd=gate_env, check=True, capture_output=True)
+
+    git("init", "-q")
+    git("remote", "add", "origin", "https://github.com/acme/billing.git")
+    config = load_gates_config(gate_env)
+
+    good = _attestation_all_passed()
+    good["repo"] = "acme/billing"
+    good["ref"] = subprocess.run(
+        ["git", "symbolic-ref", "-q", "HEAD"], cwd=gate_env, capture_output=True, text=True
+    ).stdout.strip()
+    token = issue_token(good, config, "push", gate_env)
+    assert verify_token(token, gate_env, "push", commit_sha="abc123")[0] is True
+
+    other_repo = dict(good, repo="evil/other")
+    ok, msg = verify_token(issue_token(other_repo, config, "push", gate_env), gate_env, "push", commit_sha="abc123")
+    assert ok is False and "aud" in msg
+
+    ok, msg = verify_token(token, gate_env, "commit", commit_sha="abc123")
+    assert ok is False and "action" in msg
+
+    other_ref = dict(good, ref="refs/heads/release-2026-10")
+    ok, msg = verify_token(issue_token(other_ref, config, "push", gate_env), gate_env, "push", commit_sha="abc123")
+    assert ok is False and "ref" in msg
+
+
 def test_push_token_does_not_satisfy_commit(gate_env: Path):
     """Push-scoped tokens no longer duplicate precommit (commit-only gate)."""
     att = _attestation_all_passed()
@@ -186,7 +243,7 @@ def test_push_token_does_not_satisfy_commit(gate_env: Path):
     token = issue_token(att, config, "push", gate_env)
     ok, msg = verify_token(token, gate_env, "commit", commit_sha="abc123")
     assert not ok
-    assert "precommit" in msg
+    assert "action" in msg  # a token is bound to the action it was issued for
 
 
 def test_report_precommit_requires_ready(tmp_path: Path):
@@ -294,19 +351,32 @@ def test_generate_signing_secret_meta_beside_key(tmp_path: Path, monkeypatch):
     assert json.loads(meta.read_text(encoding="utf-8"))["alg"] == "HS256"
 
 
-def test_bootstrap_and_signed_roundtrip(tmp_path: Path):
+def test_bootstrap_and_signed_roundtrip(tmp_path: Path, monkeypatch):
+    import os
     import shutil
+    from gate.keys import default_key_path
 
-    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+    # Keys live under HOME, outside the repo — point HOME at a sandbox.
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    project = tmp_path / "project"
+    project.mkdir()
+
+    subprocess.run(["git", "init"], cwd=project, capture_output=True, check=True)
     bootstrap = ROOT / "scripts/bootstrap-project-gates.sh"
     proc = subprocess.run(
-        ["bash", str(bootstrap), str(ROOT), str(tmp_path)],
+        ["bash", str(bootstrap), str(ROOT), str(project)],
         capture_output=True,
         text=True,
+        env={**os.environ, "HOME": str(home)},
     )
     assert proc.returncode == 0, proc.stderr + proc.stdout
-    assert (tmp_path / ".agent-toolkit/gate/scripts/verify_gate.py").is_file()
-    assert (tmp_path / ".gate/signing.key").is_file()
+    assert (project / ".agent-toolkit/gate/scripts/verify_gate.py").is_file()
+    assert not (project / ".gate/signing.key").exists()  # never written inside the repo
+    assert default_key_path(project).is_file()
+    assert str(default_key_path(project)).startswith(str(home))
+    tmp_path = project
     # Template defaults to legacy; this test exercises signed JWT roundtrip
     gates_path = tmp_path / "gates.json"
     gates = json.loads(gates_path.read_text(encoding="utf-8"))

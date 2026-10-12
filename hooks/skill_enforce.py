@@ -177,4 +177,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    from hook_io import run_guarded
+
+    sys.exit(run_guarded(main, "skill_enforce"))

@@ -1,7 +1,14 @@
 # Quality gate for agent-toolkit (canonical CI workflow).
-# No GitHub secret required: bootstrap creates .gate/signing.key.
+# No GitHub secret required: bootstrap creates the signing key on the runner.
 # Optional: AGENT_TOOLKIT_GATE_SECRET for a stable key across runs/machines.
 # Signed mode + branch protection: require check "agent-toolkit-gate" on main.
+#
+# Security model:
+#   - Actions are pinned by commit SHA (mutable tags can be moved).
+#   - On pull requests the GATE CODE AND POLICY come from the base branch
+#     (checked out into base-toolkit/), never from the PR head. A PR cannot
+#     weaken gates.json, stub test_command, or edit the verifier and go green.
+#   - Repo-supplied test/lint commands must pass gate/command_policy.py.
 #
 # Consumer projects get a lighter copy via templates/github/workflows/agent-toolkit-gate.yml
 
@@ -20,15 +27,35 @@ jobs:
     name: agent-toolkit-gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # On PRs, the gate itself (scripts, gate/, policy) is taken from the base
+      # branch so the PR under review cannot change how it is judged.
+      - name: Check out trusted gate (base branch) for pull requests
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base-toolkit
+
+      - name: Select gate source
+        id: gate
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "src=$GITHUB_WORKSPACE/base-toolkit" >> "$GITHUB_OUTPUT"
+            # Policy comes from the base branch, not the PR head.
+            cp base-toolkit/gates.json gates.json
+          else
+            echo "src=$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r gate/requirements.txt pytest
+        run: pip install -r "${{ steps.gate.outputs.src }}/gate/requirements.txt" pytest
 
       - name: Unit tests (gate + hooks)
         run: |
@@ -69,30 +96,30 @@ jobs:
           print('MCP smoke test passed: >=15 tools, protocol ok, routing correct')
           "
 
-      - name: Bootstrap gate layout (idempotent)
-        run: bash scripts/bootstrap-project-gates.sh "$(pwd)" "$(pwd)"
+      - name: Bootstrap gate layout (idempotent, from trusted gate source)
+        run: bash "${{ steps.gate.outputs.src }}/scripts/bootstrap-project-gates.sh" "$(pwd)" "${{ steps.gate.outputs.src }}"
 
-      - name: Generate mechanical reports (replaces fake fixtures)
-        run: python scripts/ci-generate-reports.py .
+      - name: Generate mechanical reports (trusted gate source, project under test)
+        run: python "${{ steps.gate.outputs.src }}/scripts/ci-generate-reports.py" .
 
       - name: Attest
-        run: python .agent-toolkit/gate/scripts/verify_gate.py attest --project-root .
+        run: python "${{ steps.gate.outputs.src }}/gate/scripts/verify_gate.py" attest --project-root .
         env:
           AGENT_TOOLKIT_ATTEST_SKIP_HOOK_TESTS: "1"
           AGENT_TOOLKIT_ATTEST_SKIP_GATE_TESTS: "1"
 
       - name: Issue gate token
-        run: python .agent-toolkit/gate/scripts/issue_token.py --project-root . --action push
+        run: python "${{ steps.gate.outputs.src }}/gate/scripts/issue_token.py" --project-root . --action push
 
       - name: Verify gate token
         run: |
-          python .agent-toolkit/gate/scripts/verify_gate.py verify \
+          python "${{ steps.gate.outputs.src }}/gate/scripts/verify_gate.py" verify \
             --project-root . \
             --action push \
             --commit "${{ github.sha }}"
 
       - name: Upload gate token artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: gate-token
           path: .gate/gate-token.jwt

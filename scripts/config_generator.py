@@ -55,7 +55,7 @@ def collect_toolkit_hooks(toolkit_path: Path) -> List[ToolkitHook]:
         ToolkitHook("PreToolUse", "Bash",
                      f"python3 {tp}/hooks/gate_hook.py", 5,
                      "Checking quality gates..."),
-        ToolkitHook("PreToolUse", "Bash|Write|Edit|Skill|mcp__agent-toolkit__stamp_skill",
+        ToolkitHook("PreToolUse", "Bash|Write|Edit|Read|Skill|mcp__agent-toolkit__stamp_skill",
                      f"python3 {tp}/hooks/session_monitor.py", 5,
                      "Session monitor..."),
         ToolkitHook("PreToolUse", "Edit|Write",

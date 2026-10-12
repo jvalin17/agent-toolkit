@@ -75,22 +75,24 @@ else
   fi
 fi
 
-# Signing keys (gitignored)
+# Signing key — kept OUTSIDE the worktree (~/.agent-toolkit/keys/<project-id>/),
+# so an agent working in the repo cannot read it and mint its own tokens.
+# A legacy in-repo .gate/signing.key is still honoured if present.
 GATE_LOCAL="$PROJECT_ROOT/.gate"
 mkdir -p "$GATE_LOCAL"
-if [ ! -f "$GATE_LOCAL/signing.key" ]; then
-  (cd "$PROJECT_ROOT" && python3 -c "
+(cd "$PROJECT_ROOT" && python3 -c "
 import sys
 from pathlib import Path
 sys.path.insert(0, '$AGENT_DIR')
-from gate.keys import generate_signing_secret
-gate = Path('.gate')
-generate_signing_secret(gate / 'signing.key', gate / 'signing.meta.json')
-print('  [installed] .gate/signing.key (HS256, stdlib only)')
+from gate.keys import default_key_path, generate_signing_secret, load_signing_secret
+root = Path('.').resolve()
+try:
+    load_signing_secret(root)
+    print(f'  [skip] signing key (already exists: {default_key_path(root)} or legacy .gate/)')
+except (FileNotFoundError, ValueError):
+    path = generate_signing_secret(project_root=root)
+    print(f'  [installed] signing key at {path} (HS256, 0600, outside the repo)')
 ")
-else
-  echo "  [skip] .gate/signing.key (already exists)"
-fi
 
 # GitHub Actions workflow
 WF_DIR="$PROJECT_ROOT/.github/workflows"

@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "hooks"))
 
 from gate_hook import run_gate
+sys.path.insert(0, str(ROOT))
+from gate.flags import sign_flag_file
 
 
 def _project_with_gates(tmp_path: Path) -> Path:
@@ -57,7 +59,7 @@ def test_cursor_commit_allowed_with_precommit_flag(tmp_path):
     project = _project_with_gates(tmp_path)
     gates = project / ".gates"
     gates.mkdir()
-    (gates / "precommit-passed").write_text("READY\n")
+    sign_flag_file(gates / "precommit-passed", "READY\n")
     payload = {
         "hook_event_name": "preToolUse",
         "tool_name": "Shell",

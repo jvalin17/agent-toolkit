@@ -1781,6 +1781,40 @@ class TestDamageRadius:
         assert blocked is False
 
 
+class TestLaunchNewSessionPermissions:
+    """An unattended relaunch must not skip permissions unless the user opted in."""
+
+    def _launch(self, monkeypatch, tmp_path):
+        import auto_handoff
+
+        captured = {}
+
+        def fake_popen(cmd, **kwargs):
+            captured["cmd"] = cmd
+            return object()
+
+        monkeypatch.setattr(auto_handoff.shutil, "which", lambda name: "/usr/local/bin/claude")
+        monkeypatch.setattr(auto_handoff.subprocess, "Popen", fake_popen)
+        assert launch_new_session(tmp_path) is True
+        return captured["cmd"]
+
+    def test_launch_new_session_permissions_gated(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("AGENT_TOOLKIT_SKIP_PERMISSIONS", raising=False)
+        cmd = self._launch(monkeypatch, tmp_path)
+        assert "--dangerously-skip-permissions" not in cmd
+        assert "HANDOFF.md" in cmd[2]
+
+    def test_launch_new_session_skips_permissions_only_when_opted_in(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("AGENT_TOOLKIT_SKIP_PERMISSIONS", "1")
+        cmd = self._launch(monkeypatch, tmp_path)
+        assert "--dangerously-skip-permissions" in cmd
+
+    def test_handoff_prompt_marks_file_as_untrusted(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("AGENT_TOOLKIT_SKIP_PERMISSIONS", raising=False)
+        cmd = self._launch(monkeypatch, tmp_path)
+        assert "not instructions" in cmd[2] or "untrusted" in cmd[2]
+
+
 # --- End-to-end: real stdin JSON through main() ---
 
 

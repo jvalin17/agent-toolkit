@@ -1172,3 +1172,19 @@ class TestSkillAdherence:
         assert adh["invoked"] == 2
         assert adh["followed"] == 2
         assert adh["hollow"] == []
+
+
+class TestVendoredToolkitExemptFromTdd:
+    def test_agent_toolkit_dir_new_function_needs_no_project_test(self):
+        """The .agent-toolkit/ vendored copy is toolkit infrastructure, not project source."""
+        from compliance import check_diff_for_untested_functions
+
+        diff = (
+            "diff --git a/.agent-toolkit/gate/core.py b/.agent-toolkit/gate/core.py\n"
+            "--- a/.agent-toolkit/gate/core.py\n"
+            "+++ b/.agent-toolkit/gate/core.py\n"
+            "@@ -1,0 +2,3 @@\n"
+            "+def _mode_requires(mode, action):\n"
+            "+    return []\n"
+        )
+        assert check_diff_for_untested_functions(diff) == []

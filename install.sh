@@ -278,7 +278,7 @@ install_hooks() {
         ]
       },
       {
-        "matcher": "Bash|Write|Edit|Skill|mcp__agent-toolkit__stamp_skill",
+        "matcher": "Bash|Write|Edit|Read|Skill|mcp__agent-toolkit__stamp_skill",
         "hooks": [
           {
             "type": "command",

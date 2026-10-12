@@ -18,40 +18,19 @@ import sys
 from pathlib import Path
 from typing import Callable, Optional
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-def detect_git_action(command: str) -> Optional[str]:
-    """Detect whether a command contains git commit and/or push.
-
-    Strips quoted strings first so commit messages mentioning 'git push'
-    don't trigger push gates. Returns 'push' (highest priority), 'commit',
-    or None.
-    """
-    # Strip single-quoted and double-quoted strings
-    stripped = re.sub(r"'[^']*'", "", command)
-    stripped = re.sub(r'"[^"]*"', "", stripped)
-
-    # Split on && ; |
-    segments = re.split(r"&&|;|\|", stripped)
-
-    has_commit = False
-    has_push = False
-    for seg in segments:
-        seg = seg.strip()
-        if not seg:
-            continue
-        if re.search(r"^git\s+.*\s+commit|^git\s+commit", seg):
-            has_commit = True
-        if re.search(r"^git\s+.*\s+push|^git\s+push", seg):
-            has_push = True
-
-    if has_push:
-        return "push"
-    if has_commit:
-        return "commit"
-    return None
-
+from git_command import detect_git_action, detect_git_actions  # noqa: E402,F401 — re-exported
 
 _TOOLKIT_ROOT = Path(__file__).resolve().parents[1]
+if str(_TOOLKIT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_TOOLKIT_ROOT))
+
+from gate.flags import verify_flag  # noqa: E402
+
+# Actions are checked in this order so a "commit && push" line reports the
+# commit gate first (it is the one that must pass first).
+ACTION_ORDER = ("commit", "push")
 
 # Config used when gates.json exists but cannot be read. Safe mode requires
 # every gate, so nothing passes until the file is fixed (fail closed).
@@ -79,24 +58,78 @@ def load_gate_config(project_dir: Path) -> dict:
     return config
 
 
+def _toolkit_project_marker(project_dir: Path) -> Optional[str]:
+    """Why this looks like a toolkit project even though gates.json is absent.
+
+    Returns a human-readable reason, or None for a plain repository. A deleted
+    policy file must not silently turn every gate off (fail closed).
+    """
+    if (project_dir / ".agent-toolkit").is_dir():
+        return ".agent-toolkit/ exists"
+    try:
+        probe = subprocess.run(
+            ["git", "cat-file", "-e", "HEAD:gates.json"],
+            cwd=project_dir, capture_output=True, text=True, timeout=5,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    if probe.returncode == 0:
+        return "gates.json is tracked in HEAD (deleted from the working tree)"
+    return None
+
+
+# Keys where an environment override may only STRENGTHEN enforcement. A repo's
+# .claude/settings.json "env" block or a shell rc can set AGENT_TOOLKIT_* for
+# every future session; those must not be able to switch protection off.
+STRENGTHEN_ONLY_BOOLS = {"gate_protect", "report_protect"}
+STRENGTHEN_ONLY_MIN_INTS = {"eval_threshold"}
+SKILL_ENFORCE_RANK = {"off": 0, "remind": 1, "block": 2}
+
+
+def _coerce_env(env_val: str, default):
+    if isinstance(default, bool):
+        return env_val.lower() in ("true", "1", "yes")
+    if isinstance(default, int):
+        try:
+            return int(env_val)
+        except ValueError:
+            return env_val
+    return env_val
+
+
+def _weakens(key: str, env_value, file_value) -> bool:
+    if key in STRENGTHEN_ONLY_BOOLS:
+        return bool(file_value) and not bool(env_value)
+    if key in STRENGTHEN_ONLY_MIN_INTS:
+        try:
+            return int(env_value) < int(file_value)
+        except (TypeError, ValueError):
+            return True
+    if key == "skill_enforce":
+        return SKILL_ENFORCE_RANK.get(str(env_value), -1) < SKILL_ENFORCE_RANK.get(str(file_value), 1)
+    return False
+
+
 def get_config_value(config: dict, key: str, default=None):
     """Get config value with AGENT_TOOLKIT_* env var override.
 
     Env var name: AGENT_TOOLKIT_{KEY_UPPER} (e.g. tdd → AGENT_TOOLKIT_TDD).
     Type coercion: bool if default is bool, int if default is int, else string.
+    For protection keys the override is honoured only when it is at least as
+    strict as the file value (see STRENGTHEN_ONLY_*).
     """
-    env_key = f"AGENT_TOOLKIT_{key.upper()}"
-    env_val = os.environ.get(env_key)
-    if env_val is not None:
-        if isinstance(default, bool):
-            return env_val.lower() in ("true", "1", "yes")
-        if isinstance(default, int):
-            try:
-                return int(env_val)
-            except ValueError:
-                pass
-        return env_val
-    return config.get(key, default)
+    file_value = config.get(key, default)
+    env_val = os.environ.get(f"AGENT_TOOLKIT_{key.upper()}")
+    if env_val is None:
+        return file_value
+    env_value = _coerce_env(env_val, default)
+    if _weakens(key, env_value, file_value):
+        sys.stderr.write(
+            f"gate_hook: ignoring AGENT_TOOLKIT_{key.upper()}={env_val!r} — it would weaken "
+            f"{key} below the gates.json value\n"
+        )
+        return file_value
+    return env_value
 
 
 def check_gate_flags(
@@ -106,18 +139,17 @@ def check_gate_flags(
 ) -> list:
     """Check .gates/ flag files for required skills.
 
+    A flag counts only when its HMAC signature verifies (gate/flags.py), so a
+    hand-written READY file is reported as unverified, not as passed.
     Returns list of missing/invalid skill descriptions.
     """
-    gates_dir = project_dir / ".gates"
     missing = []
 
     for skill in required:
-        flag = gates_dir / f"{skill}-passed"
-        if not flag.is_file():
-            missing.append(skill)
+        ok, content, reason = verify_flag(project_dir, skill)
+        if not ok:
+            missing.append(skill if reason == "missing" else f"{skill}(unverified: {reason})")
             continue
-
-        content = flag.read_text(encoding="utf-8")
 
         if skill == "precommit":
             if "READY" not in content:
@@ -185,14 +217,17 @@ def _make_gate_finish(
 
 
 def _verify_signed_gate(project_dir: Path, action: str) -> Optional[str]:
-    """Run signed JWT verification. Returns error message, or None if OK."""
-    verify_script = (
-        project_dir / ".agent-toolkit" / "gate" / "scripts" / "verify_gate.py"
-    )
+    """Run signed JWT verification. Returns error message, or None if OK.
+
+    The verifier is always the toolkit's own copy. The project copy under
+    .agent-toolkit/ is repository-controlled, so an agent (or a hostile clone)
+    could edit it to exit 0.
+    """
+    verify_script = _TOOLKIT_ROOT / "gate" / "scripts" / "verify_gate.py"
     if not verify_script.is_file():
         return (
-            "signed mode: verify_gate.py not found — run install/bootstrap "
-            "to create .agent-toolkit/gate/"
+            f"signed mode: verifier missing at {verify_script} — the toolkit install "
+            "is incomplete; reinstall agent-toolkit"
         )
 
     try:
@@ -209,7 +244,7 @@ def _verify_signed_gate(project_dir: Path, action: str) -> Optional[str]:
         commit_sha = commit_proc.stdout.strip()
         result = subprocess.run(
             [
-                "python3",
+                sys.executable,
                 str(verify_script),
                 "verify",
                 "--action",
@@ -341,29 +376,39 @@ def run_gate(
     if command is None:
         return 0, ""
 
-    action = detect_git_action(command)
-    if action is None:
+    actions = [a for a in ACTION_ORDER if a in detect_git_actions(command)]
+    if not actions:
         return 0, ""
 
     config = load_gate_config(project_dir)
-    if config.get("_no_config"):
-        return 0, ""  # No gates.json — not a toolkit-managed project
-    gate_mode = config.get("gate_mode", "legacy")
     gate_finish = _make_gate_finish("block", project_dir, agent=agent)
+    if config.get("_no_config"):
+        marker = _toolkit_project_marker(project_dir)
+        if marker is None:
+            return 0, ""  # No gates.json and no toolkit footprint — not a toolkit project
+        return gate_finish(
+            f"gates.json is missing but {marker} — the policy file was deleted or never "
+            f"restored. Gates fail closed: restore gates.json before git {' and '.join(actions)}."
+        )
+    gate_mode = config.get("gate_mode", "legacy")
 
     if config.get("_config_error"):
         return gate_finish(
             f"gates.json is unreadable — {config['_config_error']}. "
-            f"Gates fail closed: fix the file before git {action}."
+            f"Gates fail closed: fix the file before git {' and '.join(actions)}."
         )
 
-    if gate_mode == "signed":
-        verify_error = _verify_signed_gate(project_dir, action)
-        if verify_error:
-            return gate_finish(verify_error)
-        return 0, ""
-
-    return _run_legacy_gate(project_dir, config, action, gate_finish)
+    # A single command line may both commit and push: every action must pass.
+    for action in actions:
+        if gate_mode == "signed":
+            verify_error = _verify_signed_gate(project_dir, action)
+            if verify_error:
+                return gate_finish(verify_error)
+            continue
+        exit_code, output = _run_legacy_gate(project_dir, config, action, gate_finish)
+        if output:
+            return exit_code, output
+    return 0, ""
 
 
 def main() -> int:
@@ -378,4 +423,6 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    from hook_io import run_guarded
+
+    sys.exit(run_guarded(main, "gate_hook"))

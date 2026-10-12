@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from gate.flags import sign_flag_file
 from hooks.gate_hook import run_gate
 
 
@@ -39,7 +40,7 @@ def write_gate_flag(project_dir: Path, skill: str, content: str):
     """Write a .gates/ flag file."""
     gates_dir = project_dir / ".gates"
     gates_dir.mkdir(exist_ok=True)
-    (gates_dir / f"{skill}-passed").write_text(content)
+    sign_flag_file(gates_dir / f"{skill}-passed", content)
 
 
 class TestModeBasedGateEnforcement:

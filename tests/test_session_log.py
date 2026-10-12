@@ -83,3 +83,18 @@ class TestFindLatestSessionLog:
         monkeypatch.setattr(Path, "cwd", staticmethod(lambda: Path("/Users/alice/dev/myproject")))
         result = find_latest_session_log()
         assert result is None
+
+
+class TestSlugNormalization:
+    def test_underscore_in_cwd_matches_hyphenated_project_dir(self, fake_claude_home, monkeypatch):
+        """Claude Code slugs replace every non-alphanumeric char (incl. '_') with '-'."""
+        from hooks.session_log import find_latest_session_log
+
+        proj = fake_claude_home / "-Users-alice-dev-green-leaf-rup-split"
+        proj.mkdir()
+        log = proj / "abc.jsonl"
+        log.write_text("{}\n")
+        monkeypatch.setattr(
+            Path, "cwd", staticmethod(lambda: Path("/Users/alice/dev/green_leaf/rup-split"))
+        )
+        assert find_latest_session_log() == log

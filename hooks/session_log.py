@@ -4,6 +4,7 @@ Finds the latest Claude Code session log for the current project.
 Used by compliance.py and finalize_report.py instead of duplicated logic.
 """
 
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -20,7 +21,8 @@ def find_latest_session_log() -> Optional[Path]:
     if not claude_projects.is_dir():
         return None
 
-    cwd_slug = str(Path.cwd()).replace("/", "-").lstrip("-")
+    # Claude Code replaces every non-alphanumeric character in the path with "-"
+    cwd_slug = re.sub(r"[^A-Za-z0-9-]", "-", str(Path.cwd())).lstrip("-")
     project_dir = None
     for d in claude_projects.iterdir():
         if d.name == cwd_slug or d.name == f"-{cwd_slug}":

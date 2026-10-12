@@ -96,6 +96,30 @@ class TestResolveMode:
         assert m.precommit is True
         assert m.reviewer is True
 
+    def test_env_override_cannot_weaken(self, monkeypatch):
+        """A planted AGENT_TOOLKIT_MODE must not switch gates off."""
+        from mode_resolver import resolve_mode_from_config
+        monkeypatch.setenv("AGENT_TOOLKIT_MODE", "minimal")
+        assert resolve_mode_from_config({"mode": "safe"}).name == "safe"
+        assert resolve_mode_from_config({"mode": "default"}).name == "default"
+        assert resolve_mode_from_config({}).name == "default"
+
+        monkeypatch.setenv("AGENT_TOOLKIT_MODE", "tdd")  # drops precommit → weaker
+        assert resolve_mode_from_config({"mode": "default"}).name == "default"
+
+        monkeypatch.setenv("AGENT_TOOLKIT_MODE", "standard")  # superset of default → applies
+        assert resolve_mode_from_config({"mode": "default"}).name == "standard"
+
+        monkeypatch.setenv("AGENT_TOOLKIT_MODE", "not-a-mode")
+        assert resolve_mode_from_config({"mode": "safe"}).name == "safe"
+
+    def test_is_at_least_as_strict(self):
+        from mode_resolver import MODES, is_at_least_as_strict
+        assert is_at_least_as_strict(MODES["safe"], MODES["default"]) is True
+        assert is_at_least_as_strict(MODES["default"], MODES["default"]) is True
+        assert is_at_least_as_strict(MODES["planned"], MODES["tdd"]) is False
+        assert is_at_least_as_strict(MODES["minimal"], MODES["guarded"]) is False
+
 
 class TestRequiredSkills:
     def test_required_skills_for_commit(self):

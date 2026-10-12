@@ -264,17 +264,17 @@ def _report_path(project_dir: Path, skill: str, slug: str, report_id: str) -> Pa
 
 
 def _write_gate_flag(project_dir: Path, skill: str, *, score: int | None = None) -> Path:
-    gates_dir = project_dir / ".gates"
-    gates_dir.mkdir(parents=True, exist_ok=True)
+    """Write the HMAC-signed pass flag (gate/flags.py). Only finalize calls this."""
+    from gate.flags import write_flag
+
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    flag = gates_dir / f"{skill}-passed"
     if skill == "precommit":
-        flag.write_text(f"READY {date}\n", encoding="utf-8")
+        content = f"READY {date}"
     elif skill == "evaluate":
-        flag.write_text(f"PASSED {score}% evaluate {date}\n", encoding="utf-8")
+        content = f"PASSED {score}% evaluate {date}"
     else:
-        flag.write_text(f"PASSED {skill} {date}\n", encoding="utf-8")
-    return flag
+        content = f"PASSED {skill} {date}"
+    return write_flag(project_dir, skill, content)
 
 
 def _emit_response(payload: dict, ok: bool) -> int:

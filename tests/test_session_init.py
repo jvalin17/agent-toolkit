@@ -375,13 +375,22 @@ class TestLoadSessionConfig:
         config = load_session_config(project_dir)
         assert config["report_protect"] is True
 
-    def test_report_protect_env_override(self, project_dir):
+    def test_report_protect_env_cannot_switch_off(self, project_dir):
+        """A planted env var must not disable report protection for the session."""
         gates = {"report_protect": True}
         (project_dir / "gates.json").write_text(json.dumps(gates))
 
         with patch.dict(os.environ, {"AGENT_TOOLKIT_REPORT_PROTECT": "false"}):
             config = load_session_config(project_dir)
-        assert config["report_protect"] is False
+        assert config["report_protect"] is True
+
+    def test_report_protect_env_can_switch_on(self, project_dir):
+        gates = {"report_protect": False}
+        (project_dir / "gates.json").write_text(json.dumps(gates))
+
+        with patch.dict(os.environ, {"AGENT_TOOLKIT_REPORT_PROTECT": "true"}):
+            config = load_session_config(project_dir)
+        assert config["report_protect"] is True
 
     def test_env_var_overrides_gates_json(self, project_dir):
         """AGENT_TOOLKIT_MODE env var overrides gates.json."""

@@ -72,12 +72,36 @@ def resolve_mode(name: str) -> Mode:
     return MODES.get(name, MODES[DEFAULT_MODE])
 
 
+def _flags(mode: Mode) -> frozenset:
+    return frozenset(name for name in ("tdd", "plan", "precommit", "reviewer") if getattr(mode, name))
+
+
+def is_at_least_as_strict(candidate: Mode, baseline: Mode) -> bool:
+    """True when every check the baseline enables, the candidate enables too."""
+    return _flags(candidate) >= _flags(baseline)
+
+
 def resolve_mode_from_config(config: dict) -> Mode:
-    """Resolve mode from gates.json config, with env var override."""
-    env_mode = os.environ.get("AGENT_TOOLKIT_MODE")
-    if env_mode:
-        return resolve_mode(env_mode)
-    return resolve_mode(config.get("mode", DEFAULT_MODE))
+    """Resolve mode from gates.json, honouring AGENT_TOOLKIT_MODE only to strengthen.
+
+    An environment variable can be planted for every future session (a repo's
+    .claude/settings.json env block, a shell rc). It may raise the mode (e.g.
+    default → safe) but never lower it (safe → minimal is ignored).
+    """
+    file_mode = resolve_mode(config.get("mode", DEFAULT_MODE))
+    env_name = os.environ.get("AGENT_TOOLKIT_MODE")
+    if not env_name or env_name not in MODES:
+        return file_mode
+    env_mode = MODES[env_name]
+    if is_at_least_as_strict(env_mode, file_mode):
+        return env_mode
+    import sys
+
+    sys.stderr.write(
+        f"mode_resolver: ignoring AGENT_TOOLKIT_MODE={env_name!r} — weaker than gates.json "
+        f"mode {file_mode.name!r}\n"
+    )
+    return file_mode
 
 
 def set_mode(name: str, project_dir: Path) -> Optional[Mode]:

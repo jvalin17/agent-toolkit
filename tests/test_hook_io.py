@@ -15,6 +15,7 @@ from hook_io import (
     make_context_json,
     parse_hook_stdin,
     read_hook_event,
+    run_guarded,
 )
 
 
@@ -100,6 +101,27 @@ def test_parse_hook_stdin_non_object_is_unknown():
     agent, canonical = parse_hook_stdin("[1, 2, 3]")
     assert agent == "unknown"
     assert canonical["tool_name"] == ""
+
+
+def test_run_guarded_blocks_on_exception(capsys):
+    """A crashing gate hook must deny the tool call, not exit 1 (which Claude Code ignores)."""
+    def boom() -> int:
+        raise KeyError("tool_input")
+
+    code = run_guarded(boom, "gate_hook")
+    out = capsys.readouterr()
+    body = json.loads(out.out.strip().splitlines()[-1])
+    assert code == 2
+    assert body["decision"] == "block"
+    assert "gate_hook" in body["reason"]
+    assert "KeyError" in body["reason"]
+    assert body["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_run_guarded_passes_through_normal_exit(capsys):
+    assert run_guarded(lambda: 0, "gate_hook") == 0
+    assert run_guarded(lambda: 2, "gate_hook") == 2
+    assert capsys.readouterr().out == ""
 
 
 def test_context_json_shape():

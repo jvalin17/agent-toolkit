@@ -136,7 +136,7 @@ Hooks block bypass. Agent text in `findings.json` is not trusted alone.
 | Area | Checks |
 |------|--------|
 | **Code** | Precommit before `git commit`; TDD order + diff scan; lint re-run on finalize; skill required for edits (default/standard/safe) |
-| **Anti-gaming** | Tamper-proof skill stamps; execution-plan presence; review-depth (role agents spawned); 20% spot checks (safe/standard); JSONL mechanical proof; no fabricated history without git evidence |
+| **Anti-gaming** | HMAC-signed gate flags (key outside the repo); git gate sees through `bash -c`, env prefixes, absolute paths; default-deny on `.gates/`, `gates.json`, host settings, key files; env overrides can only strengthen; corrupt or deleted `gates.json` fails closed; repo-supplied test commands allowlisted; tamper-resistant skill stamps; execution-plan presence; review-depth; 20% spot checks; JSONL mechanical proof — trust boundary in [gate-unlock.md](shared/gate-unlock.md#trust-boundary--what-the-gates-do-and-do-not-stop) |
 | **Process** | Plan → precommit compliance; reviewer gate; parallel role review; evidence required; model routing; UI regression hooks |
 | **Session** | Canary greeting (optional `gates.json` `canary`); retry block after 3 identical errors; damage radius warn@5 / block@15; auto-continue ≤20 sessions |
 

@@ -11,6 +11,8 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "hooks"))
 
 from atk import gate_ready, cmd_status, main as atk_main
+sys.path.insert(0, str(ROOT))
+from gate.flags import sign_flag_file
 
 
 def _proj(tmp_path: Path) -> Path:
@@ -41,7 +43,7 @@ def test_gate_ready_true_with_ready_flag(tmp_path):
     project = _proj(tmp_path)
     gates = project / ".gates"
     gates.mkdir()
-    (gates / "precommit-passed").write_text("READY\n")
+    sign_flag_file(gates / "precommit-passed", "READY\n")
     ok, missing = gate_ready(project, "commit")
     assert ok is True
     assert missing == []

@@ -46,6 +46,19 @@ if '"decision": "block"' in proc.stdout:
 sys.exit(proc.returncode)
 EOF
 
+# Gate flags are HMAC-signed (gate/flags.py). Use a throwaway key for this run
+# and write flags through the signer, exactly as finalize_report.py does.
+TOOLKIT_DIR="$(dirname "$SCRIPT_DIR")"
+export AGENT_TOOLKIT_FLAG_KEY_FILE="$TEST_DIR/flag.key"
+sign_flag() {  # sign_flag <skill> <content>
+  PYTHONPATH="$TOOLKIT_DIR" python3 -c "
+import sys
+from pathlib import Path
+from gate.flags import write_flag
+write_flag(Path('.'), sys.argv[1], sys.argv[2])
+" "$1" "$2"
+}
+
 # Setup: working directory with gates.json (default mode: tdd + precommit)
 cd "$TEST_DIR"
 cat > gates.json << 'EOF'
@@ -67,7 +80,7 @@ else
 fi
 
 # Test 2: git commit with valid precommit-passed → ALLOWED (exit 0)
-mkdir -p .gates && echo "READY 2026-05-20-1200" > .gates/precommit-passed
+sign_flag precommit "READY 2026-05-20-1200"
 EXIT_CODE=0
 echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -103,7 +116,7 @@ else
 fi
 
 # Test 4b: safe mode allows push with reviewer
-echo "PASSED 2026-05-20" > .gates/reviewer-passed
+sign_flag reviewer "PASSED 2026-05-20"
 EXIT_CODE=0
 echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -144,7 +157,7 @@ cat > gates.json << 'EOF'
   "mode": "default"
 }
 EOF
-mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
+sign_flag precommit "READY 2026-05-20"
 EXIT_CODE=0
 echo '{"tool_input":{"command":"git commit -m \"docs: how to git push safely\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -154,13 +167,33 @@ else
 fi
 
 # Test 6: precommit flag without READY marker → BLOCKED
-rm -rf .gates && mkdir -p .gates && touch .gates/precommit-passed
+rm -rf .gates && sign_flag precommit ""
 EXIT_CODE=0
 echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 2 ]; then
   pass "empty precommit flag (no READY) blocked"
 else
   fail "empty precommit flag should be blocked" "got exit $EXIT_CODE"
+fi
+
+# Test 6b: hand-written (unsigned) READY flag → BLOCKED (forgery)
+rm -rf .gates && mkdir -p .gates && echo "READY 2026-05-20" > .gates/precommit-passed
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git commit -m \"test\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "unsigned precommit flag (forged) blocked"
+else
+  fail "unsigned precommit flag should be blocked" "got exit $EXIT_CODE"
+fi
+
+# Test 6c: git commit hidden behind bash -c → still gated
+rm -rf .gates
+EXIT_CODE=0
+echo '{"tool_input":{"command":"bash -c \"git commit -m hidden\""}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "git commit inside bash -c is gated"
+else
+  fail "bash -c wrapper should not bypass the gate" "got exit $EXIT_CODE"
 fi
 
 # Test 7: safe mode reviewer without PASSED marker → BLOCKED
@@ -181,7 +214,7 @@ else
 fi
 
 # Test 7b: safe mode reviewer with PASSED marker → ALLOWED
-echo "PASSED 2026-05-20" > .gates/reviewer-passed
+sign_flag reviewer "PASSED 2026-05-20"
 EXIT_CODE=0
 echo '{"tool_input":{"command":"git push origin main"}}' | python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
@@ -190,7 +223,7 @@ else
   fail "reviewer with PASSED should be allowed" "got exit $EXIT_CODE"
 fi
 
-# Test 8: env var AGENT_TOOLKIT_MODE overrides gates.json
+# Test 8: env var AGENT_TOOLKIT_MODE may strengthen gates.json, never weaken it
 cat > gates.json << 'EOF'
 {
   "gate_mode": "legacy",
@@ -200,10 +233,18 @@ EOF
 rm -rf .gates
 EXIT_CODE=0
 echo '{"tool_input":{"command":"git commit -m \"test\""}}' | AGENT_TOOLKIT_MODE=minimal python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
-if [ "$EXIT_CODE" -eq 0 ]; then
-  pass "AGENT_TOOLKIT_MODE=minimal overrides default mode (commit allowed)"
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "AGENT_TOOLKIT_MODE=minimal cannot weaken default mode (commit still blocked)"
 else
-  fail "env var mode override should allow commit" "got exit $EXIT_CODE"
+  fail "weaker env mode must be ignored" "got exit $EXIT_CODE"
+fi
+
+EXIT_CODE=0
+echo '{"tool_input":{"command":"git push origin main"}}' | AGENT_TOOLKIT_MODE=safe python3 "$GATE_RUNNER" > /dev/null 2>&1 || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 2 ]; then
+  pass "AGENT_TOOLKIT_MODE=safe strengthens default mode (push needs reviewer)"
+else
+  fail "stronger env mode should apply" "got exit $EXIT_CODE"
 fi
 
 echo ""

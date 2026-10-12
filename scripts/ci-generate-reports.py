@@ -50,12 +50,11 @@ def _write_report(report_dir: Path, prefix: str, lines: list[str]) -> Path:
 
 
 def _write_gate_flag(project_root: Path, skill: str, extra: str = "") -> None:
-    """Write a .gates/ flag file."""
-    gates_dir = project_root / ".gates"
-    gates_dir.mkdir(parents=True, exist_ok=True)
+    """Write an HMAC-signed .gates/ flag file (gate/flags.py)."""
+    from gate.flags import write_flag
+
     date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    flag = gates_dir / f"{skill}-passed"
-    flag.write_text(f"READY {date} {extra}\n".strip() + "\n")
+    write_flag(project_root, skill, f"READY {date} {extra}".strip())
 
 
 def generate_precommit(project_root: Path, test_passed: bool, lint_passed: bool,
