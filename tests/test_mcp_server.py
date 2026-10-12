@@ -133,10 +133,67 @@ class TestProtocol:
     def test_tools_list(self):
         resp = process_message({"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}})
         tools = resp["result"]["tools"]
-        assert len(tools) == 8
+        assert len(tools) == 15
         names = [t["name"] for t in tools]
         assert "select_agent" in names
         assert "build_plan" in names
+        assert "resolve_host" in names
+        assert "get_skill" in names
+        assert "get_module" in names
+        assert "run_function" in names
+        assert "stamp_skill" in names
+        assert "get_bootstrap" in names
+        assert "get_role" in names
+
+    def test_hooks_path_adds_hooks_to_sys_path(self):
+        from toolkit_mcp.server import _hooks_path, TOOLKIT_ROOT
+        import sys as _sys
+        hooks = str(TOOLKIT_ROOT / "hooks")
+        if hooks in _sys.path:
+            _sys.path.remove(hooks)
+        _hooks_path()
+        assert hooks in _sys.path
+
+    def test_tool_resolve_host(self):
+        result = TOOLS["resolve_host"]["fn"]({})
+        assert "id" in result
+        assert "pull" in result
+
+    def test_tool_get_bootstrap(self):
+        result = TOOLS["get_bootstrap"]["fn"]({"host_id": "cursor"})
+        assert result["host"] == "cursor"
+        assert "get_skill" in result["text"] or "TDD" in result["text"]
+
+    def test_tool_get_skill(self):
+        result = TOOLS["get_skill"]["fn"]({"name": "implementation"})
+        assert "stub" in result
+        assert "tdd" in result["modules"] or "workflow" in result["modules"]
+
+    def test_tool_get_module(self):
+        result = TOOLS["get_module"]["fn"]({"skill": "implementation", "module": "tdd"})
+        assert "content" in result
+        assert "TDD" in result["content"]
+
+    def test_tool_get_role(self):
+        result = TOOLS["get_role"]["fn"]({"name": "backend", "depth": "compact"})
+        assert result["name"] == "backend"
+        assert len(result["text"]) > 10
+
+    def test_tool_run_function(self):
+        result = TOOLS["run_function"]["fn"]({
+            "name": "gate_status",
+            "args": {"project_dir": str(ROOT)},
+        })
+        assert result.get("ok") is True
+        assert "ready" in result
+
+    def test_tool_stamp_skill(self, tmp_path):
+        result = TOOLS["stamp_skill"]["fn"]({
+            "name": "precommit",
+            "project_dir": str(tmp_path),
+        })
+        assert result.get("ok") is True
+        assert (tmp_path / ".gates" / "stamps" / "precommit").is_file()
 
     def test_tools_call(self):
         resp = process_message({"jsonrpc": "2.0", "id": 3, "method": "tools/call", "params": {

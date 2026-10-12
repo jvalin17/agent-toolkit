@@ -1,0 +1,23 @@
+{
+  "id": "cursor",
+  "rules_targets": [
+    "AGENTS.md",
+    ".cursor/rules/toolkit.mdc"
+  ],
+  "skills_path": "~/.cursor/skills",
+  "hooks": "structural",
+  "hooks_config": {
+    "path": ".cursor/hooks.json",
+    "format": "cursor"
+  },
+  "pull": ["mcp", "cli", "read_file"],
+  "stamp_mode": "cli_stamp",
+  "bootstrap": {
+    "inject": [
+      "rules/core.md",
+      "rules/hosts/cursor.md",
+      "rules/skills-index.md"
+    ],
+    "max_chars": 4000
+  }
+}

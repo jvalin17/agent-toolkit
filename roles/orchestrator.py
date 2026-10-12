@@ -19,6 +19,7 @@ Usage:
 
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -236,6 +237,34 @@ def _extract_role_checklist(
                     quality_checks.append(item)
 
     return {"anti_patterns": anti_patterns, "quality_checks": quality_checks}
+
+
+def _attach_host_context(plan: Dict[str, Any]) -> Dict[str, Any]:
+    """Detect host, merge config, attach pull_policy + bootstrap preview."""
+    hooks_dir = Path(__file__).resolve().parents[1] / "hooks"
+    if str(hooks_dir) not in sys.path:
+        sys.path.insert(0, str(hooks_dir))
+    from host_config import resolve_host, render_bootstrap  # local import
+
+    cfg = resolve_host()
+    pull_policy = cfg.get("pull_policy") or {
+        "skills": "stub_first",
+        "roles": "compact",
+        "modules": "on_signal",
+        "functions": ["check_tdd_order", "gate_status"],
+    }
+    bootstrap = render_bootstrap(cfg)
+    max_preview = 500
+    plan["host"] = {
+        "id": cfg.get("id"),
+        "hooks": cfg.get("hooks"),
+        "stamp_mode": cfg.get("stamp_mode"),
+        "pull": cfg.get("pull"),
+        "rules_targets": cfg.get("rules_targets"),
+    }
+    plan["pull_policy"] = pull_policy
+    plan["bootstrap_preview"] = bootstrap[:max_preview]
+    return plan
 
 
 def build_orchestration_plan(
@@ -467,12 +496,13 @@ def build_orchestration_plan(
         "model_tier": "mid",
     })
 
-    return {
+    plan = {
         "primary": primary_role,
         "task_type": task_type,
         "active_roles": active_roles,
         "steps": steps,
     }
+    return _attach_host_context(plan)
 
 
 def plan_to_context(
@@ -485,10 +515,16 @@ def plan_to_context(
     follows the plan deterministically. Build steps include the
     role's anti-patterns and quality checks as a mandatory pre-flight.
     """
+    host = plan.get("host") or {}
+    pull = plan.get("pull_policy") or {}
     lines = [
         f"ORCHESTRATION PLAN ({plan['task_type']})",
         f"Primary role: {plan['primary']}",
         f"Active roles: {', '.join(plan['active_roles'])}",
+        f"HOST: {host.get('id', 'unknown')} (hooks={host.get('hooks')}, stamp={host.get('stamp_mode')})",
+        f"PULL POLICY: skills={pull.get('skills')}, roles={pull.get('roles')}, "
+        f"modules={pull.get('modules')}, functions={pull.get('functions')}",
+        "Use get_skill stubs first; get_module on signal; run_function for gates.",
         "",
     ]
 

@@ -19,6 +19,7 @@ SUPPORTED_AGENTS = [
     "codex-cli",
     "grok-build",
     "windsurf",
+    "gemini",
 ]
 
 # --- Layer 1: Env var detection ---
@@ -32,6 +33,7 @@ _ENV_CHECKS = [
     ("CODEX_THREAD_ID", None, "codex-cli"),
     ("CURSOR_CLI", None, "cursor"),
     ("CURSOR_AGENT", "1", "cursor"),
+    ("GEMINI_CLI", None, "gemini"),
 ]
 
 
@@ -78,6 +80,10 @@ def detect_from_stdin(payload: Optional[Dict[str, Any]]) -> Optional[str]:
     if payload.get("turn_id"):
         return "codex-cli"
 
+    # Gemini CLI / agent payloads
+    if payload.get("gemini_version") or payload.get("gemini_cli"):
+        return "gemini"
+
     # Claude Code: transcript_path contains .claude
     transcript = payload.get("transcript_path", "")
     if ".claude" in str(transcript):
@@ -97,6 +103,7 @@ _FS_CHECKS = [
     (".grok", "grok-build"),
     (".codex", "codex-cli"),
     (".cursor", "cursor"),
+    (".gemini", "gemini"),
     (".windsurf", "windsurf"),
     (".devin", "windsurf"),
 ]

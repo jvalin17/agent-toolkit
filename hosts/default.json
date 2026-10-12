@@ -1,0 +1,22 @@
+{
+  "id": "default",
+  "rules_targets": ["AGENTS.md"],
+  "skills_path": null,
+  "hooks": "cli_only",
+  "hooks_config": null,
+  "pull": ["mcp", "cli", "read_file"],
+  "stamp_mode": "cli_stamp",
+  "bootstrap": {
+    "inject": [
+      "rules/core.md",
+      "rules/skills-index.md"
+    ],
+    "max_chars": 4000
+  },
+  "pull_policy": {
+    "skills": "stub_first",
+    "roles": "compact",
+    "modules": "on_signal",
+    "functions": ["check_tdd_order", "gate_status"]
+  }
+}

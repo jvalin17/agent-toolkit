@@ -1,0 +1,20 @@
+{
+  "id": "grok-build",
+  "rules_targets": ["AGENTS.md"],
+  "skills_path": null,
+  "hooks": "cli_only",
+  "hooks_config": {
+    "path": ".grok/hooks.json",
+    "format": "claude"
+  },
+  "pull": ["mcp", "cli"],
+  "stamp_mode": "cli_stamp",
+  "bootstrap": {
+    "inject": [
+      "rules/core.md",
+      "rules/hosts/grok-build.md",
+      "rules/skills-index.md"
+    ],
+    "max_chars": 4000
+  }
+}

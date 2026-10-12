@@ -10,7 +10,8 @@ Describe what you want in plain English. The toolkit's 19 specialized roles hand
 "Migrate this PHP app to Node.js"
 ```
 
-Works with **Claude Code, Cursor, Gemini, Codex, Windsurf, Aider**, or any AI tool.
+Works with **Claude Code, Cursor, Gemini, Codex, Grok, Windsurf, Aider**, or any AI tool.
+Host detection loads `hosts/<id>.json`; skills are **short stubs** with modules pulled on demand (MCP/CLI).
 Also available as a **Claude Code plugin** and **MCP server**.
 
 ---
@@ -162,18 +163,27 @@ Coding standards for 11 languages: C, C++, C#, Go, Java, Kotlin, MATLAB, Python,
 | `/verify` | Verify changes work | Legacy (absorbed by reviewer) |
 | `/updater` | Audit toolkit health | Maintenance |
 
-### 8 MCP Tools (usable from any MCP client)
+### MCP Tools (usable from any MCP client)
 
 | Tool | Purpose |
 |------|---------|
 | `select_agent` | Best model for a task type (haiku/sonnet/opus) |
-| `build_plan` | Deterministic orchestration plan |
+| `build_plan` | Deterministic orchestration plan (includes host + pull_policy) |
 | `plan_to_text` | Render plan as injectable context |
 | `get_role_context` | Detect roles + generate context for any AI tool |
 | `list_roles` | All 19 roles with metadata |
 | `list_skills` | All skills with descriptions |
 | `list_agents` | All 9 sub-agents |
 | `build_research_plan` | Fan-out research plan (cheap fetchers + expensive synthesizer) |
+| `resolve_host` | Detect LLM host + merged `hosts/*.json` config |
+| `get_bootstrap` | Short bootstrap text for the host |
+| `get_skill` | Skill **stub** + module catalog |
+| `get_module` | One skill module (depth on demand) |
+| `get_role` | Role context at compact/checks/full |
+| `run_function` | Allowlisted gates (`check_tdd_order`, `gate_status`) |
+| `stamp_skill` | CLI skill stamp for non-Claude hosts |
+
+Non-MCP hosts: `scripts/toolkit_pull.py` and `generate-project-rules.sh` (see [Other LLMs](docs/other-llms.md)).
 
 ### Model Routing (saves tokens, enforced by hooks)
 

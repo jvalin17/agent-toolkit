@@ -44,6 +44,10 @@ class TestDetectFromEnv:
         with patch.dict(os.environ, {"CURSOR_CLI": "/usr/bin/cursor"}, clear=True):
             assert detect_from_env() == "cursor"
 
+    def test_gemini(self):
+        with patch.dict(os.environ, {"GEMINI_CLI": "1"}, clear=True):
+            assert detect_from_env() == "gemini"
+
     def test_no_match(self):
         with patch.dict(os.environ, {}, clear=True):
             assert detect_from_env() is None
@@ -72,6 +76,10 @@ class TestDetectFromStdin:
     def test_codex_turn_id(self):
         payload = {"turn_id": "t123", "hook_event_name": "PreToolUse"}
         assert detect_from_stdin(payload) == "codex-cli"
+
+    def test_gemini_version(self):
+        payload = {"gemini_version": "0.1.0"}
+        assert detect_from_stdin(payload) == "gemini"
 
     def test_claude_code_transcript(self):
         payload = {"transcript_path": "/home/user/.claude/projects/foo/session.jsonl"}
@@ -111,6 +119,11 @@ class TestDetectFromFilesystem:
         (tmp_path / ".cursor").mkdir()
         with patch("agent_detect.Path.home", return_value=tmp_path):
             assert detect_from_filesystem() == "cursor"
+
+    def test_gemini_dir(self, tmp_path):
+        (tmp_path / ".gemini").mkdir()
+        with patch("agent_detect.Path.home", return_value=tmp_path):
+            assert detect_from_filesystem() == "gemini"
 
     def test_windsurf_dir(self, tmp_path):
         (tmp_path / ".windsurf").mkdir()

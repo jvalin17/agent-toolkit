@@ -172,6 +172,110 @@ def tool_build_research_plan(params):
     return build_research_plan(query=params["query"], search_count=params.get("search_count", 5))
 
 
+def _hooks_path():
+    hooks = TOOLKIT_ROOT / "hooks"
+    if str(hooks) not in sys.path:
+        sys.path.insert(0, str(hooks))
+
+
+@tool("resolve_host", "Detect LLM host and return merged host configuration", {
+    "type": "object",
+    "properties": {
+        "stdin_payload": {"type": "object", "description": "Optional hook stdin JSON for detection"},
+    },
+})
+def tool_resolve_host(params):
+    _hooks_path()
+    from host_config import resolve_host
+    return resolve_host(params.get("stdin_payload"))
+
+
+@tool("get_bootstrap", "Render short bootstrap text for the detected (or given) host", {
+    "type": "object",
+    "properties": {
+        "host_id": {"type": "string", "description": "Optional host id; default = detect"},
+    },
+})
+def tool_get_bootstrap(params):
+    _hooks_path()
+    from host_config import load_host_config, resolve_host, render_bootstrap
+    host_id = params.get("host_id")
+    cfg = load_host_config(host_id) if host_id else resolve_host()
+    return {"host": cfg.get("id"), "text": render_bootstrap(cfg, toolkit_root=TOOLKIT_ROOT)}
+
+
+@tool("get_skill", "Get skill stub + module catalog (not full long body modules)", {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string", "description": "Skill directory name"},
+    },
+    "required": ["name"],
+})
+def tool_get_skill(params):
+    _hooks_path()
+    from skill_pull import get_skill
+    return get_skill(params["name"], toolkit_root=TOOLKIT_ROOT)
+
+
+@tool("get_module", "Fetch one skill module markdown by name", {
+    "type": "object",
+    "properties": {
+        "skill": {"type": "string"},
+        "module": {"type": "string"},
+    },
+    "required": ["skill", "module"],
+})
+def tool_get_module(params):
+    _hooks_path()
+    from skill_pull import get_module
+    return get_module(params["skill"], params["module"], toolkit_root=TOOLKIT_ROOT)
+
+
+@tool("get_role", "Load role context at compact|checks|full depth", {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "depth": {"type": "string", "description": "compact, checks, or full"},
+    },
+    "required": ["name"],
+})
+def tool_get_role(params):
+    from detect_role import load_role_context
+    depth = params.get("depth") or "compact"
+    # "checks" = compact role body (anti-patterns + quality checks in role.md)
+    load_depth = "compact" if depth in ("compact", "checks") else "full"
+    text = load_role_context([params["name"]], roles_dir=ROLES_DIR, max_roles=1, depth=load_depth)
+    return {"name": params["name"], "depth": depth, "text": text}
+
+
+@tool("run_function", "Run an allowlisted gate function (check_tdd_order, gate_status)", {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "args": {"type": "object"},
+    },
+    "required": ["name"],
+})
+def tool_run_function(params):
+    _hooks_path()
+    from skill_pull import run_function
+    return run_function(params["name"], params.get("args") or {}, toolkit_root=TOOLKIT_ROOT)
+
+
+@tool("stamp_skill", "Write CLI skill stamp under project .gates/stamps/", {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "project_dir": {"type": "string"},
+    },
+    "required": ["name", "project_dir"],
+})
+def tool_stamp_skill(params):
+    _hooks_path()
+    from skill_pull import stamp_skill
+    return stamp_skill(params["name"], Path(params["project_dir"]))
+
+
 # --- MCP JSON-RPC protocol handler ---
 
 def handle_initialize(_params):

@@ -11,5 +11,6 @@
   "gate_protect": true,
   "report_protect": true,
   "test_command": "python3 -m pytest tests/ -q",
-  "lint_command": "python3 -m compileall -q gate hooks scripts tests"
+  "lint_command": "python3 -m compileall -q gate hooks scripts tests",
+  "canary": ""
 }

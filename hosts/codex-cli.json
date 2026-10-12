@@ -1,0 +1,20 @@
+{
+  "id": "codex-cli",
+  "rules_targets": ["AGENTS.md"],
+  "skills_path": null,
+  "hooks": "cli_only",
+  "hooks_config": {
+    "path": ".codex/config.toml",
+    "format": "codex"
+  },
+  "pull": ["mcp", "cli"],
+  "stamp_mode": "cli_stamp",
+  "bootstrap": {
+    "inject": [
+      "rules/core.md",
+      "rules/hosts/codex-cli.md",
+      "rules/skills-index.md"
+    ],
+    "max_chars": 4000
+  }
+}

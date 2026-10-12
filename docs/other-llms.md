@@ -1,30 +1,43 @@
-# Other LLMs (Cursor, GPT, Gemini, & more)
+# Other LLMs (Cursor, GPT, Gemini, Grok, & more)
 
-Agent Toolkit is **full strength on Claude Code** — hooks block bad commits, protect reports, and auto-sync. On other tools you get the same **guardrails and workflows** via project rules; enforcement is prompt-based, not structural.
+Agent Toolkit is **full strength on Claude Code** (structural hooks). On other hosts the **same development policy** applies via short rules + on-demand pull (Option B).
+
+Orchestrator **detects the host** → loads `hosts/<id>.json` (merged with `hosts/default.json`) → injects a short bootstrap. Skills are **stubs**; depth is `get_module` / CLI.
 
 ## What works where
 
-| Capability | Claude Code | Cursor / GPT / Gemini / others |
-|------------|-------------|--------------------------------|
-| Guardrails & workflow rules | Yes (hooks + skills) | Yes (`AGENTS.md` / `.cursorrules`) |
-| Slash skills (`/precommit`, …) | Yes (`~/.claude/skills/`) | Optional — see [Cursor](#cursor) |
-| Auto skill routing | Yes (hook) | No — describe intent in chat |
-| Commit/push gates | Yes (hook blocks) | No — you enforce manually |
-| Report protection (`reports/`) | Yes (hook blocks) | No |
-| Auto `git pull` + sync | Yes | No — pull toolkit yourself |
+| Capability | Claude Code | Cursor / GPT / Gemini / Grok / others |
+|------------|-------------|----------------------------------------|
+| Short rules + skills index | Yes | Yes (`AGENTS.md` / `.cursor/rules/toolkit.mdc`) |
+| Pull skill stub / module | MCP + Skill | MCP or `scripts/toolkit_pull.py` |
+| `run_function` gates | Yes | Yes (CLI/MCP) |
+| Structural commit hooks | Yes | Cursor: if hooks installed; else CLI |
+| Report protection | Hook | CLI discipline + path advice |
 
 ## Setup (every non-Claude project)
 
 From **your project root**:
 
 ```bash
-/path/to/agent-toolkit/generate-project-rules.sh          # AGENTS.md
-/path/to/agent-toolkit/generate-project-rules.sh --cursor # + .cursorrules
+# Auto-detect host, or pass --host / --cursor
+/path/to/agent-toolkit/generate-project-rules.sh
+/path/to/agent-toolkit/generate-project-rules.sh --cursor
+/path/to/agent-toolkit/generate-project-rules.sh --host gemini
 ```
 
-Regenerate after toolkit updates. You do **not** need `./install.sh` unless you also use Claude Code.
+This writes a **short** `AGENTS.md` (and host overlays). It does **not** dump full skill bodies.
 
-Optional — bootstrap gates in a git repo (no Claude hooks):
+Pull on demand:
+
+```bash
+python3 /path/to/agent-toolkit/scripts/toolkit_pull.py get_skill implementation
+python3 /path/to/agent-toolkit/scripts/toolkit_pull.py get_module implementation tdd
+python3 /path/to/agent-toolkit/scripts/toolkit_pull.py run_function gate_status --project .
+```
+
+Or add the toolkit MCP server and use `resolve_host`, `get_skill`, `get_module`, `run_function`, `stamp_skill`.
+
+Optional — bootstrap gates:
 
 ```bash
 bash /path/to/agent-toolkit/scripts/bootstrap-project-gates.sh /path/to/agent-toolkit
@@ -32,13 +45,11 @@ bash /path/to/agent-toolkit/scripts/bootstrap-project-gates.sh /path/to/agent-to
 
 ## Cursor
 
-1. Generate rules: `generate-project-rules.sh --cursor`
-2. Open project in Cursor, start Agent chat.
-3. Talk normally — agent reads `.cursorrules` and `AGENTS.md`.
+1. `generate-project-rules.sh --cursor`
+2. Open project; agent reads `AGENTS.md` + `.cursor/rules/toolkit.mdc`
+3. Prefer MCP pull tools for skill depth
 
-**Example prompts:** "Explore this codebase…", "Gather requirements for…", "Run a precommit-style review before commit."
-
-**Optional — toolkit skills as Cursor Agent Skills:**
+Optional skill stubs:
 
 ```bash
 mkdir -p ~/.cursor/skills
@@ -47,42 +58,47 @@ for d in /path/to/agent-toolkit/skills/*/; do
 done
 ```
 
-**Without hooks:** run tests yourself, follow precommit discipline, use `hooks/finalize_report.py` if you adopt the report flow.
-
-## OpenAI Codex / ChatGPT
-
-1. Generate `AGENTS.md` in the project.
-2. Open repo in Codex or agent-mode IDE.
-3. Use plain language — slash commands are not registered:
-
-```
-Follow the precommit workflow in AGENTS.md and review my staged changes.
-```
-
-## Google Gemini CLI
+## OpenAI Codex / GPT
 
 ```bash
+generate-project-rules.sh --host codex-cli
+```
+
+Use plain language + pull CLI/MCP. Example: “Follow precommit stub; run gate_status before commit.”
+
+## Google Gemini
+
+```bash
+generate-project-rules.sh --host gemini
+# writes AGENTS.md + GEMINI.md
 cd /path/to/your-project && gemini
 ```
 
-Reference workflows explicitly; Gemini reads workspace files including `AGENTS.md`.
+## Grok
 
-## Windsurf, Aider, generic agents
+```bash
+generate-project-rules.sh --host grok-build
+```
 
-| Tool | Rules file |
-|------|------------|
-| Windsurf | `AGENTS.md` or tool-specific rules |
-| Aider | `AGENTS.md` or `.aider.conf.yml` |
-| Generic | `AGENTS.md` at repo root |
+Prefer CLI gates until all hooks normalize Grok camelCase stdin.
 
-**Pattern:** generate once → open project → describe the job using the same intent as slash skills (`explore`, `requirements`, `implementation`, `precommit`, `debug`).
+## Windsurf / Aider / generic
+
+```bash
+generate-project-rules.sh --host windsurf   # or omit --host for detect/default
+```
+
+## Extending a new LLM
+
+1. Add `hosts/<id>.json` (merge over `default.json`)
+2. Add `rules/hosts/<id>.md`
+3. Add detect signal in `hooks/agent_detect.py`
+4. Add fixture test — then document in README
 
 ## Keeping rules up to date
 
 ```bash
 cd /path/to/agent-toolkit && git pull
 cd /path/to/your-project
-/path/to/agent-toolkit/generate-project-rules.sh --cursor   # or without --cursor
+/path/to/agent-toolkit/generate-project-rules.sh --cursor
 ```
-
-Claude Code users get pull + sync automatically — see [install-and-updates.md](install-and-updates.md).

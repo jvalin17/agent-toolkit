@@ -1,6 +1,6 @@
 # Project state — agent-toolkit
 
-**Last updated:** 2026-10-10
+**Last updated:** 2026-10-12
 
 ## Resume in a new session
 
@@ -11,10 +11,19 @@
 
 `main` — single `"mode"` field in `gates.json` controls all enforcement. Default mode: `"default"` (TDD + precommit). Seven modes: minimal, tdd, planned, guarded, default, standard, safe. `report_protect` and `gate_protect` both **true** by default. Signed mode optional via `scripts/setup-signed-gates.sh`.
 
+## Feature Tracker
+
+| Feature | Status | Date | Notes |
+|---------|--------|------|-------|
+| ~~LLM-agnostic modular (Option B)~~ | ~~done~~ | ~~2026-10-12~~ | hosts/*.json, pull API, stub implementation/precommit, generate-project-rules |
+| Stubify remaining skills | remaining | | Same pattern as implementation/precommit |
+| Wire stdin_adapter into all hooks | remaining | | Cross-host structural enforcement |
+
 ## Recently shipped
 
 | Item | Note |
 |------|------|
+| LLM-agnostic modular toolkit (Option B) | `hosts/*.json`, `hooks/host_config.py`, `hooks/skill_pull.py`, MCP pull tools, `functions/*`, stub skills, `generate-project-rules.sh`, orchestrator host+pull_policy. Tests: 1106 passed |
 | Anti-fake: G-REPORT-1 (`report_protect`) | `session_monitor` blocks agent writes to `reports/` |
 | Hook-owned gated skill reports | `finalize_report.py` (+ `finalize_schema.py`, `finalize_render.py`) — precommit, evaluate, reviewer, assess |
 | Selective gate cleanup | `gate_cleanup.py` — commit clears precommit only; push clears evaluate/reviewer/assess |
@@ -148,9 +157,9 @@ bash tests/test-hooks.sh            # 33 passed
 - Edge cases: invalid mode name, missing gates.json, preserves unrelated fields
 
 
-## Session Summary (2026-10-11)
+## Session Summary (2026-10-12)
 
 **Skills used:** /precommit, /implementation
-**Files changed:** compliance_session.py, execution-plan.json, finalize_report.py, findings.json, gate_cleanup.py, project-state.md, skill_enforce.py, skill_passed.py, test-plan_skill-stamps-slab1.json, test-plan_skill-...
-**Tests:** 1059 passed
+**Files changed:** README.md, compliance_session.py, execution-plan.json, finalize_report.py, findings.json, gate_cleanup.py, gate_hook.py, project-state.md, session_monitor.py, skill_enforce.py, skill_passed.py, test-h...
+**Tests:** 33 passed, 0 failed
 

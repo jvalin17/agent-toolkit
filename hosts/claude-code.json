@@ -1,0 +1,20 @@
+{
+  "id": "claude-code",
+  "rules_targets": [],
+  "skills_path": "~/.claude/skills",
+  "hooks": "structural",
+  "hooks_config": {
+    "path": "~/.claude/settings.json",
+    "format": "claude"
+  },
+  "pull": ["mcp", "read_file"],
+  "stamp_mode": "hook_skill_passed",
+  "bootstrap": {
+    "inject": [
+      "rules/core.md",
+      "rules/hosts/claude-code.md",
+      "rules/skills-index.md"
+    ],
+    "max_chars": 4000
+  }
+}
