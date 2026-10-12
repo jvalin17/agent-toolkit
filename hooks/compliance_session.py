@@ -280,6 +280,10 @@ def audit_session_actions(log_path: Path) -> Dict[str, Any]:
                         if first_test_plan_write_index is None:
                             first_test_plan_write_index = tool_index
                     else:
+                        # Skip non-code files from TDD tracking — docs/config don't need tests
+                        _ext = file_path.rsplit(".", 1)[-1].lower() if "." in file_path else ""
+                        if _ext in ("md", "json", "yml", "yaml", "toml", "txt", "csv", "ini", "cfg"):
+                            continue
                         is_test = bool(TEST_FILE_PATTERN.search(file_path))
                         if is_test and first_test_edit_index is None:
                             first_test_edit_index = tool_index

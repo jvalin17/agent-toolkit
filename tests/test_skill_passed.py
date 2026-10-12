@@ -159,6 +159,43 @@ class TestEdgeCases:
         assert output == ""
 
 
+class TestPrecommitInvalidation:
+    """Code-change skills clear precommit-passed so stale passes can't be reused."""
+
+    def test_implementation_clears_precommit_flag(self, project):
+        """Starting /implementation invalidates any prior precommit pass."""
+        (project / ".gates" / "precommit-passed").write_text("READY")
+        run_skill_passed(make_input("implementation"), project)
+        assert not (project / ".gates" / "precommit-passed").exists()
+
+    def test_debug_tool_clears_precommit_flag(self, project):
+        (project / ".gates" / "precommit-passed").write_text("READY")
+        run_skill_passed(make_input("debug_tool"), project)
+        assert not (project / ".gates" / "precommit-passed").exists()
+
+    def test_refactor_clears_precommit_flag(self, project):
+        (project / ".gates" / "precommit-passed").write_text("READY")
+        run_skill_passed(make_input("refactor"), project)
+        assert not (project / ".gates" / "precommit-passed").exists()
+
+    def test_precommit_does_not_clear_itself(self, project):
+        """Running /precommit should NOT clear its own flag."""
+        (project / ".gates" / "precommit-passed").write_text("READY")
+        run_skill_passed(make_input("precommit"), project)
+        assert (project / ".gates" / "precommit-passed").is_file()
+
+    def test_reviewer_does_not_clear_precommit(self, project):
+        """Evaluation skills should NOT invalidate precommit."""
+        (project / ".gates" / "precommit-passed").write_text("READY")
+        run_skill_passed(make_input("reviewer"), project)
+        assert (project / ".gates" / "precommit-passed").is_file()
+
+    def test_no_error_when_no_precommit_flag(self, project):
+        """No crash if precommit-passed doesn't exist."""
+        assert not (project / ".gates" / "precommit-passed").exists()
+        run_skill_passed(make_input("implementation"), project)  # should not raise
+
+
 class TestStampWriting:
     """Skill invocations write tamper-proof stamps to .gates/stamps/."""
 

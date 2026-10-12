@@ -282,6 +282,21 @@ class TestAuditSessionActions:
         result = audit_session_actions(log)
         assert result["tdd_order_respected"] is True
 
+    def test_markdown_files_exempt_from_tdd_tracking(self, tmp_path):
+        """Markdown files should not count as source edits for TDD ordering."""
+        from compliance import audit_session_actions
+
+        log = _make_jsonl(tmp_path, [
+            # Edit .md file first (should be ignored)
+            _tool_use_entry("Edit", {"file_path": "/project/README.md", "old_string": "a", "new_string": "b"}),
+            # Then test edit — should be first real edit
+            _tool_use_entry("Edit", {"file_path": "/project/tests/test_foo.py", "old_string": "c", "new_string": "d"}),
+            # Then source edit
+            _tool_use_entry("Edit", {"file_path": "/project/src/foo.py", "old_string": "e", "new_string": "f"}),
+        ])
+        result = audit_session_actions(log)
+        assert result["tdd_order_respected"] is True
+
     def test_tdd_order_resets_on_skill_invocation(self, tmp_path):
         """TDD order resets when a new skill is invoked — only the latest window matters."""
         from compliance import audit_session_actions

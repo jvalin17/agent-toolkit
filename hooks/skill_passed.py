@@ -55,6 +55,20 @@ def _write_stamp(project_dir: Path, skill: str) -> None:
         pass
 
 
+def _invalidate_precommit(project_dir: Path) -> None:
+    """Clear precommit-passed flag when a code-change skill starts.
+
+    A prior precommit pass is stale once new work begins. The agent
+    must re-run /precommit before the next commit.
+    """
+    try:
+        flag = project_dir / ".gates" / "precommit-passed"
+        if flag.is_file():
+            flag.unlink()
+    except OSError:
+        pass
+
+
 def _track_skill_state(project_dir: Path, skill: str) -> None:
     """Write skill_state.json so skill_enforce.py can authorize edits.
 
@@ -88,10 +102,11 @@ def run_skill_passed(
     # Write tamper-proof stamp for every skill invocation
     _write_stamp(project_dir, skill)
 
-    # Track code-change skills so skill_enforce.py can authorize edits.
-    # This covers slash-command invocations that route_to_skill.py misses.
+    # Code-change skills invalidate prior precommit — changes are coming,
+    # so any previous precommit pass is stale.
     if skill in CODE_CHANGE_SKILLS:
         _track_skill_state(project_dir, skill)
+        _invalidate_precommit(project_dir)
 
     # F3.2: After /implementation, inject demo prompt (new features only)
     if skill == "implementation":
