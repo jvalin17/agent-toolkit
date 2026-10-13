@@ -3,8 +3,10 @@
 A cloned repository controls its gates.json. Without this check, cloning a
 hostile repo and running /precommit, /evaluate or the CI gate would execute
 whatever that file says, as the user. Only known test/lint runners are
-accepted, invoked by bare name (resolved on PATH, never a path), with no
-shell metacharacters and no "run arbitrary code" sub-modes.
+accepted, with no shell metacharacters and no "run arbitrary code" sub-modes.
+A runner is invoked by bare name (resolved on PATH) or from a project-local
+tool directory (a virtualenv's bin/ or Scripts/, or node_modules/.bin/), which
+is how most projects spell their test command. Any other path is refused.
 """
 
 from __future__ import annotations
@@ -57,13 +59,30 @@ TRUSTED_SCRIPT_TARGETS = frozenset({"test", "lint", "typecheck", "check", "test:
 TRUSTED_MAKE_TARGETS = frozenset({"test", "lint", "check", "typecheck", "unit", "ci"})
 
 SHELL_META = re.compile(r"[;&|`$<>(){}\\]|\n")
+# argv[0] may be a path, so backslashes are allowed there (Windows venvs); no other shell characters.
+RUNNER_TOKEN = re.compile(r"^[A-Za-z0-9_.\-/\\]+$")
+
+# Project-local tool directories, relative to the project root, whose binaries
+# are treated as the runner of the same name: `.venv/bin/python -m pytest`,
+# `node_modules/.bin/jest`. Nothing outside the project root is accepted.
+PROJECT_TOOL_DIR = re.compile(
+    r"^(?:\./)?(?:(?:\.?venv|\.?env)/(?:bin|Scripts)|node_modules/\.bin)/"
+    r"(?P<name>[A-Za-z0-9_.\-]+?)(?:\.exe|\.cmd)?$"
+)
+PYTHON_VERSIONED = re.compile(r"^python3(?:\.\d+)?$")
+PROJECT_LOCAL_HINT = "project-local .venv/bin/<runner> or node_modules/.bin/<runner> is also accepted"
 
 
 def _runner_name(token: str) -> str | None:
+    """Bare runner name for argv[0], or None when it is a path we do not trust."""
     if token == "./gradlew":
         return token
+    match = PROJECT_TOOL_DIR.match(token.replace("\\", "/"))
+    if match:
+        name = match.group("name")
+        return "python3" if PYTHON_VERSIONED.match(name) else name
     if "/" in token or "\\" in token:
-        return None  # paths are not trusted; runners resolve on PATH
+        return None  # arbitrary paths are not trusted; runners resolve on PATH
     return token
 
 
@@ -71,13 +90,18 @@ def check_command(argv: Sequence[str]) -> Tuple[bool, str]:
     """(ok, reason). Reason is empty when ok."""
     if not argv:
         return False, "empty command"
-    for tok in argv:
+    if not RUNNER_TOKEN.match(argv[0]):
+        return False, f"shell metacharacter in runner {argv[0]!r}"
+    for tok in argv[1:]:
         if SHELL_META.search(tok):
             return False, f"shell metacharacter in argument {tok!r}"
 
     runner = _runner_name(argv[0])
     if runner is None or runner not in TRUSTED_RUNNERS:
-        return False, f"runner {argv[0]!r} is not allowlisted (trusted: {', '.join(sorted(TRUSTED_RUNNERS))})"
+        return False, (
+            f"runner {argv[0]!r} is not allowlisted "
+            f"(trusted: {', '.join(sorted(TRUSTED_RUNNERS))}; {PROJECT_LOCAL_HINT})"
+        )
 
     forbidden = TRUSTED_RUNNERS[runner]
     rest = list(argv[1:])
