@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import sys
 import time
 import uuid
@@ -299,18 +298,3 @@ def write_token(path: Path, token: str) -> None:
 
 def read_token(path: Path) -> str:
     return path.read_text(encoding="utf-8").strip()
-
-
-def signing_secret_from_env() -> str | None:
-    for var in ("AGENT_TOOLKIT_GATE_SECRET", "AGENT_TOOLKIT_GATE_PRIVATE_KEY"):
-        val = os.environ.get(var, "").strip()
-        if val and not val.startswith("-----"):
-            return val
-    path = os.environ.get("AGENT_TOOLKIT_GATE_SECRET_FILE", "").strip()
-    if not path:
-        path = os.environ.get("AGENT_TOOLKIT_GATE_PRIVATE_KEY_FILE", "").strip()
-    if path and Path(path).is_file():
-        text = Path(path).read_text(encoding="utf-8").strip()
-        if text and not text.startswith("-----"):
-            return text
-    return None

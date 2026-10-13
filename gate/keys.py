@@ -18,6 +18,7 @@ from pathlib import Path
 MIN_SECRET_CHARS = 32
 LEGACY_PROJECT_KEYS = (Path(".gate/signing.key"), Path(".gate/private.pem"))
 KEYS_HOME_RELATIVE = Path(".agent-toolkit") / "keys"
+SECRET_FILE_ENV_VARS = ("AGENT_TOOLKIT_GATE_SECRET_FILE", "AGENT_TOOLKIT_GATE_PRIVATE_KEY_FILE")
 
 
 def project_key_dir(project_root: Path | None = None) -> Path:
@@ -69,7 +70,7 @@ def load_signing_secret(
     project_root: Path | None = None,
     signing_key_path: Path | None = None,
 ) -> str:
-    """Resolve the secret: env → explicit path → ~/.agent-toolkit/keys → legacy .gate/.
+    """Resolve the secret: env value → env file → explicit path → ~/.agent-toolkit/keys → legacy .gate/.
 
     Raises FileNotFoundError when nothing is found and ValueError when the
     secret is too short (both make verification fail closed).
@@ -83,6 +84,10 @@ def load_signing_secret(
 
     root = Path(project_root or Path.cwd())
     candidates: list[Path] = []
+    for var in SECRET_FILE_ENV_VARS:
+        env_path = os.environ.get(var, "").strip()
+        if env_path:
+            candidates.append(Path(env_path))
     if signing_key_path is not None:
         p = Path(signing_key_path)
         candidates.append(p if p.is_absolute() else root / p)

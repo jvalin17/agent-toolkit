@@ -441,3 +441,73 @@ def test_cli_issue_verify_roundtrip(gate_env: Path, monkeypatch):
         text=True,
     )
     assert proc2.returncode == 0, proc2.stderr
+
+
+def _env_without_gate_secrets() -> dict:
+    """Subprocess env with no gate secret vars. PYTHONPATH keeps PyJWT importable
+    when the test overrides HOME (a user-site install lives under HOME)."""
+    import os
+
+    import jwt
+
+    env = {k: v for k, v in os.environ.items() if not k.startswith("AGENT_TOOLKIT_GATE_")}
+    jwt_site = str(Path(jwt.__file__).resolve().parents[1])
+    env["PYTHONPATH"] = os.pathsep.join(p for p in (jwt_site, env.get("PYTHONPATH", "")) if p)
+    return env
+
+
+def test_cli_issue_token_finds_home_key_without_env(tmp_path: Path, monkeypatch):
+    """CI regression (run 38346123357): bootstrap puts the key under HOME, and
+    issue_token.py must find it there with no env var and no legacy .gate/ key."""
+    home = tmp_path / "runner-home"
+    project = tmp_path / "billing-app"
+    project.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    (project / "gates.json").write_text(
+        json.dumps({"gate_mode": "signed", "profile": "standard", "eval_threshold": 95,
+                    "profiles": {"standard": {"push_requires": ["evaluate"]}}}),
+        encoding="utf-8",
+    )
+    key_path = generate_signing_secret(project_root=project)
+    assert str(key_path).startswith(str(home))
+    att_path = project / ".gate" / "attestation.json"
+    att_path.parent.mkdir(parents=True)
+    att_path.write_text(json.dumps(_attestation_all_passed()), encoding="utf-8")
+
+    env = {**_env_without_gate_secrets(), "HOME": str(home)}
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "gate/scripts/issue_token.py"),
+         "--action", "push", "--project-root", str(project)],
+        capture_output=True, text=True, env=env, cwd=project,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert (project / ".gate" / "gate-token.jwt").is_file()
+    assert not (project / ".gate" / "signing.key").exists(), "secret must not be written into the worktree"
+
+    proc2 = subprocess.run(
+        [sys.executable, str(ROOT / "gate/scripts/verify_gate.py"), "verify",
+         "--action", "push", "--commit", "abc123", "--project-root", str(project)],
+        capture_output=True, text=True, env=env, cwd=project,
+    )
+    assert proc2.returncode == 0, proc2.stderr
+
+
+def test_cli_issue_token_reports_missing_key_clearly(tmp_path: Path, monkeypatch):
+    home = tmp_path / "runner-home"
+    project = tmp_path / "billing-app"
+    (project / ".gate").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    (project / "gates.json").write_text(json.dumps({"gate_mode": "signed"}), encoding="utf-8")
+    (project / ".gate" / "attestation.json").write_text(
+        json.dumps(_attestation_all_passed()), encoding="utf-8",
+    )
+    env = {**_env_without_gate_secrets(), "HOME": str(home)}
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "gate/scripts/issue_token.py"),
+         "--action", "push", "--project-root", str(project)],
+        capture_output=True, text=True, env=env, cwd=project,
+    )
+    assert proc.returncode == 1
+    assert "AGENT_TOOLKIT_GATE_SECRET" in proc.stderr
+    assert "setup-signed-gates.sh" in proc.stderr
+

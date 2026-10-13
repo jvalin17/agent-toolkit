@@ -9,7 +9,7 @@ Check `gates.json` → `gate_mode` (default: **`legacy`** for daily work; **`sig
 
 **Enforcement is always block.** Hooks block commit/push when required gates are missing; there is no advisory mode. A `gates.json` that exists but cannot be parsed blocks every git action until it is fixed (fail closed).
 
-**`AGENT_TOOLKIT_GATE_SECRET`:** optional. Not needed for legacy or single-job CI (bootstrap creates `.gate/signing.key`). Use `scripts/setup-signed-gates.sh --upload-github-secret` only when GitHub and your laptop must share one key.
+**`AGENT_TOOLKIT_GATE_SECRET`:** optional. Not needed for legacy or single-job CI (bootstrap creates a key under `~/.agent-toolkit/keys/<project>/` on the runner). Use `scripts/setup-signed-gates.sh --upload-github-secret` only when GitHub and your laptop must share one key.
 
 ## Switch modes
 
@@ -87,7 +87,7 @@ cryptographic verification on top.
 | JWT | `.gate/gate-token.jwt` — `gate_hook.py` checks via `verify_gate.py` (blocks if verify fails or is unavailable; no silent fallback) |
 | GitHub (optional) | Workflow `agent-toolkit-gate`; branch protection on that check |
 
-HS256 + `.gate/signing.key` (PyJWT only — no `cryptography` wheel).
+HS256 with the key under `~/.agent-toolkit/keys/<project>/`, or `AGENT_TOOLKIT_GATE_SECRET`; a legacy in-repo `.gate/` key is still read. PyJWT only — no `cryptography` wheel.
 
 **Enable (~5 min):**
 
