@@ -453,6 +453,8 @@ JWT_AVAILABLE=0
 python3 -c "import jwt" 2>/dev/null && JWT_AVAILABLE=1
 
 COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "deadbeef")
+# The verifier binds the token to the current ref; git init may create main or master.
+CURRENT_REF=$(git symbolic-ref -q HEAD 2>/dev/null || echo "refs/heads/main")
 
 if [ "$JWT_AVAILABLE" -eq 1 ]; then
   python3 << PY || true
@@ -469,7 +471,7 @@ att = {
     "version": 1,
     "repo": "test/repo",
     "commit_sha": "$COMMIT_SHA",
-    "ref": "refs/heads/main",
+    "ref": "$CURRENT_REF",
     "producer": "test",
     "results": {"precommit": {"passed": True}},
 }
