@@ -32,7 +32,7 @@ claude plugin marketplace add jvalin17/agent-toolkit
 claude plugin install agent-toolkit
 
 # MCP (Python 3.9+)
-claude mcp add agent-toolkit -- python3 -m toolkit_mcp
+claude mcp add agent-toolkit -e PYTHONPATH=/path/to/agent-toolkit -- python3 -m toolkit_mcp
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | python3 -m toolkit_mcp
 
 # Cursor / Codex / Grok / Windsurf (structural hooks)
@@ -95,7 +95,7 @@ Knowledge: foundational (SOLID, DDD, Clean Architecture, DDIA, GoF, OWASP, 12-Fa
 | `/agent-toolkit-mode` | Switch enforcement mode mid-session |
 | `/setup` | Install/deploy scaffolding |
 | `/status` | Dashboard |
-| `/verify` | Legacy verify (absorbed by reviewer) |
+| `/verify` | Output quality check (user judges usefulness) |
 | `/updater` | Toolkit health |
 
 ### MCP tools (15)
@@ -121,11 +121,11 @@ Non-MCP: `scripts/toolkit_pull.py`, `generate-project-rules.sh` — [docs/other-
 
 `taxonomy_enforce.py` checks the `model` on every `Agent` spawn and blocks an expensive model on a cheap task or a cheap model on deep-reasoning work. It does not change the main session's model.
 
-| Tier | Tasks | Approx. |
+| Tier | Tasks | Relative cost |
 |------|-------|---------|
-| haiku | search, grep, lint, diff | ~$0.25/MTok |
-| sonnet | codegen, fixes, tests | ~$3/MTok |
-| opus/fable | review, architecture, security | ~$15/MTok |
+| haiku | search, grep, lint, diff | lowest |
+| sonnet | codegen, fixes, tests | mid |
+| opus/fable | review, architecture, security | highest |
 
 ---
 

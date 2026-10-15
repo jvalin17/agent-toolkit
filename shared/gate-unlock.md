@@ -110,7 +110,7 @@ Re-issue after each new commit. Token must match `git rev-parse HEAD`. Or rely o
 
 - `.agent-toolkit/gate/` — scripts for CI and local verify
 - `gates.json` — template if missing (`legacy`, `block`, `minimal`)
-- `.gate/signing.key` — gitignored (optional GitHub secret)
+- signing key under `~/.agent-toolkit/keys/<project>/` — outside the repo, 0600 (a legacy in-repo `.gate/signing.key` is still read; `.gate/` stays gitignored)
 - `.github/workflows/agent-toolkit-gate.yml` — attest → issue → verify
 
 Manual signed setup: copy `templates/gates.signed.example.json` or edit `gates.json` by hand after install.
