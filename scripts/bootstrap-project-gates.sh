@@ -126,13 +126,24 @@ append_ignore ".gate/attestation.json"
 append_ignore ".gates/"
 append_ignore ".scratch/"
 
-# Optional: upload signing key to GitHub (only when explicitly requested)
+# Optional: upload signing key to GitHub (only when explicitly requested).
+# The key lives under HOME (see above); fall back to a legacy in-repo key.
 if [ "${AGENT_TOOLKIT_UPLOAD_GATE_SECRET:-}" = "1" ]; then
+  KEY_FILE="$(cd "$PROJECT_ROOT" && python3 -c "
+import sys
+from pathlib import Path
+sys.path.insert(0, '$AGENT_DIR')
+from gate.keys import default_key_path
+print(default_key_path(Path('.').resolve()))
+")"
+  if [ ! -f "$KEY_FILE" ] && [ -f "$GATE_LOCAL/signing.key" ]; then
+    KEY_FILE="$GATE_LOCAL/signing.key"
+  fi
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    if gh secret set AGENT_TOOLKIT_GATE_SECRET < "$GATE_LOCAL/signing.key" 2>/dev/null; then
+    if gh secret set AGENT_TOOLKIT_GATE_SECRET < "$KEY_FILE" 2>/dev/null; then
       echo "  [optional] GitHub secret AGENT_TOOLKIT_GATE_SECRET set"
     else
-      echo "  [optional] could not set GitHub secret — paste .gate/signing.key manually if needed"
+      echo "  [optional] could not set GitHub secret — paste the contents of $KEY_FILE manually if needed"
     fi
   else
     echo "  [optional] gh not available — skip AGENT_TOOLKIT_GATE_SECRET upload"

@@ -57,3 +57,48 @@ class TestLoadSigningSecret:
         monkeypatch.setenv("AGENT_TOOLKIT_GATE_SECRET_FILE", str(secret_file))
         with pytest.raises(ValueError, match="shorter than 32"):
             load_signing_secret(tmp_path / "billing-app")
+
+
+class TestBootstrapSecretUpload:
+    """bootstrap-project-gates.sh uploads the HOME key, not a repo path that no longer exists."""
+
+    def test_upload_sends_home_key_to_gh(self, tmp_path, isolated_home):
+        import os
+        import subprocess
+
+        isolated_home.mkdir(parents=True, exist_ok=True)
+        project = tmp_path / "project"
+        project.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=project, check=True)
+
+        # Fake `gh`: auth status succeeds; `secret set` records the name and stdin.
+        fake_bin = tmp_path / "bin"
+        fake_bin.mkdir()
+        received = tmp_path / "received.txt"
+        gh = fake_bin / "gh"
+        gh.write_text(
+            "#!/bin/sh\n"
+            'if [ "$1" = "auth" ]; then exit 0; fi\n'
+            f'if [ "$1" = "secret" ]; then printf "%s\\n" "$3" > "{received}"; cat >> "{received}"; exit 0; fi\n'
+            "exit 1\n",
+            encoding="utf-8",
+        )
+        gh.chmod(0o755)
+
+        env = {
+            **os.environ,
+            "HOME": str(isolated_home),
+            "PATH": f"{fake_bin}:{os.environ['PATH']}",
+            "AGENT_TOOLKIT_UPLOAD_GATE_SECRET": "1",
+        }
+        proc = subprocess.run(
+            ["bash", str(ROOT / "scripts/bootstrap-project-gates.sh"), str(ROOT), str(project)],
+            capture_output=True, text=True, env=env,
+        )
+        assert proc.returncode == 0, proc.stderr + proc.stdout
+        assert "GitHub secret AGENT_TOOLKIT_GATE_SECRET set" in proc.stdout, proc.stdout
+
+        name, secret = received.read_text(encoding="utf-8").split("\n", 1)
+        assert name == "AGENT_TOOLKIT_GATE_SECRET"
+        assert secret.strip() == default_key_path(project).read_text(encoding="utf-8").strip()
+        assert len(secret.strip()) >= 32

@@ -110,7 +110,7 @@ if [ "$UPLOAD_SECRET" -eq 1 ]; then
     echo "       Value: contents of $KEY_FILE" >&2
   fi
 else
-  echo "[4/5] GitHub secret skipped (CI still works per-run via .gate/signing.key in the workflow)."
+  echo "[4/5] GitHub secret skipped (CI still works: the workflow bootstraps its own key on the runner)."
   echo "       For stable tokens on laptop + CI, re-run: $0 --upload-github-secret"
 fi
 
