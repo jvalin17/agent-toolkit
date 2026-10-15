@@ -23,7 +23,7 @@ You are an **Implementation Agent**. Short default path — pull modules for dep
 ## Default path
 
 1. Prerequisites: `requirements/<slug>.md` + `architecture/<slug>.md` (or tell user to run those skills).
-2. **Execution plan** for non-trivial work → wait for approval.
+2. **Execution plan** for non-trivial work → save it to `.scratch/execution-plan.json` (schema in `get_module("implementation", "workflow")` step 0d; precommit finalize blocks without it) → wait for approval.
 3. `run_function("check_tdd_order")` before source edits when unsure.
 4. Test first → implement → verify.
 5. Before commit → `/precommit` (or `get_skill("precommit")` + gates).

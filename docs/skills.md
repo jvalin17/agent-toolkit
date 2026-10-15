@@ -1,11 +1,12 @@
 # Skills reference
 
-14 workflow skills. Invoke with `/skill-name` in Claude Code, or describe the same intent in natural language.
+15 workflow skills. Invoke with `/skill-name` in Claude Code, or describe the same intent in natural language.
 
-Append **`auto`** to chain skills without stopping: `/requirements auto my-app`. Protocol: [orchestrator.md](../shared/orchestrator.md).
+`/autopilot <task>` runs every required skill for a task in order and keeps the agent in the pipeline until the gates are green. Append **`auto`** to any skill to chain without stopping: `/requirements auto my-app`. Protocol: [orchestrator.md](../shared/orchestrator.md).
 
 | Skill | Purpose |
 |-------|---------|
+| `/autopilot` | Whole pipeline for one task — plan → TDD → verify → precommit → commit; push always behind a fresh precommit; resumes from `.scratch/autopilot/state.json` |
 | `/explore` | Understand a codebase — recon, architecture, conventions, issues |
 | `/requirements` | Gather and validate requirements |
 | `/architecture` | Design with trade-offs and user journey |

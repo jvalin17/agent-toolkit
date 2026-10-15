@@ -22,6 +22,7 @@ Roles inject foundational (SOLID, DDD, OWASP, …) and practical (95+ repos) kno
 
 | Situation | Start with |
 |-----------|------------|
+| Any task, no skill juggling | `/autopilot <task>` — runs the skills below in order; add `auto` for hands-off |
 | New project | `/requirements` → `/architecture` → `/implementation` |
 | Existing repo | `/explore .` → `/implementation` |
 | Bug | "fix …" or `/debug_tool` |

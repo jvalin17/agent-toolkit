@@ -106,6 +106,7 @@ SKILL_REMINDER = (
 NO_SKILL_MESSAGE = (
     "SKILL REQUIRED: You are editing code without following a skill workflow. "
     "Before making code changes:\n"
+    "- Any task → run /autopilot <task> (runs every required toolkit skill in order)\n"
     "- New feature → run /requirements then /implementation\n"
     "- Bug fix → run /debug_tool\n"
     "- Refactor → run /implementation in refactor mode\n"

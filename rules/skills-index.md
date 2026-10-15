@@ -2,6 +2,7 @@
 
 | Skill | Purpose |
 |-------|---------|
+| autopilot | Run every required skill for a task, in order, until gates are green |
 | requirements | Gather and scope requirements |
 | architecture | Design with trade-offs |
 | explore | Map codebase and conventions |

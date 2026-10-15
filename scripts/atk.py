@@ -21,6 +21,7 @@ from pathlib import Path
 TOOLKIT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(TOOLKIT_ROOT / "hooks"))
 
+from autopilot_state import push_requires  # noqa: E402
 from gate_hook import check_gate_flags, load_gate_config  # noqa: E402
 from mode_resolver import resolve_mode_from_config  # noqa: E402
 
@@ -30,7 +31,7 @@ def _required_for(project_dir: Path, action: str) -> list:
     mode = resolve_mode_from_config(config)
     if action == "commit":
         return list(mode.commit_requires)
-    return list(mode.push_requires)
+    return push_requires(mode.push_requires, project_dir)
 
 
 def gate_ready(project_dir: Path, action: str) -> tuple:

@@ -2,7 +2,7 @@
 
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 
-Plain-English requests → requirements, architecture, TDD implementation, review, and commit gates. **19 roles**, **14 skills**, hooks that verify behavior (not agent claims).
+Plain-English requests → requirements, architecture, TDD implementation, review, and commit gates. **19 roles**, **15 skills**, hooks that verify behavior (not agent claims).
 
 Hosts: **Claude Code, Cursor, Gemini, Codex, Grok, Windsurf**, or any MCP/CLI client (Aider and others use `hosts/default.json`). Detection loads `hosts/<id>.json`; skills are short stubs with modules pulled on demand.
 
@@ -79,10 +79,11 @@ agent-toolkit-continue "Build a price comparison feature"
 
 Knowledge: foundational (SOLID, DDD, Clean Architecture, DDIA, GoF, OWASP, 12-Factor) + practical (95+ repos). Coding standards: C, C++, C#, Go, Java, Kotlin, MATLAB, Python, Rust, Swift, TypeScript.
 
-### Skills (14)
+### Skills (15)
 
 | Skill | Role |
 |-------|------|
+| `/autopilot` | Whole pipeline for one task, stays in it until gates are green |
 | `/requirements` | Specs (front if missing) |
 | `/architecture` | Design + tradeoffs |
 | `/explore` | Codebase map |
@@ -106,7 +107,7 @@ Knowledge: foundational (SOLID, DDD, Clean Architecture, DDIA, GoF, OWASP, 12-Fa
 | `build_plan` | Orchestration plan (+ host, pull_policy) |
 | `plan_to_text` | Plan as injectable context |
 | `get_role_context` | Detect roles + context |
-| `list_roles` / `list_skills` / `list_agents` | Catalogs (19 / 14 / 9) |
+| `list_roles` / `list_skills` / `list_agents` | Catalogs (19 / 15 / 9) |
 | `build_research_plan` | Cheap fetch + expensive synthesize |
 | `resolve_host` | Host detect + `hosts/*.json` |
 | `get_bootstrap` | Short host bootstrap text |

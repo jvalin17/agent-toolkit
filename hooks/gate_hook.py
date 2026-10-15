@@ -273,17 +273,23 @@ def _verify_signed_gate(project_dir: Path, action: str) -> Optional[str]:
         )
 
 
-def _required_skills_for_action(config: dict, action: str) -> list:
-    """Resolve required skills for commit or push from mode."""
+def _required_skills_for_action(config: dict, action: str, project_dir: Optional[Path] = None) -> list:
+    """Resolve required skills for commit or push from mode.
+
+    While an /autopilot pipeline is active in ``project_dir``, push also needs
+    a fresh precommit (strengthen-only; see autopilot_state).
+    """
     import sys as _sys
     _sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from autopilot_state import push_requires
     from mode_resolver import resolve_mode_from_config
 
     mode = resolve_mode_from_config(config)
     if action == "commit":
         return list(mode.commit_requires)
     if action == "push":
-        return list(mode.push_requires)
+        required = list(mode.push_requires)
+        return push_requires(required, project_dir) if project_dir is not None else required
     return []
 
 
@@ -343,7 +349,7 @@ def _run_legacy_gate(
     gate_finish: Callable[[str], tuple],
 ) -> tuple:
     """Legacy .gates/ flag enforcement."""
-    required = _required_skills_for_action(config, action)
+    required = _required_skills_for_action(config, action, project_dir)
 
     if not required:
         return 0, ""

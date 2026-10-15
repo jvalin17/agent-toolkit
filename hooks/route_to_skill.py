@@ -205,6 +205,15 @@ SKILL_CONTEXTS = {
 }
 
 
+# Code-changing intents get a one-line pointer to /autopilot, which runs every
+# required toolkit skill in order so nothing is skipped and nothing is redone.
+AUTOPILOT_INTENTS = frozenset({"build", "debug_tool", "quick_fix", "refactor"})
+AUTOPILOT_HINT = (
+    "AUTOPILOT: `/autopilot <task>` runs the whole toolkit pipeline for this "
+    "(plan → TDD → verify → precommit → commit, push behind a fresh precommit) "
+    "and keeps you in it. Prefer it over driving the skills by hand."
+)
+
 # All known role names (must match directory names under roles/)
 KNOWN_ROLES = [
     "frontend", "backend", "dba", "security", "qa", "architect",
@@ -440,6 +449,13 @@ def run_route_to_skill(
     if prompt.lstrip().startswith("/"):
         return 0, ""
 
+    # A running /autopilot pipeline outranks intent routing: put the agent
+    # back on its current step before anything else.
+    from autopilot_state import read_state, resume_context, ACTIVE_STATUSES
+
+    autopilot = read_state(project_dir)
+    resume = resume_context(autopilot) if autopilot and autopilot.get("status") in ACTIVE_STATUSES else ""
+
     # Check for direct role invocation first: "use security role", "as DBA check"
     invoked_role = detect_role_invocation(prompt)
     if invoked_role:
@@ -459,12 +475,16 @@ def run_route_to_skill(
 
     intent = detect_intent(prompt)
     if intent is None:
-        return 0, ""
+        return (0, make_hook_response(resume)) if resume else (0, "")
 
     # Track which skill was routed — used by skill_enforce.py
     _track_skill_routed(project_dir, intent)
 
     context = SKILL_CONTEXTS[intent]
+    if intent in AUTOPILOT_INTENTS and not resume:
+        context = AUTOPILOT_HINT + "\n\n" + context
+    if resume:
+        context = resume + "\n\n" + context
 
     # Detect UI file changes — inject UI review guidance for build/refactor tasks
     if intent in ("build", "refactor"):
