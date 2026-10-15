@@ -60,6 +60,17 @@ Debug sync: `AGENT_TOOLKIT_SYNC_VERBOSE=1 ./install.sh --sync-only`
 Sync logs from auto-update: check stderr for `update.sh:` lines if hooks seem stale after a network blip.  
 Hook callers keep the session running on failure (`|| true` in settings.json) but stderr is no longer suppressed.
 
+## Plugin install updates (Claude Code plugin)
+
+If you installed via `claude plugin install agent-toolkit`, Claude Code refreshes the cached copy only when the plugin's computed version changes. The toolkit's manifests deliberately carry **no `version` field**, so the computed version is the commit SHA and every push to `main` is a new version:
+
+```bash
+claude plugin marketplace update agent-toolkit   # refresh the catalog
+claude plugin update agent-toolkit               # pull the newest commit; restart to apply
+```
+
+Do not add `"version"` to `.claude-plugin/plugin.json` or `marketplace.json`: a pinned string keeps every user on the cached copy until it is bumped, however many commits land (`tests/test_plugin_manifest.py` guards this).
+
 ## Check config
 
 ```bash
