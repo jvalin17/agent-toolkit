@@ -151,10 +151,13 @@ reviewers = recommend_reviewers(build_role="frontend", slab_name="auth-screen", 
 {"feature": "<slug>", "slabs": [
   {"name": "<slab name>", "build_role": "<role>",
    "review_roles": ["<role1>", "<role2>"],
-   "skills": ["reviewer", "evaluate", "precommit"]}
+   "skills": ["reviewer", "evaluate", "precommit"],
+   "seams": ["POST /checkout", "Cart.total()"]}
 ], "created_at": "<ISO date>"}
 ```
 Precommit reads this file and blocks if any planned skill was skipped.
+
+`seams` (optional per slab): the public boundaries this slab's tests observe behaviour through, agreed with the user before any test is written. Prefer existing seams, as few as possible, the highest you can reach. The TDD module writes tests only there; `/reviewer` and `/precommit` flag tests at unagreed seams.
 
 **0d. User confirms:** Wait for user to approve the plan or adjust it. Do NOT proceed until confirmed.
 

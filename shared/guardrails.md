@@ -134,11 +134,11 @@ Never read, write, edit, or delete files in the `.session/` directory. Session s
 
 ### /requirements
 
-#### G-REQ-1: Question Limit
-**Limit:** 20 questions max per run (across all phases, including UI, ML, and testing sections).
-**When triggered:** "I've reached the question limit (20). Generating requirements with what I have. Sections [X, Y] may be incomplete — marked in the output."
-**Report:** Record which sections are incomplete and which questions were never asked.
-**Priority:** If approaching the limit, prioritize: core functional requirements > ML/AI requirements > UI requirements > testing requirements > non-functional requirements. Never skip core functional.
+#### G-REQ-1: Round Budget
+**Limit:** count rounds, not questions. There is no cap on questions: a small scope needs three, a large one fifty. At five rounds the scope is probably too big for one session.
+**When triggered:** "Five rounds in. This scope looks too big for one session. Split it into [A, B] and interview each, or continue?" Continue only if the user says so.
+**Report:** Record rounds asked, decisions settled, and branches still open.
+**Priority:** If the user chooses to stop, prioritize: core functional requirements > ML/AI requirements > UI requirements > testing requirements > non-functional requirements. Never skip core functional.
 
 #### G-REQ-2: Estimation Disclaimer
 All scale estimates (QPS, storage, cost) must include:

@@ -156,7 +156,7 @@ SKILL_CONTEXTS = {
     "build": (
         "SKILL ROUTING: This is a build/implement task. You MUST follow the /implementation workflow:\n"
         "1. Read skills/implementation/SKILL.md — follow it strictly\n"
-        "2. If no requirements exist: run /requirements first (ask Q1 + Q4, draft early)\n"
+        "2. If no requirements exist: run /requirements first (interview in rounds with recommendations; draft when the frontier is empty)\n"
         "3. If no architecture exists: run /architecture first (design with evidence)\n"
         "4. Create a code change plan BEFORE writing any code\n"
         "5. Build slab-by-slab with TDD — test first, then implementation\n"
@@ -192,9 +192,9 @@ SKILL_CONTEXTS = {
     "requirements": (
         "SKILL ROUTING: This is requirements gathering. Use /requirements:\n"
         "1. Read skills/requirements/SKILL.md — follow it strictly\n"
-        "2. Ask Q1 (what?) + Q4 (how do you do this today?) — draft early\n"
-        "3. Go deeper on demand, don't force all questions upfront\n"
-        "4. Keep responses focused — ask ONE question at a time, don't dump information"
+        "2. Interview in rounds over the frontier: numbered questions, each with a recommended answer\n"
+        "3. Facts are yours to look up (agents); decisions are the user's — wait for them\n"
+        "4. Draft only when the frontier is empty and the user confirms shared understanding"
     ),
     "architecture": (
         "SKILL ROUTING: This is architecture/design. Use /architecture:\n"

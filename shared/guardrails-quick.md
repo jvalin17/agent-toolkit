@@ -35,7 +35,7 @@ One-line summaries. Read full `guardrails.md` only when a guardrail triggers or 
 - **G-AUTO-1:** Every change must cite its evidence source (requirement ID, test result, code grep, research output). Never change code based on assumption. If evidence is missing, stop and ask.
 
 ## Skill-specific
-- **G-REQ-1/2/3:** 20 questions max, estimation disclaimers, ML data privacy
+- **G-REQ-1/2/3:** round budget (at five rounds offer to split the scope), estimation disclaimers, ML data privacy
 - **G-ARCH-1/2/3/4:** 2 backtracks, OWASP refs, OWASP LLM, 20 decisions max
 - **G-IMPL-1/2/3/4/5:** No SQL concat, no hardcoded secrets, overwrite protection (exempt TDD), trusted packages, 1 file per cycle
 - **G-IMPL-7:** Ground truth — test fixtures must cite data source (query output, user sample, spec, factory). "I read the code" is not valid provenance. Hard blocker in strict mode.

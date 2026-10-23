@@ -67,6 +67,10 @@ Read every test file added or modified. See `references/test-quality.md` for slo
 
 Per test: specific assertions, realistic data, would fail if feature deleted, outcome-focused, edge cases, no self-mocking.
 
+**Seams:** if `.scratch/execution-plan.json` lists `seams` for the slab, every new test sits at one of them. A test at an unagreed seam, or reaching past the interface (private method, call-count assertion, DB query instead of the API), is a finding with file:line.
+
+**Tautologies:** finalize's diff scan blocks assertions that cannot fail (`assert True`, `expect(x).toBe(x)` and friends). You catch the subtler kind: an expected value recomputed from the inputs the way the code computes it.
+
 **Fixture provenance (G-IMPL-7):** In strict mode, verify test fixtures cite their data source (query output, user sample, spec, or factory). Flag fixtures with specific-looking values and no stated origin. Block if provenance is missing.
 
 **If sloppy:** Fix before commit.

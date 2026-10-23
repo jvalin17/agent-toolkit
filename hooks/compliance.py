@@ -40,6 +40,7 @@ from compliance_diff import (  # noqa: F401
     UI_FILE_EXTENSIONS,
     check_diff_for_untested_functions,
     check_diff_for_noqa_in_tests,
+    check_diff_for_tautological_tests,
     detect_ui_files_in_diff,
     check_diff_for_ui_without_e2e,
 )
@@ -241,6 +242,12 @@ def validate_execution_plan(plan: dict) -> List[str]:
             errors.append(f"slab {i}: missing or invalid 'review_roles'")
         if not isinstance(slab.get("skills"), list):
             errors.append(f"slab {i}: missing or invalid 'skills'")
+        seams = slab.get("seams")
+        if seams is not None and (
+            not isinstance(seams, list)
+            or not all(isinstance(seam, str) and seam.strip() for seam in seams)
+        ):
+            errors.append(f"slab {i}: 'seams' must be a list of non-empty strings (public boundaries tests observe)")
     return errors
 
 

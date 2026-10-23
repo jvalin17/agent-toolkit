@@ -15,6 +15,8 @@ Scan ALL existing tests for these patterns — flag and fix before adding more t
 - Test that passes if you delete the feature code — proves nothing
 - Test data: `"test"`, `"foo"`, `"bar"`, `123`, `"a@b.com"` — unrealistic
 - `catch {}` or `catch { /* ignore */ }` in test — swallows real errors
+- Expected value recomputed the way the code computes it (`expect(total).toBe(items.reduce(...))`) — tautological by construction
+- Mocks internal collaborators, asserts call counts, or verifies via the DB instead of the interface — implementation-coupled; breaks on refactors, not on bugs
 
 **REQUIRE (meaningful):**
 - `assertEqual(result.name, "Maria Garcia")` — specific value
@@ -23,6 +25,10 @@ Scan ALL existing tests for these patterns — flag and fix before adding more t
 - `with pytest.raises(DuplicateEmailError)` — specific error type
 - Realistic data throughout
 - Test WOULD fail if feature code was deleted
+
+## Step 0a: Seam Check
+
+If `.scratch/execution-plan.json` lists `seams` for the slab, every new or changed test sits at one of them: the public boundaries agreed before coding. A test at an unagreed seam, or one that reaches past the interface it claims to test, is a finding: name the test, the seam it should use, and file:line.
 
 ## Step 0b: Test Redundancy Detection
 

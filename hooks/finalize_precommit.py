@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import finalize_checks as checks  # noqa: E402
 from compliance import (  # noqa: E402
     check_diff_for_noqa_in_tests,
+    check_diff_for_tautological_tests,
     check_diff_for_ui_without_e2e,
     check_diff_for_untested_functions,
     check_execution_plan_compliance,
@@ -117,7 +118,11 @@ def _skill_invocation_reasons(session_audit_skills: dict | None) -> list[str]:
     ]
 
 
-def _diff_reasons(untested_functions: list[str] | None, noqa_in_tests: list[str] | None) -> list[str]:
+def _diff_reasons(
+    untested_functions: list[str] | None,
+    noqa_in_tests: list[str] | None,
+    tautological_tests: list[str] | None = None,
+) -> list[str]:
     """Reasons from the git diff scan."""
     reasons: list[str] = []
     if untested_functions:
@@ -129,6 +134,12 @@ def _diff_reasons(untested_functions: list[str] | None, noqa_in_tests: list[str]
         reasons.append(
             f"noqa in tests: {len(noqa_in_tests)} suppression(s) added to test files — "
             "fix the lint issue, don't suppress it"
+        )
+    if tautological_tests:
+        reasons.append(
+            f"tautological tests: {len(tautological_tests)} assertion(s) that cannot fail — "
+            + "; ".join(tautological_tests[:MAX_LISTED_ITEMS])
+            + " — expected values must come from a literal, a worked example or the spec"
         )
     return reasons
 
@@ -142,13 +153,14 @@ def _decide_precommit(
     noqa_in_tests: list[str] | None = None,
     config: dict | None = None,
     session_audit_skills: dict | None = None,
+    tautological_tests: list[str] | None = None,
 ) -> tuple[bool, list[str]]:
     reasons = (
         checks.mechanical_reasons(test, lint)
         + _findings_reasons(findings)
         + _session_audit_reasons(findings, session_audit, config)
         + _skill_invocation_reasons(session_audit_skills)
-        + _diff_reasons(untested_functions, noqa_in_tests)
+        + _diff_reasons(untested_functions, noqa_in_tests, tautological_tests)
     )
     return (len(reasons) == 0), reasons
 
@@ -328,6 +340,7 @@ def _collect_diff_checks(project_dir: Path) -> dict:
         "diff_text": diff_text,
         "untested": check_diff_for_untested_functions(diff_text),
         "noqa_in_tests": check_diff_for_noqa_in_tests(diff_text),
+        "tautological": check_diff_for_tautological_tests(diff_text),
         "ui_without_e2e": check_diff_for_ui_without_e2e(diff_text),
     }
 
@@ -423,6 +436,7 @@ def finalize_precommit(project_dir: Path, findings_path: Path) -> int:
     ready, reasons = _decide_precommit(
         findings, test, lint, session_audit=action_audit,
         untested_functions=diff["untested"], noqa_in_tests=diff["noqa_in_tests"],
+        tautological_tests=diff["tautological"],
         config=config, session_audit_skills=skill_audit,
     )
 

@@ -8,7 +8,7 @@
 |-------|---------|
 | `/autopilot` | Whole pipeline for one task — plan → TDD → verify → precommit → commit; push always behind a fresh precommit; resumes from `.scratch/autopilot/state.json` |
 | `/explore` | Understand a codebase — recon, architecture, conventions, issues |
-| `/requirements` | Gather and validate requirements |
+| `/requirements` | Interview in rounds over the frontier (facts looked up, decisions yours), then draft and validate requirements |
 | `/architecture` | Design with trade-offs and user journey |
 | `/implementation` | TDD — skeleton → slabs; fix, refactor, demo modes |
 | `/debug_tool` | Hypothesis-driven debugging with reproduction tests |

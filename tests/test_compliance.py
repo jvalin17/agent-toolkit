@@ -1188,3 +1188,45 @@ class TestVendoredToolkitExemptFromTdd:
             "+    return []\n"
         )
         assert check_diff_for_untested_functions(diff) == []
+
+
+class TestUntestedScanSkipsDocs:
+    """A function definition inside a Markdown code example is documentation, not source."""
+
+    def test_markdown_code_example_is_not_an_untested_function(self):
+        from compliance import check_diff_for_untested_functions
+
+        diff = """diff --git a/skills/precommit/references/test-quality.md b/skills/precommit/references/test-quality.md
+--- a/skills/precommit/references/test-quality.md
++++ b/skills/precommit/references/test-quality.md
+@@ -10,0 +11,4 @@
++```python
++def test_calculate_total():  # Tautological — recomputes the answer the way the code does
++    assert calculate_total(items) == sum(i["price"] for i in items)
++```
+"""
+        assert check_diff_for_untested_functions(diff) == []
+
+    @pytest.mark.parametrize("doc", ["docs/guide.rst", "README.txt", "notes/design.MD", "templates/example.json"])
+    def test_other_documentation_formats_are_skipped_too(self, doc):
+        from compliance import check_diff_for_untested_functions
+
+        diff = f"""diff --git a/{doc} b/{doc}
+--- a/{doc}
++++ b/{doc}
+@@ -1,0 +1,1 @@
++def documented_example(): ...
+"""
+        assert check_diff_for_untested_functions(diff) == []
+
+    def test_same_definition_in_a_python_file_still_counts(self):
+        from compliance import check_diff_for_untested_functions
+
+        diff = """diff --git a/src/totals.py b/src/totals.py
+--- a/src/totals.py
++++ b/src/totals.py
+@@ -1,0 +1,2 @@
++def calculate_total(items):
++    return sum(i["price"] for i in items)
+"""
+        assert len(check_diff_for_untested_functions(diff)) == 1

@@ -39,6 +39,13 @@ DIFF_TEST_FILE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+# Documentation and data files: a `def` inside a Markdown code example is prose,
+# not a source function that needs a test.
+DIFF_NON_CODE_FILE_PATTERN = re.compile(
+    r"\.(md|markdown|rst|txt|json|ya?ml|toml|html?|csv)$",
+    re.IGNORECASE,
+)
+
 # UI file patterns — detect frontend component/style changes
 # Two conditions: file has a UI extension, OR file has a UI extension AND lives in a UI directory.
 # Directory-only matches (components/README.md) are excluded by requiring an extension match.
@@ -140,7 +147,9 @@ def check_diff_for_untested_functions(diff_text: str) -> List[str]:
             continue
 
         is_test_file = bool(DIFF_TEST_FILE_PATTERN.search(current_file))
-        is_exempt = bool(DIFF_TDD_EXEMPT_DIRS.search(current_file))
+        is_exempt = bool(DIFF_TDD_EXEMPT_DIRS.search(current_file)) or bool(
+            DIFF_NON_CODE_FILE_PATTERN.search(current_file)
+        )
 
         for pattern in FUNCTION_DEF_PATTERNS:
             m = pattern.match(line)
@@ -217,3 +226,42 @@ def check_diff_for_noqa_in_tests(diff_text: str) -> List[str]:
             )
 
     return warnings
+
+
+# Assertions that cannot fail, on added lines in test files. Expected values
+# must come from an independent source (a literal, a worked example, the
+# spec); an assertion that compares a thing to itself, or asserts a constant
+# truth, passes by construction and proves nothing.
+TAUTOLOGY_PATTERNS = [
+    re.compile(r"^\s*assert\s+True\s*(#.*)?$"),
+    re.compile(r"assertTrue\(\s*True\s*\)"),
+    re.compile(r"expect\(\s*true\s*\)\.(toBe\(\s*true\s*\)|toBeTruthy\(\))"),
+    re.compile(r"^\s*assert\s+(?P<a>[^=!<>]+?)\s*==\s*(?P=a)\s*(#.*)?$"),
+    re.compile(r"expect\(\s*(?P<e>[^()]+?)\s*\)\.(toBe|toEqual|toStrictEqual)\(\s*(?P=e)\s*\)"),
+]
+
+
+def check_diff_for_tautological_tests(diff_text: str) -> List[str]:
+    """Scan a unified diff for added test assertions that cannot fail.
+
+    Returns one "<file>: <line>" string per offending added line in a test file.
+    """
+    if not diff_text.strip():
+        return []
+
+    current_file: Optional[str] = None
+    findings: List[str] = []
+
+    for line in diff_text.split("\n"):
+        if line.startswith("diff --git"):
+            match = re.search(r"b/(.+)$", line)
+            current_file = match.group(1) if match else None
+            continue
+        if current_file is None or not line.startswith("+") or line.startswith("++"):
+            continue
+        if not DIFF_TEST_FILE_PATTERN.search(current_file):
+            continue
+        content = line[1:]
+        if any(pattern.search(content) for pattern in TAUTOLOGY_PATTERNS):
+            findings.append(f"{current_file}: {content.strip()}")
+    return findings
