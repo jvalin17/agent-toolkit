@@ -1760,16 +1760,21 @@ class TestDamageRadius:
         )
         assert len(state.files_edited) == 0
 
-    def test_blocks_at_damage_limit(self):
-        """Hard block when too many unique files edited."""
-        from session_monitor import DAMAGE_RADIUS_BLOCK
+    def test_never_blocks_on_file_count(self):
+        """A large edit (toolkit-wide rename, many-file feature) must not be stopped by a file counter.
+
+        The old hard block at 15 files had no release path once the user confirmed; it only
+        stranded the session. The one-time warning at DAMAGE_RADIUS_WARN stays.
+        """
+        import session_monitor
+        assert not hasattr(session_monitor, "DAMAGE_RADIUS_BLOCK")
         state = SessionState(session_start=int(time.time()))
-        state.files_edited = [f"/tmp/file{i}.py" for i in range(DAMAGE_RADIUS_BLOCK)]
+        state.files_edited = [f"/tmp/file{i}.py" for i in range(40)]
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Edit", file_path="/tmp/new.py", command=""
         )
-        assert blocked is True
-        assert "DAMAGE RADIUS" in response
+        assert blocked is False
+        assert "DAMAGE RADIUS" not in (response or "")
 
     def test_no_block_under_limit(self):
         """No block when under the damage limit."""

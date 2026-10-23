@@ -64,8 +64,9 @@ RETRY_LOOP_THRESHOLD = 3  # same error 3 times = stuck
 ERROR_MATCH_LENGTH = 100  # compare first N chars of error message
 
 # Damage radius
-DAMAGE_RADIUS_WARN = 5  # warn after this many unique files edited
-DAMAGE_RADIUS_BLOCK = 15  # block after this many (likely off track)
+DAMAGE_RADIUS_WARN = 5  # one-time warning after this many unique files edited
+# No hard limit on files edited: a block here had no release path once the user
+# confirmed, so a large change (toolkit-wide rename, many-file feature) stranded the session.
 
 # Bash source-write detection
 import re as _re_bash
@@ -427,18 +428,6 @@ def handle_pre_tool_use(
                 f"RETRY LOOP DETECTED: Same error {RETRY_LOOP_THRESHOLD} times in a row. "
                 f"Stop and try a DIFFERENT approach. Error: {last_errors[0][:80]}..."
             ), True
-
-    # Damage radius check — too many files edited
-    if tool_name in ("Edit", "Write") and file_path:
-        n_files = len(state.files_edited)
-        if n_files >= DAMAGE_RADIUS_BLOCK:
-            return state, (
-                f"DAMAGE RADIUS: {n_files} files edited this session (limit: {DAMAGE_RADIUS_BLOCK}). "
-                f"This is likely off track. Confirm with the user before continuing."
-            ), True
-        if n_files == DAMAGE_RADIUS_WARN:
-            # Warn once at threshold (not every subsequent edit)
-            pass  # warning injected below, not blocking
 
     # Bash source-write detection — invalidate precommit if Bash modifies source files
     if tool_name == "Bash" and command:
