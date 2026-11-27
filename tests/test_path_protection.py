@@ -225,6 +225,41 @@ class TestConfigFiles:
         blocked, _ = check_protected_paths(_state(), "Bash", "", command)
         assert blocked is False, command
 
+    @pytest.mark.parametrize("command", [
+        "cd ~/.agent-toolkit && printf /home/ana/app > dev-repo",
+        "cd ~/.agent-toolkit; echo /home/ana/app > dev-repo",
+        "cd $HOME && cd .agent-toolkit && echo /home/ana/app > dev-repo",
+        "ln -sfn /home/ana/app ~/.agent-toolkit",
+        "rm -rf /home/ana/.agent-toolkit",
+        "mv ~/.agent-toolkit ~/toolkit-state-old",
+        "cp /tmp/record '/home/ana/.agent-toolkit'",
+    ])
+    def test_bash_writes_naming_the_toolkit_home_folder_itself_blocked(self, command):
+        """The folder holds the signing key and the developer-mode record: naming it without a slash is no way in."""
+        blocked, msg = check_protected_paths(_state(), "Bash", "", command)
+        assert blocked is True, command
+        assert "G-CONFIG-1" in msg
+
+    @pytest.mark.parametrize("tool", ["Write", "Edit"])
+    def test_toolkit_home_folder_itself_protected_from_edit_tools(self, tool):
+        blocked, msg = check_protected_paths(_state(), tool, "/home/ana/.agent-toolkit", "")
+        assert blocked is True
+        assert "G-CONFIG-1" in msg
+
+    @pytest.mark.parametrize("command", ["ls ~/.agent-toolkit", "ls -la /home/ana/.agent-toolkit"])
+    def test_bash_listing_of_the_toolkit_home_folder_allowed(self, command):
+        blocked, _ = check_protected_paths(_state(), "Bash", "", command)
+        assert blocked is False, command
+
+    @pytest.mark.parametrize("command", [
+        "rm /home/ana/agent-toolkit/notes.txt",
+        "touch docs/.agent-toolkit-notes.md",
+        "mkdir -p build/my.agent-toolkit",
+    ])
+    def test_bash_writes_to_lookalike_names_allowed(self, command):
+        blocked, _ = check_protected_paths(_state(), "Bash", "", command)
+        assert blocked is False, command
+
     def test_config_protection_follows_gate_protect(self):
         blocked, _ = check_protected_paths(_state(gate_protect=False), "Write", "/home/ana/app/gates.json", "")
         assert blocked is False

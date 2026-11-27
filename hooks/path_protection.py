@@ -71,12 +71,12 @@ CONFIG_FILE_PATTERNS = (
     re.compile(r"(^|/)\.claude/settings(\.local)?\.json$"),
     re.compile(r"(^|/)\.(cursor|grok|windsurf)/hooks\.json$"),
     re.compile(r"(^|/)\.codex/config\.toml$"),
-    re.compile(r"(^|/)\.agent-toolkit/"),
+    re.compile(r"(^|/)\.agent-toolkit(/|$)"),
 )
 # Toolkit sources that merely look like policy files (templates, reference copies).
 CONFIG_FILE_EXEMPT = re.compile(r"(^|/)(templates|hooks)/(gates|hooks)\.json$")
 CONFIG_BASH_REF = re.compile(
-    r"(^|[\s/'\"])(gates\.json|\.claude/settings(\.local)?\.json|\.(cursor|grok|windsurf)/hooks\.json|\.codex/config\.toml|\.agent-toolkit/)"
+    r"(^|[\s/'\"])(gates\.json|\.claude/settings(\.local)?\.json|\.(cursor|grok|windsurf)/hooks\.json|\.codex/config\.toml|\.agent-toolkit(?![\w.-]))"
 )
 CONFIG_MESSAGE = (
     "G-CONFIG-1: {name} is enforcement policy and is hook-managed — the agent may read it, "
