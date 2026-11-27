@@ -8,6 +8,19 @@ to use and HOW to follow it.
 Replaces route-to-skill.sh.
 """
 
+if __name__ == "__main__":  # developer mode: first, before any other import (dev_mode.py)
+    import os
+
+    if os.environ.get("AGENT_TOOLKIT_DEV") == "1":
+        try:
+            from dev_mode import exit_if_on
+
+            exit_if_on(__file__)
+        except Exception as exc:  # noqa: BLE001 — a fault in the check means "not on": enforce as normal
+            import sys
+
+            sys.stderr.write(f"developer mode check failed, so hooks stay on: {exc!r}\n")
+
 import json
 import re
 import sys
