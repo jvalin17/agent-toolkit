@@ -2,7 +2,8 @@
   "mcpServers": {
     "agent-toolkit": {
       "command": "python3",
-      "args": ["-m", "toolkit_mcp"]
+      "args": ["-m", "toolkit_mcp"],
+      "env": {"PYTHONPATH": "${CLAUDE_PLUGIN_ROOT}"}
     }
   }
 }
