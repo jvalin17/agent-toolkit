@@ -1760,21 +1760,52 @@ class TestDamageRadius:
         )
         assert len(state.files_edited) == 0
 
-    def test_never_blocks_on_file_count(self):
-        """A large edit (toolkit-wide rename, many-file feature) must not be stopped by a file counter.
+    def test_limit_is_thirty_files(self):
+        from session_monitor import DAMAGE_RADIUS_BLOCK
+        assert DAMAGE_RADIUS_BLOCK == 30
 
-        The old hard block at 15 files had no release path once the user confirmed; it only
-        stranded the session. The one-time warning at DAMAGE_RADIUS_WARN stays.
-        """
-        import session_monitor
-        assert not hasattr(session_monitor, "DAMAGE_RADIUS_BLOCK")
+    def test_blocks_a_new_file_at_the_limit(self):
+        """The 31st distinct file in one session is stopped."""
         state = SessionState(session_start=int(time.time()))
-        state.files_edited = [f"/tmp/file{i}.py" for i in range(40)]
+        state.files_edited = [f"/tmp/file{i}.py" for i in range(30)]
         state, response, blocked = handle_pre_tool_use(
             state, tool_name="Edit", file_path="/tmp/new.py", command=""
         )
+        assert blocked is True
+        assert "DAMAGE RADIUS: 30 files edited this session (limit: 30)" in response
+
+    def test_allows_the_thirtieth_file(self):
+        state = SessionState(session_start=int(time.time()))
+        state.files_edited = [f"/tmp/file{i}.py" for i in range(29)]
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Write", file_path="/tmp/new.py", command=""
+        )
         assert blocked is False
-        assert "DAMAGE RADIUS" not in (response or "")
+
+    @pytest.mark.parametrize("spelling", [
+        "{dir}/file7.py",
+        "{dir}/sub/../file7.py",
+        "file7.py",
+        "./file7.py",
+    ])
+    def test_files_already_edited_stay_editable_at_the_limit(self, tmp_path, monkeypatch, spelling):
+        """The 15-file block stopped every edit, so work in flight could not be finished.
+
+        Edited files are recorded by resolved path, so any spelling of one still counts.
+        """
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "sub").mkdir()
+        state = SessionState(session_start=int(time.time()))
+        for index in range(30):
+            state, _ = handle_post_tool_use(
+                state, tool_result="ok", tool_name="Edit",
+                file_path=str(tmp_path / f"file{index}.py"),
+            )
+        assert len(state.files_edited) == 30
+        state, response, blocked = handle_pre_tool_use(
+            state, tool_name="Edit", file_path=spelling.format(dir=tmp_path), command=""
+        )
+        assert blocked is False
 
     def test_no_block_under_limit(self):
         """No block when under the damage limit."""

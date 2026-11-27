@@ -256,3 +256,53 @@ class TestDemoCompleted:
         exit_code, output = run_skill_passed(make_input("explore"), project)
         assert exit_code == 0
         assert output == ""
+
+
+class TestPluginPrefixedSkillName:
+    """Installed as a plugin, the Skill tool reports "agent-toolkit:reviewer"."""
+
+    def test_prefixed_skill_stamps_under_bare_name(self, project):
+        """finalize looks up .gates/stamps/reviewer, so the stamp must land there."""
+        run_skill_passed(make_input("agent-toolkit:reviewer"), project)
+        stamp = project / ".gates" / "stamps" / "reviewer"
+        assert stamp.is_file()
+        assert json.loads(stamp.read_text())["skill"] == "reviewer"
+
+    def test_prefixed_gated_skill_reports_gate_status(self, project):
+        (project / ".gates" / "reviewer-passed").write_text("READY")
+        _, output = run_skill_passed(make_input("agent-toolkit:reviewer"), project)
+        assert "/reviewer PASSED" in parse_context(output)
+
+    def test_prefixed_code_change_skill_clears_precommit_flag(self, project):
+        flag = project / ".gates" / "precommit-passed"
+        flag.write_text("READY")
+        run_skill_passed(make_input("agent-toolkit:implementation"), project)
+        assert not flag.exists()
+
+
+class TestSkillNameIsNotAPath:
+    """The skill name becomes a file name under .gates/stamps/; it must not escape it."""
+
+    @pytest.mark.parametrize("name", [
+        "../precommit-passed",
+        "agent-toolkit:../precommit-passed",
+        "/tmp/reviewer",
+        "stamps/../../reviewer-passed",
+        "review er",
+        "reviewer\x00",
+        "PRECOMMIT",  # would overwrite the precommit stamp on a case-insensitive disk
+        None,
+        123,
+    ])
+    def test_unsafe_name_writes_nothing(self, project, name):
+        exit_code, output = run_skill_passed(make_input(name), project)
+        assert exit_code == 0
+        assert output == ""
+        written = [p.name for p in (project / ".gates").rglob("*") if p.is_file()]
+        assert written == []
+
+    def test_ordinary_names_still_stamp(self, project):
+        run_skill_passed(make_input("debug_tool"), project)
+        run_skill_passed(make_input("agent-toolkit-mode"), project)
+        stamps = sorted(p.name for p in (project / ".gates" / "stamps").iterdir())
+        assert stamps == ["agent-toolkit-mode", "debug_tool"]

@@ -10,6 +10,7 @@ Replaces skill-passed.sh.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Tuple
@@ -17,6 +18,7 @@ from typing import Tuple
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 GATED_SKILLS = ("precommit", "evaluate", "reviewer", "assess")
+SKILL_NAME = re.compile(r"[a-z0-9_-]+\Z")
 
 # Skills that authorize code changes — mirrors skill_enforce.py CODE_CHANGE_SKILLS
 CODE_CHANGE_SKILLS = {
@@ -92,8 +94,14 @@ def run_skill_passed(
     agent, canonical = parse_hook_stdin(stdin_input)
     tool_input = (canonical.get("raw") or {}).get("tool_input") or {}
     skill = tool_input.get("skill", "") if isinstance(tool_input, dict) else ""
+    # Installed as a plugin the skill arrives as "agent-toolkit:reviewer"; gates
+    # and stamps are keyed by the bare name.
+    skill = skill.rsplit(":", 1)[-1] if isinstance(skill, str) else ""
 
-    if not skill:
+    # The name becomes a file name under .gates/stamps/: anything that is not a
+    # plain lowercase skill name (a path, "..", a NUL, a case variant that would
+    # land on another skill's stamp) is ignored, never written.
+    if not SKILL_NAME.match(skill):
         return 0, ""
 
     # Write tamper-proof stamp for every skill invocation

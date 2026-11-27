@@ -65,8 +65,8 @@ ERROR_MATCH_LENGTH = 100  # compare first N chars of error message
 
 # Damage radius
 DAMAGE_RADIUS_WARN = 5  # one-time warning after this many unique files edited
-# No hard limit on files edited: a block here had no release path once the user
-# confirmed, so a large change (toolkit-wide rename, many-file feature) stranded the session.
+DAMAGE_RADIUS_BLOCK = 30  # no new file is edited once this many have been
+# Files already edited stay editable at the limit, so work in flight can be finished.
 
 # Bash source-write detection
 import re as _re_bash
@@ -427,6 +427,16 @@ def handle_pre_tool_use(
             return state, (
                 f"RETRY LOOP DETECTED: Same error {RETRY_LOOP_THRESHOLD} times in a row. "
                 f"Stop and try a DIFFERENT approach. Error: {last_errors[0][:80]}..."
+            ), True
+
+    # Damage radius: a new file past the limit is stopped
+    if tool_name in ("Edit", "Write") and file_path:
+        edited_count = len(state.files_edited)
+        if edited_count >= DAMAGE_RADIUS_BLOCK and _resolved(file_path) not in state.files_edited:
+            return state, (
+                f"DAMAGE RADIUS: {edited_count} files edited this session (limit: {DAMAGE_RADIUS_BLOCK}). "
+                f"{Path(file_path).name} would be one more. Files already edited can still be changed. "
+                "Stop and tell the user what is left to do."
             ), True
 
     # Bash source-write detection — invalidate precommit if Bash modifies source files

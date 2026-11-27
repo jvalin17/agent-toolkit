@@ -41,3 +41,14 @@ def test_manifests_still_describe_the_same_plugin(plugin, marketplace_entry):
     assert plugin["name"] == "agent-toolkit"
     assert marketplace_entry["source"] == "./"
     assert plugin["repository"] == "https://github.com/jvalin17/agent-toolkit"
+
+
+def test_mcp_server_finds_its_module_from_any_project():
+    """The server starts with the user's project as cwd, so toolkit_mcp is only
+    importable when the plugin root is put on PYTHONPATH."""
+    import json
+    from pathlib import Path
+
+    config = json.loads((Path(__file__).resolve().parents[1] / ".mcp.json").read_text())
+    server = config["mcpServers"]["agent-toolkit"]
+    assert server.get("env", {}).get("PYTHONPATH") == "${CLAUDE_PLUGIN_ROOT}"
