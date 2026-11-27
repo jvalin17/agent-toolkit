@@ -7,6 +7,12 @@
 # Writes to ~/.claude/ (toolkit, memory, settings) are also allowed.
 # Everything else requires user confirmation.
 
+# Developer mode: in the toolkit's own repository, launched with AGENT_TOOLKIT_DEV=1,
+# no hook is applied. dev_mode.py decides (the one place that rule lives).
+if [ "${AGENT_TOOLKIT_DEV:-}" = "1" ] && python3 "$(dirname "$0")/dev_mode.py" "$0" 2>/dev/null; then
+    exit 0
+fi
+
 FILE_PATH=$(jq -r '.tool_input.file_path // empty')
 
 # Nothing to check if no path provided
