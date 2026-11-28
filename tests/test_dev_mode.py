@@ -13,6 +13,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 from pathlib import Path
@@ -484,6 +485,332 @@ class TestAnInstalledCopy:
         environ = {DEV_VARIABLE: "1", "HOME": str(tmp_path / "home")}
 
         assert is_on(str(toolkit / "hooks" / "gate_hook.py"), environ=environ, cwd=second) is False
+
+
+def _mode(path: Path) -> int:
+    return stat.S_IMODE(path.stat().st_mode)
+
+
+class TestTheRecordOnDisk:
+    """The record and its folder are for the owner only, and a failed write leaves nothing behind."""
+
+    START = PYTHON_HOOKS[SESSION_START_HOOK]
+
+    def _start(self, toolkit: Path, tmp_path: Path) -> subprocess.CompletedProcess:
+        return _run(toolkit, SESSION_START_HOOK, self.START, toolkit, "1", tmp_path)
+
+    def test_a_new_record_and_its_folder_are_for_the_owner_only(self, toolkit, tmp_path):
+        self._start(toolkit, tmp_path)
+
+        assert _mode(_record(tmp_path).parent) == 0o700
+        assert _mode(_record(tmp_path)) == 0o600
+
+    @pytest.mark.parametrize("loose", [0o777, 0o755, 0o750])
+    def test_an_existing_folder_open_to_others_is_closed(self, toolkit, tmp_path, loose):
+        folder = _record(tmp_path).parent
+        folder.mkdir(parents=True)
+        folder.chmod(loose)
+
+        self._start(toolkit, tmp_path)
+
+        assert _mode(folder) == 0o700
+        assert _record(tmp_path).read_text().strip() == os.path.realpath(toolkit)
+
+    def test_the_folder_is_closed_again_when_the_record_is_already_right(self, toolkit, tmp_path):
+        self._start(toolkit, tmp_path)
+        _record(tmp_path).parent.chmod(0o755)
+        _record(tmp_path).chmod(0o644)
+
+        self._start(toolkit, tmp_path)
+
+        assert _mode(_record(tmp_path).parent) == 0o700
+        assert _mode(_record(tmp_path)) == 0o600
+
+    def test_a_folder_reached_through_a_link_keeps_its_permissions(self, toolkit, tmp_path):
+        """Permissions are never changed through a link: the folder it leads to may be someone else's."""
+        shared = tmp_path / "shared-state"
+        shared.mkdir()
+        shared.chmod(0o755)
+        (tmp_path / "home").mkdir()
+        _record(tmp_path).parent.symlink_to(shared, target_is_directory=True)
+
+        done = self._start(toolkit, tmp_path)
+
+        assert "developer mode is on" in done.stdout.lower()
+        assert (shared / "dev-repo").read_text().strip() == os.path.realpath(toolkit)
+        assert _mode(shared) == 0o755
+
+    def test_a_record_inside_a_linked_folder_keeps_its_permissions(self, toolkit, tmp_path):
+        shared = tmp_path / "shared-state"
+        shared.mkdir()
+        (shared / "dev-repo").write_text(os.path.realpath(toolkit) + "\n")
+        (shared / "dev-repo").chmod(0o644)
+        (tmp_path / "home").mkdir()
+        _record(tmp_path).parent.symlink_to(shared, target_is_directory=True)
+
+        done = self._start(toolkit, tmp_path)
+
+        assert "developer mode is on" in done.stdout.lower()
+        assert _mode(shared / "dev-repo") == 0o644
+
+    def test_a_record_that_is_a_link_keeps_the_permissions_of_what_it_leads_to(self, toolkit, tmp_path):
+        payslips = tmp_path / "payslips.csv"
+        payslips.write_text(os.path.realpath(toolkit) + "\n")
+        payslips.chmod(0o644)
+        _record(tmp_path).parent.mkdir(parents=True)
+        _record(tmp_path).symlink_to(payslips)
+
+        done = self._start(toolkit, tmp_path)
+
+        assert "developer mode is on" in done.stdout.lower()
+        assert _mode(payslips) == 0o644
+        assert _mode(_record(tmp_path).parent) == 0o700
+
+    def test_a_folder_of_another_account_is_left_alone_and_nothing_is_recorded_in_it(
+        self, toolkit, tmp_path, monkeypatch, capsys,
+    ):
+        """Whoever owns the folder could rewrite the record, so none is written there."""
+        from dev_mode import _record_toolkit
+
+        folder = _record(tmp_path).parent
+        folder.mkdir(parents=True)
+        folder.chmod(0o777)
+        monkeypatch.setattr(os, "getuid", lambda: folder.stat().st_uid + 1)
+
+        _record_toolkit(str(toolkit / SESSION_START_HOOK), environ={"HOME": str(tmp_path / "home")})
+
+        assert _mode(folder) == 0o777
+        assert list(folder.iterdir()) == []
+        assert "is not a folder of this account" in capsys.readouterr().err
+
+    def test_a_file_where_the_folder_belongs_gets_the_same_answer(self, toolkit, tmp_path, capsys):
+        from dev_mode import _record_toolkit
+
+        (tmp_path / "home").mkdir()
+        _record(tmp_path).parent.write_text("Maria Garcia,4120.50\n")
+
+        _record_toolkit(str(toolkit / SESSION_START_HOOK), environ={"HOME": str(tmp_path / "home")})
+
+        assert _record(tmp_path).parent.read_text() == "Maria Garcia,4120.50\n"
+        assert "is not a folder of this account" in capsys.readouterr().err
+
+    def test_a_folder_its_owner_cannot_open_is_reported_as_a_failed_write(self, toolkit, tmp_path, capsys):
+        from dev_mode import _record_toolkit
+
+        folder = _record(tmp_path).parent
+        folder.mkdir(parents=True)
+        folder.chmod(0o000)
+        try:
+            _record_toolkit(str(toolkit / SESSION_START_HOOK), environ={"HOME": str(tmp_path / "home")})
+        finally:
+            folder.chmod(0o700)
+
+        message = capsys.readouterr().err
+        assert "could not record where the toolkit is" in message
+        assert "is not a folder of this account" not in message
+        assert list(folder.iterdir()) == []
+
+    def test_a_pipe_where_the_record_belongs_does_not_keep_a_hook_waiting(self, toolkit, installed_copy, tmp_path):
+        _record(tmp_path).parent.mkdir(parents=True)
+        os.mkfifo(_record(tmp_path))
+
+        done = _run(installed_copy, "hooks/session_monitor.py", KEY_READ, toolkit, "1", tmp_path)
+
+        assert _refused(done), done.stdout
+
+    def test_a_pipe_where_the_record_belongs_is_replaced_by_the_record(self, toolkit, tmp_path):
+        _record(tmp_path).parent.mkdir(parents=True)
+        os.mkfifo(_record(tmp_path))
+
+        self._start(toolkit, tmp_path)
+
+        assert _record(tmp_path).read_text().strip() == os.path.realpath(toolkit)
+        assert _mode(_record(tmp_path)) == 0o600
+
+    def test_a_record_of_another_account_keeps_its_permissions(self, toolkit, tmp_path, monkeypatch):
+        from dev_mode import _owner_only
+
+        _record(tmp_path).parent.mkdir(parents=True)
+        _record(tmp_path).write_text(os.path.realpath(toolkit) + "\n")
+        _record(tmp_path).chmod(0o644)
+        monkeypatch.setattr(os, "getuid", lambda: _record(tmp_path).stat().st_uid + 1)
+
+        assert _owner_only(str(_record(tmp_path)), 0o600, directory=False) is False
+        assert _mode(_record(tmp_path)) == 0o644
+
+    def test_a_path_that_cannot_be_written_leaves_no_draft_and_does_not_stop_the_session(
+        self, toolkit, tmp_path, monkeypatch, capsys,
+    ):
+        import dev_mode
+
+        monkeypatch.setattr(dev_mode, "_loaded_from_checkout", lambda hook_file: "/home/ana/toolkit-\udcff")
+
+        dev_mode._record_toolkit(str(toolkit / SESSION_START_HOOK), environ={"HOME": str(tmp_path / "home")})
+
+        assert list(_record(tmp_path).parent.iterdir()) == []
+        assert "could not record where the toolkit is" in capsys.readouterr().err
+
+    def test_a_failed_write_leaves_no_draft_behind(self, toolkit, tmp_path, capsys):
+        from dev_mode import _record_toolkit
+
+        # A folder sitting where the record belongs: the draft is written, then cannot be moved into place.
+        (_record(tmp_path) / "kept").mkdir(parents=True)
+
+        _record_toolkit(str(toolkit / SESSION_START_HOOK), environ={"HOME": str(tmp_path / "home")})
+
+        assert sorted(p.name for p in _record(tmp_path).parent.iterdir()) == ["dev-repo"]
+        assert (_record(tmp_path) / "kept").is_dir()
+        assert "could not record where the toolkit is" in capsys.readouterr().err
+
+    def test_a_draft_name_already_taken_is_left_alone(self, toolkit, tmp_path, capsys):
+        """Only a draft this write created is removed; whatever was waiting at that name is not ours."""
+        from dev_mode import _record_toolkit
+
+        _record(tmp_path).parent.mkdir(parents=True)
+        waiting = _record(tmp_path).parent / f"dev-repo.{os.getpid()}"
+        waiting.write_text("Maria Garcia,4120.50\n")
+
+        _record_toolkit(str(toolkit / SESSION_START_HOOK), environ={"HOME": str(tmp_path / "home")})
+
+        assert waiting.read_text() == "Maria Garcia,4120.50\n"
+        assert not _record(tmp_path).exists()
+        assert "could not record where the toolkit is" in capsys.readouterr().err
+
+
+class TestWorktreesGitRecordsDifferently:
+    """Worktrees whose records are relative paths, and worktrees that were moved."""
+
+    def _is_on(self, hooks_in: Path, cwd: Path) -> bool:
+        from dev_mode import is_on
+
+        return is_on(str(hooks_in / "hooks" / "gate_hook.py"), environ={DEV_VARIABLE: "1"}, cwd=cwd)
+
+    def _git(self, repo: Path, *arguments: str) -> subprocess.CompletedProcess:
+        return subprocess.run(["git", "-C", str(repo), *arguments], capture_output=True, text=True)
+
+    def _add_relative_worktree(self, repo: Path, path: Path) -> Path:
+        """A worktree whose two pointers are relative paths, made by git itself (git 2.48 and later)."""
+        _add_worktree(repo, path.with_name(path.name + "-first"))  # makes the first commit
+        added = self._git(repo, "worktree", "add", "-q", "--relative-paths", str(path))
+        if added.returncode != 0:
+            pytest.skip("this git cannot record worktrees with relative paths")
+        assert not os.path.isabs((path / ".git").read_text().split(":", 1)[1].strip())
+        return path
+
+    def test_on_in_a_worktree_recorded_with_relative_paths(self, toolkit, tmp_path):
+        worktree = self._add_relative_worktree(toolkit, tmp_path / "toolkit-setup-policy")
+
+        assert self._is_on(toolkit, worktree) is True
+
+    def test_on_in_the_main_checkout_for_hooks_loaded_from_a_relative_path_worktree(self, toolkit, tmp_path):
+        worktree = self._add_relative_worktree(toolkit, tmp_path / "toolkit-setup-policy")
+
+        assert self._is_on(worktree, toolkit) is True
+
+    def test_hook_steps_aside_in_a_worktree_recorded_with_relative_paths(self, toolkit, tmp_path):
+        worktree = self._add_relative_worktree(toolkit, tmp_path / "toolkit-setup-policy")
+
+        done = _run(toolkit, "hooks/session_monitor.py", KEY_READ, worktree, "1", tmp_path)
+
+        assert (done.returncode, done.stdout, done.stderr) == (0, "", "")
+
+    def test_off_in_a_relative_path_worktree_of_another_project(self, toolkit, other_project, tmp_path):
+        worktree = self._add_relative_worktree(other_project, tmp_path / "invoice-app-refunds")
+
+        assert self._is_on(toolkit, worktree) is False
+
+    def test_on_in_a_worktree_that_git_moved(self, toolkit, tmp_path):
+        worktree = _add_worktree(toolkit, tmp_path / "toolkit-gate-integrity")
+        moved = tmp_path / "archive" / "toolkit-gate-integrity"
+        moved.parent.mkdir()
+        assert self._git(toolkit, "worktree", "move", str(worktree), str(moved)).returncode == 0
+
+        assert self._is_on(toolkit, moved) is True
+
+    def test_off_in_a_worktree_moved_by_hand_until_git_repairs_its_records(self, toolkit, tmp_path):
+        """Moved without git, the repository still names the old place: it does not name the folder back."""
+        worktree = _add_worktree(toolkit, tmp_path / "toolkit-gate-integrity")
+        moved = tmp_path / "archive" / "toolkit-gate-integrity"
+        moved.parent.mkdir()
+        worktree.rename(moved)
+
+        assert self._is_on(toolkit, moved) is False
+
+        assert self._git(toolkit, "worktree", "repair", str(moved)).returncode == 0
+        assert self._is_on(toolkit, moved) is True
+
+    def test_off_in_another_project_put_where_a_moved_worktree_used_to_be(self, toolkit, tmp_path):
+        """The old place of a moved worktree is just a folder again, whatever is put there."""
+        worktree = _add_worktree(toolkit, tmp_path / "toolkit-gate-integrity")
+        moved = tmp_path / "archive" / "toolkit-gate-integrity"
+        moved.parent.mkdir()
+        assert self._git(toolkit, "worktree", "move", str(worktree), str(moved)).returncode == 0
+        worktree.mkdir()
+        _git_init(worktree)
+
+        assert self._is_on(toolkit, worktree) is False
+
+
+class TestAProjectThatCopiesTheHooks:
+    """Stated limit (requirements/developer-mode.md): hooks copied to a project's own git root are that
+    project's checkout, so the launch variable switches them off there. Nothing in a project can tell
+    such a copy from the toolkit itself. Without the variable the copy enforces as normal."""
+
+    START = PYTHON_HOOKS[SESSION_START_HOOK]
+
+    @pytest.fixture
+    def project_with_copied_hooks(self, other_project) -> Path:
+        shutil.copytree(
+            ROOT / "hooks", other_project / "hooks",
+            ignore=shutil.ignore_patterns("__pycache__", ".session", ".gates"),
+        )
+        return other_project
+
+    def test_copied_hooks_enforce_without_the_variable(self, project_with_copied_hooks, tmp_path):
+        project = project_with_copied_hooks
+
+        done = _run(project, "hooks/session_monitor.py", KEY_READ, project, None, tmp_path)
+
+        assert _refused(done), done.stdout
+
+    def test_copied_hooks_step_aside_with_the_variable(self, project_with_copied_hooks, tmp_path):
+        project = project_with_copied_hooks
+
+        done = _run(project, "hooks/session_monitor.py", KEY_READ, project, "1", tmp_path)
+
+        assert (done.returncode, done.stdout, done.stderr) == (0, "", "")
+
+    def test_an_installed_copy_follows_the_record_such_a_project_writes(
+        self, project_with_copied_hooks, installed_copy, tmp_path,
+    ):
+        project = project_with_copied_hooks
+        _run(project, SESSION_START_HOOK, self.START, project, "1", tmp_path)
+        assert _record(tmp_path).read_text().strip() == os.path.realpath(project)
+
+        done = _run(installed_copy, "hooks/session_monitor.py", KEY_READ, project, "1", tmp_path)
+
+        assert (done.returncode, done.stdout, done.stderr) == (0, "", "")
+
+    def test_an_installed_copy_still_refuses_there_without_the_variable(
+        self, project_with_copied_hooks, installed_copy, tmp_path,
+    ):
+        project = project_with_copied_hooks
+        _run(project, SESSION_START_HOOK, self.START, project, "1", tmp_path)
+
+        done = _run(installed_copy, "hooks/session_monitor.py", KEY_READ, project, None, tmp_path)
+
+        assert _refused(done), done.stdout
+
+    def test_hooks_copied_below_the_git_root_are_not_a_checkout_of_their_own(self, other_project, tmp_path):
+        """Only a copy at the project's git root counts; one kept in a subfolder is an installed copy."""
+        shutil.copytree(
+            ROOT / "hooks", other_project / "tools" / "toolkit" / "hooks",
+            ignore=shutil.ignore_patterns("__pycache__", ".session", ".gates"),
+        )
+
+        done = _run(other_project / "tools" / "toolkit", "hooks/session_monitor.py", KEY_READ, other_project, "1", tmp_path)
+
+        assert _refused(done), done.stdout
 
 
 class TestTheListOfHooks:
