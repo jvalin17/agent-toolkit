@@ -97,7 +97,8 @@ jobs:
           "
 
       - name: Bootstrap gate layout (idempotent, from trusted gate source)
-        run: bash "${{ steps.gate.outputs.src }}/scripts/bootstrap-project-gates.sh" "$(pwd)" "${{ steps.gate.outputs.src }}"
+        # Arguments: the toolkit to install from, then the project to set up.
+        run: bash "${{ steps.gate.outputs.src }}/scripts/bootstrap-project-gates.sh" "${{ steps.gate.outputs.src }}" "$(pwd)"
 
       - name: Generate mechanical reports (trusted gate source, project under test)
         run: python "${{ steps.gate.outputs.src }}/scripts/ci-generate-reports.py" .
