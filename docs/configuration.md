@@ -42,7 +42,7 @@ Enforcement is always block. A `gates.json` that exists but cannot be parsed blo
 | `gate_mode: signed` | Team `main`, branch protection, JWT attestation |
 | `profile: strict` / `paranoid` | Signed mode only — extra push gates |
 | `AGENT_TOOLKIT_MODE=safe` | One-session mode override |
-| `AGENT_TOOLKIT_DEV=1` | Developer mode, for working on the toolkit itself: launched with this inside the toolkit's own repository, no hook is applied. It does nothing in any other project. Run `/precommit` by hand |
+| `AGENT_TOOLKIT_DEV=1` | Developer mode, for working on the toolkit itself: launched with this inside the toolkit's own repository (its main checkout or a git worktree of it), no hook is applied, including the hooks of an installed plugin copy once it is up to date. It does nothing in any other project. Run `/precommit` by hand |
 | Env overrides | Maintainer/CI — any key as `AGENT_TOOLKIT_<KEY>`; full list in [`.env.example`](../.env.example) |
 
 Full reference: [gate-unlock.md](../shared/gate-unlock.md)
