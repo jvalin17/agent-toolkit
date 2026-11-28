@@ -7,7 +7,6 @@ detect_continuation, build_context, main (JSON output).
 import json
 import os
 import sys
-import tempfile
 from pathlib import Path
 from unittest.mock import patch
 
@@ -106,7 +105,7 @@ class TestScanProjectFiles:
 class TestInitSessionState:
     def test_creates_state_json(self, project_dir):
         session_dir = project_dir / ".session"
-        state = init_session_state(session_dir)
+        init_session_state(session_dir)
 
         state_file = session_dir / "state.json"
         assert state_file.exists()
@@ -524,6 +523,23 @@ class TestClearStaleGates:
 
 
 class TestMain:
+    @pytest.fixture(autouse=True)
+    def _no_real_update(self, monkeypatch):
+        """main() starts the toolkit's update, which syncs the install into the developer's real
+        ~/.claude/settings.json and points it at whichever checkout the suite runs from."""
+        self.update_calls = []
+        monkeypatch.setattr("hooks.session_init.run_toolkit_update", lambda: self.update_calls.append("update"))
+
+    def test_session_start_asks_for_one_update(self, project_dir):
+        with patch("hooks.session_init.get_project_dir", return_value=project_dir):
+            with patch("sys.stdin") as mock_stdin:
+                mock_stdin.read.return_value = json.dumps({"hook_event_name": "SessionStart"})
+                with patch("sys.stdout"):
+                    with patch("hooks.session_init.get_settings_path", return_value=None):
+                        main()
+
+        assert self.update_calls == ["update"]
+
     def test_outputs_valid_json(self, project_dir):
         """main() should output valid SessionStart JSON."""
         with patch("hooks.session_init.get_project_dir", return_value=project_dir):

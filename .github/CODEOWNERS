@@ -1,0 +1,7 @@
+# The code that enforces the gates, the policy it reads, and the CI that runs it.
+# With "require review from code owners" switched on for main, a change to any
+# of these needs the owner's review.
+/hooks/      @jvalin17
+/gate/       @jvalin17
+/.github/    @jvalin17
+/gates.json  @jvalin17

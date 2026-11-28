@@ -7,7 +7,9 @@ blocked. Edit/Write to protected paths is blocked outright. The Read tool is
 blocked on secret files (signing and flag keys) and on .session/.
 
 This is text matching; an agent can evade it by building paths at runtime.
-It stops drift and casual forgery. The backstop against a hostile agent is
+For ~/.agent-toolkit a write is also refused when the command shows a name
+that could become the folder's (a glob, a spliced variable, a string cut off
+mid-name); a command that shows none is still not seen. It stops drift and casual forgery. The backstop against a hostile agent is
 signed mode with the secret held in CI (see gate/flags.py docstring).
 """
 
@@ -15,6 +17,7 @@ from __future__ import annotations
 
 import re
 import sys
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Optional
 
@@ -178,6 +181,150 @@ def _command_is_read_only(command: str) -> bool:
     return all(_segment_is_read_only(seg) for seg in _segments(command))
 
 
+# --- The toolkit's home folder under another spelling ---------------------------------------
+#
+# ~/.agent-toolkit holds the signing key and the developer-mode record. A write
+# is refused when the command shows a name the shell, or code joining strings,
+# could turn into that folder. Nothing is run or expanded: text decided at run
+# time counts as "anything", and the question is only whether the name fits.
+#
+#   1. a name starting ".agen" that could end up as the folder's name;
+#   2. a name directly under the home folder that could: a dotted one, one
+#      the shell fills in at run time, or the pattern of a `find` that acts;
+#      and, wherever it points, an unquoted dotted glob with a letter in it
+#      that fits (`cd ~ && rm -rf .a*`);
+#   3. the record's file name, "dev-repo", inside a folder that is hidden,
+#      globbed or pieced together, or as the bare target of a redirect.
+#
+# A command that shows none of these (the name joined from pieces that do not
+# start with ".agen", or changed after it is written out; the record named by a
+# glob after a `cd` into the folder; a script kept in a file) is not seen. No
+# reading of the command text can see it.
+
+TOOLKIT_HOME = ".agent-toolkit"
+RECORD_NAME = "dev-repo"
+MAX_NAME_LENGTH = 128  # a longer name is refused unread: no real name here is that long
+# A name runs to the next space or slash; a slash inside ${...} is part of the name.
+NAME_REST = r"(?:\$\{[^}\s]{0,64}\}|[^\s/])*"
+TOOLKIT_HOME_START = re.compile(r"(?<![\w.])(\.agen" + NAME_REST + ")")
+QUOTED = re.compile(r"'[^']*'|\"[^\"]*\"")  # the shell expands no glob in there
+DOTTED_GLOB = re.compile(r"(?<![\w.])(\.[\w.\-*?\[\]!^]+)")
+LETTER_OUTSIDE_BRACKETS = re.compile(r"[a-z]")
+GLOB_CHARACTERS = "*?["
+NAME_UNDER_HOME = re.compile(
+    r"(?:~|\$home|\$\{home\}|/users/[^/\s'\"]+|/home/[^/\s'\"]+|/root)['\"]?/+(?:\./+)*['\"]?(" + NAME_REST + ")"
+)
+ONE_PLAIN_VARIABLE = re.compile(r"(?:\$\w+|\$\{\w+\})\Z")
+FIND_NAME_TEST = re.compile(r"-i?(?:name|path|wholename)\s+['\"]?([^\s'\"]+)")
+RECORD_IN_FOLDER = re.compile(r"/" + RECORD_NAME + r"(?![\w.-])")
+FOLDER_START = re.compile(r"[\s/]")
+RECORD_AS_REDIRECT_TARGET = re.compile(r">\s*['\"]?" + RECORD_NAME + r"(?![\w.-])")
+RUN_TIME_TEXT = re.compile(r"\$\{[^{}]*\}?|\$\(.*|`.*|\$\w+|\$.?")
+NAME_END = re.compile(r"[;|&()<>:]")
+ASSEMBLED = re.compile(r"[^\w.\-*?\[\]!^{},]")  # a quote, a backslash, %s, @: more text follows from elsewhere
+BRACE_LIST = re.compile(r"\{([^{}]*)\}")
+LIST_END = re.compile(r"[{},]")
+BRACKET_GLOB = re.compile(r"\[[^\]]*\]\]?")  # any one character: more than the glob allows, never less
+PLAIN_FOLDER = re.compile(r"(?:~|\$\w+|\$\{\w+\}|[a-z0-9_-][\w.-]*)\Z")
+QUOTES = re.compile(r"['\"]")
+FIND_ACTIONS = {"-delete", "-exec", "-execdir", "-ok", "-okdir", "-fprint", "-fprint0", "-fprintf", "-fls"}
+RUNS_ANOTHER_COMMAND = re.compile(r"\$\(|`|[<>]\(|\bsystem\s*\(")
+
+
+DISGUISE_MESSAGE = (
+    "G-CONFIG-1: this command could write to ~/.agent-toolkit: a glob, a variable or a name put together "
+    "in it fits that folder, which holds the signing key and is hook-managed. If you mean another path, "
+    "write that path out in full. Ask the user to make any change inside ~/.agent-toolkit."
+)
+
+
+def _reads_only_in_name(command: str) -> bool:
+    """True when a command on the read-only list is told to delete, write or run something."""
+    if RUNS_ANOTHER_COMMAND.search(command):
+        return True
+    for segment in _segments(command):
+        tokens = _tokens(segment) or segment.split()
+        names = {t.rsplit("/", 1)[-1] for t in tokens}
+        if "find" in names and FIND_ACTIONS & set(tokens):
+            return True
+        if "sort" in names and any(t == "-o" or t.startswith("--output") for t in tokens):
+            return True
+        if "git" in names and "config" in tokens:
+            return True
+    return False
+
+
+def _can_become_toolkit_home(name: str) -> bool:
+    """Could the shell, or code joining strings, turn ``name`` into `.agent-toolkit`?"""
+    if len(name) > MAX_NAME_LENGTH:
+        return True
+    name = BRACKET_GLOB.sub("?", RUN_TIME_TEXT.sub("*", name))
+    name = NAME_END.split(name, maxsplit=1)[0]
+    assembled = ASSEMBLED.search(name)
+    if assembled:
+        name = name[:assembled.start()] + "*"
+    if name in (".agen", ".agent-"):
+        return True  # nothing is called that: the rest comes from somewhere else
+    spellings = [name]
+    for _ in range(2):  # brace lists, one inside another at most; anything deeper is left as written
+        expanded = []
+        for spelling in spellings:
+            brace = BRACE_LIST.search(spelling)
+            choices = brace.group(1).split(",") if brace else [None]
+            if brace and len(choices) == 1:
+                choices = ["*"]  # {name} and {} are filled in by code, not by the shell
+            expanded += [spelling if c is None else spelling[:brace.start()] + c + spelling[brace.end():] for c in choices]
+        spellings = expanded
+    # A comma or brace left over belongs to a list that started before this name: the name ends there.
+    return any(fnmatchcase(TOOLKIT_HOME, LIST_END.split(spelling, maxsplit=1)[0]) for spelling in spellings)
+
+
+def _name_under_home_can_become_toolkit_home(name: str, any_glob_matches_dots: bool) -> bool:
+    if name.startswith(".") or any_glob_matches_dots:
+        return _can_become_toolkit_home(name)
+    # `~/$PROJECT` is someone's folder; `~/${v%x}` and `~/$a$b` are put together on the spot.
+    filled_in = "$" in name or "`" in name
+    return filled_in and not ONE_PLAIN_VARIABLE.match(name) and _can_become_toolkit_home(name)
+
+
+def _dotted_glob_fits_toolkit_home(word: str) -> bool:
+    """`.a*` and `.[a]gent?toolkit` name the folder wherever they are used; `.*` and `.??*` name every dotted file."""
+    if not any(c in word for c in GLOB_CHARACTERS) or len(word) > MAX_NAME_LENGTH:
+        return False
+    return LETTER_OUTSIDE_BRACKETS.search(BRACKET_GLOB.sub("", word)) is not None and _can_become_toolkit_home(word)
+
+
+def _find_pattern_fits_toolkit_home(pattern: str) -> bool:
+    """A `find` looks inside dotted names too, so its pattern needs no leading dot to fit."""
+    last = pattern.rsplit("/", 1)[-1][:MAX_NAME_LENGTH]
+    return last != "*" and fnmatchcase(TOOLKIT_HOME, BRACKET_GLOB.sub("?", last))
+
+
+def _record_folder_is_suspect(text: str, end: int) -> bool:
+    """The folder named just before ``end``: `src/dev-repo` is someone's folder; `.x/dev-repo`,
+    `?gent*/dev-repo` and `$a$b/dev-repo` are not."""
+    before = text[max(0, end - MAX_NAME_LENGTH - 1):end]
+    last = QUOTES.sub("", FOLDER_START.split(before)[-1])
+    return len(last) > MAX_NAME_LENGTH or PLAIN_FOLDER.match(last) is None
+
+
+def _names_toolkit_home_in_disguise(command: str) -> bool:
+    """True when the command names ~/.agent-toolkit, or its record, without spelling the folder out."""
+    text = command.lower()
+    if any(_can_become_toolkit_home(name) for name in TOOLKIT_HOME_START.findall(text)):
+        return True
+    dotglob = "dotglob" in text
+    if any(_name_under_home_can_become_toolkit_home(name, dotglob) for name in NAME_UNDER_HOME.findall(text)):
+        return True
+    if any(_find_pattern_fits_toolkit_home(pattern) for pattern in FIND_NAME_TEST.findall(text)):
+        return True
+    if any(_dotted_glob_fits_toolkit_home(word) for word in DOTTED_GLOB.findall(QUOTED.sub(" ", text))):
+        return True
+    if any(_record_folder_is_suspect(text, found.start()) for found in RECORD_IN_FOLDER.finditer(text)):
+        return True
+    return RECORD_AS_REDIRECT_TARGET.search(text) is not None
+
+
 # --- Checks ---------------------------------------------------------------------------
 
 
@@ -246,6 +393,9 @@ def _check_bash(command: str, state: SessionState) -> Optional[str]:
             return spec["message"] + " (only read-only commands may name this path)"
     if state.gate_protect and CONFIG_BASH_REF.search(command) and not read_only:
         return CONFIG_MESSAGE.format(name="that policy file")
+    acts = not read_only or _reads_only_in_name(command)
+    if state.gate_protect and acts and _names_toolkit_home_in_disguise(command):
+        return DISGUISE_MESSAGE
     return None
 
 

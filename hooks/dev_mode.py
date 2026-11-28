@@ -37,6 +37,7 @@ Requirement: requirements/developer-mode.md.
 
 import json
 import os
+import stat
 import sys
 
 VARIABLE = "AGENT_TOOLKIT_DEV"
@@ -70,6 +71,8 @@ def _git_top_level(start):
 def _first_line(path):
     """The first line of the file at ``path`` without surrounding space, or "" when it cannot be read."""
     try:
+        if not os.path.isfile(path):
+            return ""  # a pipe or a device put there would keep every hook waiting
         with open(path, encoding="utf-8") as handle:
             return handle.readline().strip()
     except (OSError, UnicodeDecodeError):
@@ -152,6 +155,43 @@ def is_on(hook_file, environ=None, cwd=None):
     return not launch_dir or _repository(launch_dir) == toolkit
 
 
+def _owner_only(path, mode, directory):
+    """Take away what group and others may do with ``path``, and say whether it is ours to use.
+
+    True: a folder (or file) of the kind asked for, owned by this account, now closed to others.
+    False: a link, another kind of entry, or someone else's. None: nothing is there, or it
+    cannot be opened to tell (the write that follows then reports why).
+    The entry is opened without following a link and changed through that same
+    handle, so what was checked is what is changed.
+    """
+    flags = os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | (os.O_DIRECTORY if directory else 0)
+    try:
+        handle = os.open(path, flags)
+    except (FileNotFoundError, PermissionError):
+        return None
+    except OSError:
+        return False
+    try:
+        found = os.fstat(handle)
+        right_kind = stat.S_ISDIR(found.st_mode) if directory else stat.S_ISREG(found.st_mode)
+        if not right_kind or found.st_uid != os.getuid():
+            return False
+        if stat.S_IMODE(found.st_mode) & ~mode:
+            os.fchmod(handle, mode)
+        return True
+    except OSError:
+        return False
+    finally:
+        os.close(handle)
+
+
+def _remove(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+
+
 def _record_toolkit(hook_file, environ=None):
     """Note where the toolkit's checkout is, so an installed copy can step aside there too.
 
@@ -161,17 +201,36 @@ def _record_toolkit(hook_file, environ=None):
     environ = os.environ if environ is None else environ
     toolkit = _loaded_from_checkout(hook_file)
     record = _record_file(environ)
-    if not toolkit or _recorded_toolkit(environ) == toolkit:
+    if not toolkit:
+        return
+    folder = os.path.dirname(record)
+    # Every start, not only when the record changes: a folder made earlier, by
+    # anything, may be open to other accounts.
+    folder_is_ours = _owner_only(folder, RECORD_FOLDER_MODE, directory=True)
+    if folder_is_ours:
+        _owner_only(record, RECORD_FILE_MODE, directory=False)
+    if _recorded_toolkit(environ) == toolkit:
+        return
+    if folder_is_ours is False and not os.path.islink(folder):
+        # Someone else's folder, or not a folder: whoever owns it could rewrite the record.
+        sys.stderr.write(
+            f"developer mode: {folder} is not a folder of this account, so where the toolkit is was not "
+            "recorded and an installed copy keeps its hooks on\n"
+        )
         return
     draft = f"{record}.{os.getpid()}"
+    draft_is_ours = False
     try:
-        os.makedirs(os.path.dirname(record), mode=RECORD_FOLDER_MODE, exist_ok=True)
+        os.makedirs(folder, mode=RECORD_FOLDER_MODE, exist_ok=True)
         # Created new and never through a link: whatever already sits at the draft name stops the write.
         descriptor = os.open(draft, os.O_WRONLY | os.O_CREAT | os.O_EXCL, RECORD_FILE_MODE)
+        draft_is_ours = True
         with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
             handle.write(toolkit + "\n")
         os.replace(draft, record)
-    except OSError as exc:
+    except (OSError, ValueError) as exc:  # ValueError: a path that cannot be written as text
+        if draft_is_ours:
+            _remove(draft)
         sys.stderr.write(
             f"developer mode: could not record where the toolkit is, so an installed copy keeps its hooks on: {exc!r}\n"
         )
